@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="900" viewBox="0 0 900 900" role="img" aria-label="Defumar">
+  <defs>
+    <linearGradient id="holo" x1="160" y1="120" x2="760" y2="780" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#67e8f9"/>
+      <stop offset=".45" stop-color="#3b82f6"/>
+      <stop offset=".75" stop-color="#8b5cf6"/>
+      <stop offset="1" stop-color="#f472b6"/>
+    </linearGradient>
+  </defs>
+  <rect width="900" height="900" fill="none"/>
+  <path d="M264 104h170c136 0 232 90 232 224v244c0 134-96 224-232 224H264V104Zm158 538c54 0 87-31 87-83V341c0-52-33-83-87-83h-1v384h1Z" fill="url(#holo)" opacity=".9"/>
+  <path d="M264 104h170c136 0 232 90 232 224v244c0 134-96 224-232 224H264V104Z" fill="none" stroke="#e0f2fe" stroke-width="18" opacity=".45"/>
+</svg>
