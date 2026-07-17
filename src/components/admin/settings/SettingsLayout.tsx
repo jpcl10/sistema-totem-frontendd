@@ -23,6 +23,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { useOrganization } from "@/contexts/organization-context";
+import { useAuth } from "@/lib/auth-context";
 import type { SettingsCapabilities } from "@/lib/settings-api";
 import { cn } from "@/lib/utils";
 
@@ -33,6 +34,7 @@ interface Item {
   icon: React.ComponentType<{ className?: string }>;
   capability?: keyof SettingsCapabilities;
   moduleKey?: string;
+  roles?: string[];
 }
 
 interface Group {
@@ -57,11 +59,11 @@ const GROUPS: Group[] = [
       { to: "/admin/online-menu", label: "Catálogo Online", icon: BookOpen, capability: "hasOnlineOrders" },
       { to: "/admin/settings/checkout", label: "Checkout", icon: ShoppingCart, capability: "hasOnlineOrders" },
       {
-        to: "/admin/settings/legacy",
-        search: { tab: "pagamentos" },
+        to: "/admin/settings/payments",
         label: "Pagamentos",
         icon: CreditCard,
         capability: "hasPayments",
+        roles: ["ADMIN", "SUPER_ADMIN"],
       },
       {
         to: "/admin/settings/printing",
@@ -112,7 +114,8 @@ const GROUPS: Group[] = [
   },
 ];
 
-function itemVisible(it: Item, capabilities: SettingsCapabilities): boolean {
+function itemVisible(it: Item, capabilities: SettingsCapabilities, role?: string | null): boolean {
+  if (it.roles && !it.roles.includes((role ?? "").toUpperCase())) return false;
   if (!it.capability) return true;
   const v = capabilities[it.capability];
   // If capability is unknown/undefined, keep visible (avoid hiding when backend hasn't reported).
@@ -123,15 +126,17 @@ function NavList({
   pathname,
   onNavigate,
   capabilities,
+  role,
 }: {
   pathname: string;
   onNavigate?: () => void;
   capabilities: SettingsCapabilities;
+  role?: string | null;
 }) {
   return (
     <nav className="flex-1 space-y-6 overflow-y-auto p-4">
       {GROUPS.map((group) => {
-        const visibleItems = group.items.filter((i) => itemVisible(i, capabilities));
+        const visibleItems = group.items.filter((i) => itemVisible(i, capabilities, role));
         if (visibleItems.length === 0) return null;
         return (
           <div key={group.label} className="space-y-1">
@@ -171,6 +176,7 @@ function NavList({
 export function SettingsLayout({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { organization } = useOrganization();
+  const { user } = useAuth();
   const capabilities: SettingsCapabilities =
     (organization as { capabilities?: SettingsCapabilities } | null)?.capabilities ?? {};
   const [open, setOpen] = useState(false);
@@ -194,6 +200,7 @@ export function SettingsLayout({ children }: { children: ReactNode }) {
               pathname={pathname}
               onNavigate={() => setOpen(false)}
               capabilities={capabilities}
+              role={user?.role}
             />
           </SheetContent>
         </Sheet>
@@ -202,7 +209,7 @@ export function SettingsLayout({ children }: { children: ReactNode }) {
       {/* Desktop sidebar */}
       <aside className="hidden w-60 shrink-0 md:block">
         <div className="sticky top-24 rounded-xl border border-border bg-card">
-          <NavList pathname={pathname} capabilities={capabilities} />
+          <NavList pathname={pathname} capabilities={capabilities} role={user?.role} />
         </div>
       </aside>
 

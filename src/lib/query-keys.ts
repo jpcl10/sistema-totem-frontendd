@@ -168,6 +168,26 @@ export const qk = {
         filters?.channel ?? null,
       ] as const,
     payment: (orgId: OrgId) => ["settings", orgId, "payment"] as const,
+    paymentEffective: (
+      orgId: OrgId,
+      filters?: {
+        contextType?: string | null;
+        eventId?: string | null;
+        onlineStoreId?: string | null;
+      } | null,
+    ) =>
+      [
+        "settings",
+        orgId,
+        "payment-effective",
+        filters?.contextType ?? null,
+        filters?.eventId ?? null,
+        filters?.onlineStoreId ?? null,
+      ] as const,
+    paymentTerminals: (orgId: OrgId) =>
+      ["settings", orgId, "payment-terminals"] as const,
+    paymentReferences: (orgId: OrgId) =>
+      ["settings", orgId, "payment-references"] as const,
     printing: (orgId: OrgId) => ["settings", orgId, "printing"] as const,
     onlineOrders: (orgId: OrgId, storeId: string | null | undefined) =>
       ["settings", orgId, "online-orders", storeId ?? null] as const,

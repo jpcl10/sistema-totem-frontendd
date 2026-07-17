@@ -40,6 +40,7 @@ import { Route as AdminCustomersIndexRouteImport } from './routes/admin.customer
 import { Route as ChamadaLojaSlugRouteImport } from './routes/chamada.loja.$slug'
 import { Route as ChamadaEventoSlugRouteImport } from './routes/chamada.evento.$slug'
 import { Route as AdminSettingsPrintingRouteImport } from './routes/admin.settings.printing'
+import { Route as AdminSettingsPaymentsRouteImport } from './routes/admin.settings.payments'
 import { Route as AdminSettingsOrganizationRouteImport } from './routes/admin.settings.organization'
 import { Route as AdminSettingsOnlineOrdersRouteImport } from './routes/admin.settings.online-orders'
 import { Route as AdminSettingsLegacyRouteImport } from './routes/admin.settings.legacy'
@@ -207,6 +208,11 @@ const AdminSettingsPrintingRoute = AdminSettingsPrintingRouteImport.update({
   path: '/printing',
   getParentRoute: () => AdminSettingsRoute,
 } as any)
+const AdminSettingsPaymentsRoute = AdminSettingsPaymentsRouteImport.update({
+  id: '/payments',
+  path: '/payments',
+  getParentRoute: () => AdminSettingsRoute,
+} as any)
 const AdminSettingsOrganizationRoute =
   AdminSettingsOrganizationRouteImport.update({
     id: '/organization',
@@ -304,6 +310,7 @@ export interface FileRoutesByFullPath {
   '/admin/settings/legacy': typeof AdminSettingsLegacyRoute
   '/admin/settings/online-orders': typeof AdminSettingsOnlineOrdersRoute
   '/admin/settings/organization': typeof AdminSettingsOrganizationRoute
+  '/admin/settings/payments': typeof AdminSettingsPaymentsRoute
   '/admin/settings/printing': typeof AdminSettingsPrintingRoute
   '/chamada/evento/$slug': typeof ChamadaEventoSlugRoute
   '/chamada/loja/$slug': typeof ChamadaLojaSlugRoute
@@ -346,6 +353,7 @@ export interface FileRoutesByTo {
   '/admin/settings/legacy': typeof AdminSettingsLegacyRoute
   '/admin/settings/online-orders': typeof AdminSettingsOnlineOrdersRoute
   '/admin/settings/organization': typeof AdminSettingsOrganizationRoute
+  '/admin/settings/payments': typeof AdminSettingsPaymentsRoute
   '/admin/settings/printing': typeof AdminSettingsPrintingRoute
   '/chamada/evento/$slug': typeof ChamadaEventoSlugRoute
   '/chamada/loja/$slug': typeof ChamadaLojaSlugRoute
@@ -391,6 +399,7 @@ export interface FileRoutesById {
   '/admin/settings/legacy': typeof AdminSettingsLegacyRoute
   '/admin/settings/online-orders': typeof AdminSettingsOnlineOrdersRoute
   '/admin/settings/organization': typeof AdminSettingsOrganizationRoute
+  '/admin/settings/payments': typeof AdminSettingsPaymentsRoute
   '/admin/settings/printing': typeof AdminSettingsPrintingRoute
   '/chamada/evento/$slug': typeof ChamadaEventoSlugRoute
   '/chamada/loja/$slug': typeof ChamadaLojaSlugRoute
@@ -437,6 +446,7 @@ export interface FileRouteTypes {
     | '/admin/settings/legacy'
     | '/admin/settings/online-orders'
     | '/admin/settings/organization'
+    | '/admin/settings/payments'
     | '/admin/settings/printing'
     | '/chamada/evento/$slug'
     | '/chamada/loja/$slug'
@@ -479,6 +489,7 @@ export interface FileRouteTypes {
     | '/admin/settings/legacy'
     | '/admin/settings/online-orders'
     | '/admin/settings/organization'
+    | '/admin/settings/payments'
     | '/admin/settings/printing'
     | '/chamada/evento/$slug'
     | '/chamada/loja/$slug'
@@ -523,6 +534,7 @@ export interface FileRouteTypes {
     | '/admin/settings/legacy'
     | '/admin/settings/online-orders'
     | '/admin/settings/organization'
+    | '/admin/settings/payments'
     | '/admin/settings/printing'
     | '/chamada/evento/$slug'
     | '/chamada/loja/$slug'
@@ -762,6 +774,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminSettingsPrintingRouteImport
       parentRoute: typeof AdminSettingsRoute
     }
+    '/admin/settings/payments': {
+      id: '/admin/settings/payments'
+      path: '/payments'
+      fullPath: '/admin/settings/payments'
+      preLoaderRoute: typeof AdminSettingsPaymentsRouteImport
+      parentRoute: typeof AdminSettingsRoute
+    }
     '/admin/settings/organization': {
       id: '/admin/settings/organization'
       path: '/organization'
@@ -864,6 +883,7 @@ interface AdminSettingsRouteChildren {
   AdminSettingsLegacyRoute: typeof AdminSettingsLegacyRoute
   AdminSettingsOnlineOrdersRoute: typeof AdminSettingsOnlineOrdersRoute
   AdminSettingsOrganizationRoute: typeof AdminSettingsOrganizationRoute
+  AdminSettingsPaymentsRoute: typeof AdminSettingsPaymentsRoute
   AdminSettingsPrintingRoute: typeof AdminSettingsPrintingRoute
   AdminSettingsIndexRoute: typeof AdminSettingsIndexRoute
 }
@@ -877,6 +897,7 @@ const AdminSettingsRouteChildren: AdminSettingsRouteChildren = {
   AdminSettingsLegacyRoute: AdminSettingsLegacyRoute,
   AdminSettingsOnlineOrdersRoute: AdminSettingsOnlineOrdersRoute,
   AdminSettingsOrganizationRoute: AdminSettingsOrganizationRoute,
+  AdminSettingsPaymentsRoute: AdminSettingsPaymentsRoute,
   AdminSettingsPrintingRoute: AdminSettingsPrintingRoute,
   AdminSettingsIndexRoute: AdminSettingsIndexRoute,
 }
