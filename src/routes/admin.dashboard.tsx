@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useEventSocket } from "@/hooks/use-event-socket";
 import { API_BASE_URL } from "@/lib/auth";
 import { qk } from "@/lib/query-keys";
@@ -482,6 +482,96 @@ function DashboardPage() {
     };
   }, [financialSummary, dashboardMetrics, printSummary]);
 
+  const selectedEvent = useMemo(
+    () => events.find((event) => event.id === selectedId) ?? null,
+    [events, selectedId],
+  );
+
+  const selectedEventStatus = useMemo(() => {
+    if (!selectedEvent) return "Sem evento selecionado";
+    if (selectedEvent.active === true) return "Evento ativo";
+    if (selectedEvent.active === false) return "Evento inativo";
+    const raw = String(selectedEvent.status ?? "").toUpperCase();
+    if (raw === "ACTIVE" || raw === "PUBLISHED") return "Evento ativo";
+    if (raw) return raw;
+    return "Status não informado";
+  }, [selectedEvent]);
+
+  const primaryKpis = useMemo(
+    () => [
+      {
+        label: "Receita recebida",
+        value: metricsLoading ? "..." : formatCurrency(pickRevenueCents(financialSummary)),
+        hint: selectedPeriod === "TODAY" ? "Hoje" : "Período selecionado",
+        icon: DollarSign,
+        tone: "cyan" as const,
+      },
+      {
+        label: "Pedidos",
+        value: metricsLoading ? "..." : String(pickOrdersCount(dashboardMetrics)),
+        hint: `${financialSummary?.summary?.paidOrders ?? 0} pagos`,
+        icon: ShoppingCart,
+        tone: "blue" as const,
+      },
+      {
+        label: "Ticket médio",
+        value: metricsLoading ? "..." : formatCurrency(pickTicketCents(financialSummary)),
+        hint: "Pedidos pagos",
+        icon: TrendingUp,
+        tone: "success" as const,
+      },
+      {
+        label: "Pendências",
+        value: metricsLoading
+          ? "..."
+          : String((financialSummary?.summary?.pendingOrders ?? 0) + printSummary.ERROR),
+        hint: "Pagamentos + impressão",
+        icon: AlertTriangle,
+        tone:
+          (financialSummary?.summary?.pendingOrders ?? 0) + printSummary.ERROR > 0
+            ? ("warning" as const)
+            : ("muted" as const),
+      },
+    ],
+    [dashboardMetrics, financialSummary, metricsLoading, printSummary.ERROR, selectedPeriod],
+  );
+
+  const orderFlow = useMemo(
+    () => [
+      {
+        label: "Novos",
+        value:
+          statusCount(dashboardMetrics, "NEW") +
+          statusCount(dashboardMetrics, "PENDING") +
+          statusCount(dashboardMetrics, "CONFIRMED"),
+        tone: "blue" as const,
+      },
+      {
+        label: "Em preparo",
+        value: statusCount(dashboardMetrics, "PREPARING"),
+        tone: "amber" as const,
+      },
+      {
+        label: "Prontos",
+        value: statusCount(dashboardMetrics, "READY"),
+        tone: "cyan" as const,
+      },
+      {
+        label: "Concluídos",
+        value:
+          statusCount(dashboardMetrics, "DELIVERED") +
+          statusCount(dashboardMetrics, "COMPLETED"),
+        tone: "emerald" as const,
+      },
+      {
+        label: "Cancelados",
+        value: statusCount(dashboardMetrics, "CANCELLED"),
+        tone: "rose" as const,
+      },
+    ],
+    [dashboardMetrics],
+  );
+
   useEffect(() => {
     const selectedEvent = events.find(e => e.id === selectedId);
     const cancelledRevenue = financialSummary?.summary?.cancelledOrders ?? 0;
@@ -497,137 +587,46 @@ function DashboardPage() {
   return (
     <AdminLayout
       title="Dashboard"
-      subtitle={onlyOnlineOrders ? "Visão geral dos pedidos online" : noModules ? undefined : "Visão geral do seu sistema"}
+      subtitle={onlyOnlineOrders ? "Operação da loja online" : noModules ? undefined : "Operação em tempo real"}
     >
       {organizationError ? (
-        <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-6 text-sm text-destructive">
-          <div className="flex items-start gap-3">
-            <AlertCircle className="h-5 w-5 shrink-0" />
-            <div>
-              <p className="font-semibold">Não foi possível carregar a organização</p>
-              <p className="mt-1 opacity-90">{organizationError}</p>
-            </div>
-          </div>
-        </div>
-      ) : noModules && (
-        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-6 text-sm text-amber-700 dark:text-amber-300">
+        <ErrorBanner message={organizationError} title="Não foi possível carregar a organização" />
+      ) : noModules ? (
+        <Panel tone="warning">
           <div className="flex items-start gap-3">
             <AlertCircle className="h-5 w-5 shrink-0" />
             <div>
               <p className="font-semibold">Nenhum módulo habilitado para esta organização</p>
-              <p className="mt-1 opacity-90">Solicite ao administrador da plataforma que habilite os módulos necessários para começar a usar o painel.</p>
+              <p className="mt-1 text-sm opacity-90">
+                Solicite ao administrador da plataforma que habilite os módulos necessários.
+              </p>
             </div>
           </div>
-        </div>
-      )}
+        </Panel>
+      ) : null}
 
-      {onlyOnlineOrders && (
-        <div
-          className="relative overflow-hidden rounded-2xl border border-border p-6 text-primary-foreground shadow-[var(--shadow-elegant)]"
-          style={{ background: "var(--gradient-primary)" }}
-        >
-          <div className="absolute -top-12 -right-12 h-48 w-48 rounded-full bg-white/10 blur-2xl" />
-          <div className="relative">
-            <p className="text-sm opacity-90">Bem-vindo de volta</p>
-            <h2 className="mt-1 text-2xl font-semibold">
-              {organizationName ?? profile?.name ?? "Administrador"} 👋
-            </h2>
-            <p className="mt-2 max-w-lg text-sm opacity-90">
-              Gerencie seus pedidos online, cardápio e financeiro em tempo real.
-            </p>
-          </div>
-        </div>
+      {(showEventsUI || onlyOnlineOrders) && (
+        <DashboardHeader
+          loading={loading}
+          userName={profile?.name ?? organizationName ?? "Administrador"}
+          organizationName={organizationName}
+          showEventControls={showEventsUI}
+          selectedPeriod={selectedPeriod}
+          setSelectedPeriod={setSelectedPeriod}
+          selectedId={selectedId}
+          setSelectedId={setSelectedId}
+          events={events}
+          eventsLoading={eventsLoading}
+          selectedPeriodIsCustom={selectedPeriod === "CUSTOM"}
+          customStartDate={customStartDate}
+          customEndDate={customEndDate}
+          setCustomStartDate={setCustomStartDate}
+          setCustomEndDate={setCustomEndDate}
+          selectedEventName={selectedEvent?.name}
+          selectedEventStatus={selectedEventStatus}
+          activeEventsCount={activeEventsCount}
+        />
       )}
-
-      {showEventsUI && (
-      <div
-        className="relative overflow-hidden rounded-2xl border border-border p-6 text-primary-foreground shadow-[var(--shadow-elegant)]"
-        style={{ background: "var(--gradient-primary)" }}
-      >
-        <div className="absolute -top-12 -right-12 h-48 w-48 rounded-full bg-white/10 blur-2xl" />
-        <div className="relative flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-sm opacity-90">Bem-vindo de volta</p>
-            <h2 className="mt-1 text-2xl font-semibold">
-              {loading ? "Carregando..." : (profile?.name ?? "Administrador")} 👋
-            </h2>
-            <p className="mt-2 max-w-lg text-sm opacity-90">
-              Acompanhe os eventos, pedidos e métricas do seu totem em um só lugar.
-            </p>
-          </div>
-          <div className="flex w-full flex-col gap-3 sm:w-auto">
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <div className="w-full sm:w-48">
-                <label className="mb-1 block text-xs font-medium opacity-90">Período</label>
-                <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-                  <SelectTrigger className="border-white/20 bg-white/10 text-primary-foreground backdrop-blur hover:bg-white/20">
-                    <SelectValue placeholder="Selecione o período" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="TODAY">Hoje</SelectItem>
-                    <SelectItem value="24H">Últimas 24h</SelectItem>
-                    <SelectItem value="EVENT">Evento inteiro</SelectItem>
-                    <SelectItem value="7D">Últimos 7 dias</SelectItem>
-                    <SelectItem value="CUSTOM">Personalizado</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="w-full sm:w-72">
-                <label className="mb-1 block text-xs font-medium opacity-90">Evento</label>
-                <Select
-                  value={selectedId ?? undefined}
-                  onValueChange={(v) => setSelectedId(v)}
-                  disabled={eventsLoading || events.length === 0}
-                >
-                  <SelectTrigger className="border-white/20 bg-white/10 text-primary-foreground backdrop-blur hover:bg-white/20">
-                    <SelectValue
-                      placeholder={
-                        eventsLoading
-                          ? "Carregando..."
-                          : events.length === 0
-                            ? "Nenhum evento"
-                            : "Selecione"
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {events.map((ev) => (
-                      <SelectItem key={ev.id} value={ev.id}>
-                        {ev.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            
-            {selectedPeriod === "CUSTOM" && (
-              <div className="flex flex-col gap-3 sm:flex-row animate-in fade-in slide-in-from-top-2 duration-300">
-                <div className="w-full sm:w-48">
-                  <label className="mb-1 block text-xs font-medium opacity-90">Data inicial</label>
-                  <input 
-                    type="date" 
-                    className="w-full h-10 px-3 rounded-md border border-white/20 bg-white/10 text-primary-foreground backdrop-blur text-sm focus:outline-none focus:ring-2 focus:ring-white/30"
-                    value={customStartDate}
-                    onChange={(e) => setCustomStartDate(e.target.value)}
-                  />
-                </div>
-                <div className="w-full sm:w-48">
-                  <label className="mb-1 block text-xs font-medium opacity-90">Data final</label>
-                  <input 
-                    type="date" 
-                    className="w-full h-10 px-3 rounded-md border border-white/20 bg-white/10 text-primary-foreground backdrop-blur text-sm focus:outline-none focus:ring-2 focus:ring-white/30"
-                    value={customEndDate}
-                    onChange={(e) => setCustomEndDate(e.target.value)}
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-      )}
-
 
       {eventsError && <ErrorBanner message={eventsError} />}
 
@@ -641,7 +640,6 @@ function DashboardPage() {
         />
       )}
 
-
       {hasEvents && !eventsLoading && events.length === 0 && (
         <EmptyState
           icon={CalendarDays}
@@ -651,314 +649,513 @@ function DashboardPage() {
         />
       )}
 
-      {eventsError && <ErrorBanner message={eventsError} />}
+      {hasEvents && events.length > 0 && (
+        <div className="space-y-5">
+          {hasOnlineOrders && (
+            <SectionHeader
+              title="Operação de eventos"
+              description="Indicadores do evento selecionado, sem misturar com a loja online."
+            />
+          )}
 
-      {hasEvents && events.length > 0 && (<>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {primaryKpis.map((item) => (
+              <KpiCard key={item.label} {...item} />
+            ))}
+          </div>
 
-      {hasOnlineOrders && (
-        <div className="flex items-center justify-between pt-2">
-          <h3 className="text-lg font-semibold tracking-tight">Operação de Eventos</h3>
+          <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.75fr)]">
+            <Panel className="p-5">
+              <PanelTitle
+                icon={Activity}
+                title="Operação em tempo real"
+                description="Leitura rápida do fluxo atual de pedidos."
+                badge="Tempo real"
+              />
+              {metricsLoading ? (
+                <LoadingBlock compact />
+              ) : metricsError ? (
+                <ErrorBlock message={metricsError} />
+              ) : !selectedId ? (
+                <EmptyBlock message="Selecione um evento para visualizar a operação." compact />
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                  {orderFlow.map((item) => (
+                    <StatusPill key={item.label} {...item} />
+                  ))}
+                </div>
+              )}
+            </Panel>
+
+            <Panel className="p-5">
+              <PanelTitle
+                icon={AlertTriangle}
+                title="Alertas operacionais"
+                description="Pontos que pedem atenção da equipe."
+              />
+              {metricsLoading ? (
+                <LoadingBlock compact />
+              ) : !selectedId ? (
+                <EmptyBlock message="Selecione um evento." compact />
+              ) : (
+                <div className="space-y-2">
+                  <ActionRow
+                    icon={Clock}
+                    label="Pagamentos pendentes"
+                    value={String(alerts.pendingPayment)}
+                    tone={alerts.pendingPayment > 0 ? "amber" : "muted"}
+                    onClick={() => navigate({ to: "/admin/financeiro" })}
+                  />
+                  <ActionRow
+                    icon={ChefHat}
+                    label="Pedidos em preparo"
+                    value={String(alerts.preparing)}
+                    tone={alerts.preparing > 0 ? "amber" : "muted"}
+                    onClick={() => navigate({ to: "/admin/orders", search: { eventId: selectedId ?? "" } })}
+                  />
+                  <ActionRow
+                    icon={CheckCircle2}
+                    label="Aguardando retirada"
+                    value={String(alerts.ready)}
+                    tone={alerts.ready > 0 ? "blue" : "muted"}
+                    onClick={() => navigate({ to: "/admin/orders", search: { eventId: selectedId ?? "" } })}
+                  />
+                  <ActionRow
+                    icon={AlertCircle}
+                    label="Erros de impressão"
+                    value={String(alerts.printErrors)}
+                    tone={alerts.printErrors > 0 ? "rose" : "muted"}
+                    onClick={() => navigate({ to: "/admin/print-queue", search: { status: "ERROR" } })}
+                  />
+                  <ActionRow
+                    icon={Clock}
+                    label="Pedidos atrasados"
+                    value={String(alerts.late)}
+                    tone={alerts.late > 0 ? "rose" : "muted"}
+                  />
+                </div>
+              )}
+            </Panel>
+          </div>
+
+          <div className="grid gap-5 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
+            <Panel className="p-5">
+              <PanelTitle
+                icon={Printer}
+                title="Impressão"
+                description="Fila de impressão do evento selecionado."
+              />
+              {metricsLoading ? (
+                <LoadingBlock compact />
+              ) : !selectedId ? (
+                <EmptyBlock message="Selecione um evento." compact />
+              ) : (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <MiniMetric
+                    label="Pendentes"
+                    value={printSummary.PENDING}
+                    icon={Clock}
+                    onClick={() => navigate({ to: "/admin/print-queue", search: { status: "PENDING" } })}
+                  />
+                  <MiniMetric
+                    label="Concluídas"
+                    value={printSummary.PRINTED}
+                    icon={CheckCircle2}
+                    tone="success"
+                    onClick={() => navigate({ to: "/admin/print-queue", search: { status: "PRINTED" } })}
+                  />
+                  <MiniMetric
+                    label="Com erro"
+                    value={printSummary.ERROR}
+                    icon={AlertCircle}
+                    tone={printSummary.ERROR > 0 ? "danger" : "muted"}
+                    onClick={() => navigate({ to: "/admin/print-queue", search: { status: "ERROR" } })}
+                  />
+                  <MiniMetric
+                    label="Canceladas"
+                    value={printSummary.CANCELLED}
+                    icon={Ban}
+                    onClick={() => navigate({ to: "/admin/print-queue", search: { status: "CANCELLED" } })}
+                  />
+                </div>
+              )}
+            </Panel>
+
+            <Panel className="p-5">
+              <PanelTitle
+                icon={Receipt}
+                title="Resumo financeiro"
+                description="Receita e situação de pagamento no período."
+              />
+              {metricsLoading ? (
+                <LoadingBlock compact />
+              ) : !selectedId ? (
+                <EmptyBlock message="Selecione um evento." compact />
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <FinancialTile
+                    label="Pendente"
+                    value={formatCurrency(financialSummary?.summary?.pendingTotalInCents)}
+                    count={`${financialSummary?.summary?.pendingOrders ?? 0} pedidos`}
+                    tone="amber"
+                  />
+                  <FinancialTile
+                    label="Pago"
+                    value={formatCurrency(financialSummary?.summary?.paidTotalInCents)}
+                    count={`${financialSummary?.summary?.paidOrders ?? 0} pedidos`}
+                    tone="emerald"
+                  />
+                  <FinancialTile
+                    label="Cancelado"
+                    value={formatCurrency(financialSummary?.summary?.cancelledTotalInCents)}
+                    count={`${financialSummary?.summary?.cancelledOrders ?? 0} pedidos`}
+                    tone="rose"
+                  />
+                </div>
+              )}
+            </Panel>
+          </div>
+
+          <div className="grid gap-5 xl:grid-cols-2">
+            <Panel className="p-5">
+              <PanelTitle
+                icon={Wine}
+                title="Vendas por setor"
+                description="Distribuição entre bar e cozinha."
+              />
+              {metricsLoading ? (
+                <LoadingBlock />
+              ) : !selectedId ? (
+                <EmptyBlock message="Selecione um evento." />
+              ) : sectorChart.every((sector) => sector.total === 0) ? (
+                <EmptyBlock message="Sem vendas por setor ainda neste período." />
+              ) : (
+                <div className="space-y-4">
+                  <div className="h-52">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={sectorChart}>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-border/40" vertical={false} />
+                        <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                        <YAxis
+                          tick={{ fontSize: 12 }}
+                          tickFormatter={(value) =>
+                            Number(value).toLocaleString("pt-BR", {
+                              style: "currency",
+                              currency: "BRL",
+                              maximumFractionDigits: 0,
+                            })
+                          }
+                          width={72}
+                        />
+                        <Tooltip
+                          formatter={(value: number) =>
+                            value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+                          }
+                          contentStyle={{
+                            borderRadius: 8,
+                            border: "1px solid hsl(var(--border))",
+                            background: "hsl(var(--card))",
+                          }}
+                        />
+                        <Bar dataKey="total" fill="#00A6FB" radius={[8, 8, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    {sectorChart.map((sector) => (
+                      <div key={sector.name} className="rounded-lg border border-border bg-background/60 p-3">
+                        <p className="text-xs font-medium text-muted-foreground">{sector.name}</p>
+                        <p className="mt-1 text-lg font-semibold">{formatCurrency(sector.total * 100)}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {sector.qty} itens · Ticket {formatCurrency(sector.ticket)}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </Panel>
+
+            <Panel className="p-5">
+              <PanelTitle
+                icon={Package}
+                title="Top produtos vendidos"
+                description="Produtos com maior receita no período."
+              />
+              {metricsLoading ? (
+                <LoadingBlock />
+              ) : !selectedId ? (
+                <EmptyBlock message="Selecione um evento." />
+              ) : topProducts.length === 0 ? (
+                <EmptyBlock message="Nenhum produto vendido ainda." />
+              ) : (
+                <ul className="divide-y divide-border">
+                  {topProducts.slice(0, 8).map((product, index) => (
+                    <li key={`${product.name}-${index}`} className="flex items-center justify-between gap-3 py-3">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[#00A6FB]/10 text-xs font-semibold text-[#00A6FB]">
+                          {index + 1}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-foreground" title={product.name}>
+                            {product.name}
+                          </p>
+                          <p className="text-xs text-muted-foreground">{product.sector}</p>
+                        </div>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <p className="text-sm font-semibold">{formatCurrency(product.total)}</p>
+                        <p className="text-xs text-muted-foreground">{product.quantity}x</p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Panel>
+          </div>
         </div>
       )}
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-
-        <StatCard
-          label="Evento Selecionado"
-          value={events.find(e => e.id === selectedId)?.name ?? "—"}
-          icon={CalendarDays}
-          hint={`Status: ${(() => {
-            const ev = events.find(e => e.id === selectedId);
-            if (!ev) return "Não informado";
-            if (ev.active === true) return "Ativo";
-            if (ev.active === false) return "Inativo";
-            return "Não informado";
-          })()}`}
-        />
-        <StatCard
-          label="Total de pedidos"
-          value={metricsLoading ? "…" : String(pickOrdersCount(dashboardMetrics))}
-          icon={ShoppingCart}
-        />
-        <StatCard
-          label="Receita recebida"
-          value={metricsLoading ? "…" : formatCurrency(financialSummary?.summary?.paidTotalInCents)}
-          icon={DollarSign}
-        />
-        <StatCard
-          label="Receita pendente"
-          value={metricsLoading ? "…" : formatCurrency(financialSummary?.summary?.pendingTotalInCents)}
-          icon={AlertCircle}
-        />
-        <StatCard
-          label="Produtos vendidos"
-          value={metricsLoading ? "…" : String(dashboardMetrics?.totalProductsSold ?? 0)}
-          icon={Package}
-        />
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          label="Receita cancelada"
-          value={metricsLoading ? "…" : formatCurrency(financialSummary?.summary?.cancelledTotalInCents)}
-          icon={AlertCircle}
-        />
-        <StatCard
-          label="Pedidos pagos"
-          value={metricsLoading ? "…" : String(financialSummary?.summary?.paidOrders ?? 0)}
-          icon={CheckCircle2}
-        />
-        <StatCard
-          label="Pedidos pendentes"
-          value={metricsLoading ? "…" : String(financialSummary?.summary?.pendingOrders ?? 0)}
-          icon={Clock}
-        />
-        <StatCard
-          label="Ticket médio"
-          value={metricsLoading ? "…" : formatCurrency(financialSummary?.summary?.averageTicketInCents)}
-          icon={TrendingUp}
-        />
-
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-soft)] lg:col-span-2">
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="font-semibold text-foreground">Status dos pedidos</h3>
-            <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
-              Tempo real
-            </span>
-          </div>
-          {metricsLoading ? (
-            <LoadingBlock />
-          ) : metricsError ? (
-            <ErrorBlock message={metricsError} />
-          ) : !selectedId ? (
-            <EmptyBlock message="Selecione um evento para visualizar." />
-          ) : (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <StatusPill label="Preparando" value={statusCount(dashboardMetrics, "PREPARING")} tone="amber" />
-              <StatusPill label="Prontos" value={statusCount(dashboardMetrics, "READY")} tone="blue" />
-              <StatusPill label="Entregues" value={statusCount(dashboardMetrics, "DELIVERED")} tone="emerald" />
-              <StatusPill label="Cancelados" value={statusCount(dashboardMetrics, "CANCELLED")} tone="rose" />
-            </div>
-          )}
-        </div>
-
-        <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-soft)]">
-          <div className="mb-4 flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-amber-500" />
-            <h3 className="font-semibold text-foreground">Alertas operacionais</h3>
-          </div>
-          {metricsLoading ? (
-            <LoadingBlock />
-          ) : !selectedId ? (
-            <EmptyBlock message="Selecione um evento." />
-          ) : (
-            <ul className="space-y-3 text-sm">
-              <SummaryRow
-                icon={Clock}
-                label="Pagamento pendente"
-                value={String(alerts.pendingPayment)}
-                tone={alerts.pendingPayment > 0 ? "amber" : undefined}
-              />
-              <SummaryRow
-                icon={ChefHat}
-                label="Pedidos em preparo"
-                value={String(alerts.preparing)}
-              />
-              <SummaryRow
-                icon={CheckCircle2}
-                label="Aguardando retirada"
-                value={String(alerts.ready)}
-                tone={alerts.ready > 0 ? "blue" : undefined}
-              />
-              <SummaryRow
-                icon={AlertCircle}
-                label="Erros de impressão"
-                value={String(alerts.printErrors)}
-                tone={alerts.printErrors > 0 ? "rose" : undefined}
-              />
-              <SummaryRow
-                icon={Clock}
-                label="Pedidos atrasados"
-                value={String(alerts.late)}
-                tone={alerts.late > 0 ? "rose" : undefined}
-              />
-            </ul>
-          )}
-        </div>
-
-        <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-soft)]">
-          <div className="mb-4 flex items-center gap-2">
-            <Printer className="h-4 w-4 text-primary" />
-            <h3 className="font-semibold text-foreground">Resumo de impressão</h3>
-          </div>
-          {metricsLoading ? (
-            <LoadingBlock />
-          ) : !selectedId ? (
-            <EmptyBlock message="Selecione um evento." />
-          ) : (
-            <ul className="space-y-3 text-sm">
-              <SummaryRow
-                icon={Clock}
-                label="Pendentes"
-                value={String(printSummary.PENDING)}
-                onClick={() => navigate({ to: "/admin/print-queue", search: { status: "PENDING" } })}
-              />
-              <SummaryRow
-                icon={CheckCircle2}
-                label="Concluídas"
-                value={String(printSummary.PRINTED)}
-                onClick={() => navigate({ to: "/admin/print-queue", search: { status: "PRINTED" } })}
-              />
-              <SummaryRow
-                icon={AlertCircle}
-                label="Com erro"
-                value={String(printSummary.ERROR)}
-                tone={printSummary.ERROR > 0 ? "rose" : undefined}
-                onClick={() => navigate({ to: "/admin/print-queue", search: { status: "ERROR" } })}
-              />
-              <SummaryRow
-                icon={Ban}
-                label="Canceladas"
-                value={String(printSummary.CANCELLED)}
-                onClick={() => navigate({ to: "/admin/print-queue", search: { status: "CANCELLED" } })}
-              />
-
-            </ul>
-          )}
-        </div>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-soft)]">
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="font-semibold text-foreground">Vendas Bar x Cozinha</h3>
-            <div className="flex items-center gap-3 text-xs text-muted-foreground">
-              <span className="inline-flex items-center gap-1">
-                <Wine className="h-3.5 w-3.5" /> Bar
-              </span>
-              <span className="inline-flex items-center gap-1">
-                <ChefHat className="h-3.5 w-3.5" /> Cozinha
-              </span>
-            </div>
-          </div>
-          {metricsLoading ? (
-            <LoadingBlock />
-          ) : !selectedId ? (
-            <EmptyBlock message="Selecione um evento." />
-          ) : sectorChart.every((s) => s.total === 0) ? (
-            <EmptyBlock message="Sem vendas por setor ainda." />
-          ) : (
-            <div className="space-y-6">
-              <div className="h-56">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={sectorChart}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-border/40" />
-                    <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                    <YAxis
-                      tick={{ fontSize: 12 }}
-                      tickFormatter={(v) =>
-                        Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
-                      }
-                      width={80}
-                    />
-                    <Tooltip
-                      formatter={(v: number) =>
-                        v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
-                      }
-                      contentStyle={{
-                        borderRadius: 8,
-                        border: "1px solid hsl(var(--border))",
-                        background: "hsl(var(--card))",
-                      }}
-                    />
-                    <Bar dataKey="total" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} label={{ position: 'top', fill: 'hsl(var(--foreground))', fontSize: 10, formatter: (v: number) => v > 0 ? v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }) : '' }} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                {sectorChart.map((s) => (
-                  <div key={s.name} className="rounded-xl border border-border bg-background/60 p-3">
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{s.name}</p>
-                    <p className="text-lg font-bold">{formatCurrency(s.total * 100)}</p>
-                    <p className="text-[10px] text-muted-foreground">
-                      {s.qty} itens • Ticket: {formatCurrency(s.ticket)}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-soft)]">
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="font-semibold text-foreground">Top produtos vendidos</h3>
-            <Package className="h-4 w-4 text-muted-foreground" />
-          </div>
-          {metricsLoading ? (
-            <LoadingBlock />
-          ) : !selectedId ? (
-            <EmptyBlock message="Selecione um evento." />
-          ) : topProducts.length === 0 ? (
-            <EmptyBlock message="Nenhum produto vendido ainda." />
-          ) : (
-            <ul className="divide-y divide-border">
-              {topProducts.map((p, i) => (
-                <li key={i} className="flex items-center justify-between gap-3 py-3">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
-                      {i + 1}
-                    </span>
-                    <div className="flex flex-col min-w-0">
-                      <span className="truncate text-sm font-medium text-foreground" title={p.name}>
-                        {p.name}
-                      </span>
-                      <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{p.sector}</span>
-                    </div>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-3 text-right">
-                    <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                      {p.quantity}x
-                    </span>
-                    <span className="text-sm font-semibold text-foreground">
-                      {formatCurrency(p.total)}
-                    </span>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </div>
-      </>)}
     </AdminLayout>
   );
 }
 
-function StatCard({
+function DashboardHeader({
+  loading,
+  userName,
+  organizationName,
+  showEventControls,
+  selectedPeriod,
+  setSelectedPeriod,
+  selectedId,
+  setSelectedId,
+  events,
+  eventsLoading,
+  selectedPeriodIsCustom,
+  customStartDate,
+  customEndDate,
+  setCustomStartDate,
+  setCustomEndDate,
+  selectedEventName,
+  selectedEventStatus,
+  activeEventsCount,
+}: {
+  loading: boolean;
+  userName: string;
+  organizationName?: string | null;
+  showEventControls: boolean;
+  selectedPeriod: string;
+  setSelectedPeriod: (value: string) => void;
+  selectedId: string | null;
+  setSelectedId: (value: string) => void;
+  events: EventItem[];
+  eventsLoading: boolean;
+  selectedPeriodIsCustom: boolean;
+  customStartDate: string;
+  customEndDate: string;
+  setCustomStartDate: (value: string) => void;
+  setCustomEndDate: (value: string) => void;
+  selectedEventName?: string;
+  selectedEventStatus: string;
+  activeEventsCount: number;
+}) {
+  return (
+    <section className="relative overflow-hidden rounded-xl border border-[#00A6FB]/20 bg-[#081F38] p-5 text-[#F8FAFC] shadow-[0_18px_45px_rgba(8,31,56,0.22)]">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_92%_12%,rgba(0,212,255,0.22),transparent_30%),linear-gradient(135deg,rgba(0,166,251,0.18),transparent_45%)]" />
+      <div className="relative grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
+        <div className="min-w-0">
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-medium text-[#F8FAFC]/90">
+              {organizationName ?? "Defumar Events"}
+            </span>
+            {showEventControls && (
+              <span className="rounded-full border border-[#00D4FF]/30 bg-[#00D4FF]/10 px-2.5 py-1 text-xs font-medium text-[#BFF4FF]">
+                {activeEventsCount} evento{activeEventsCount === 1 ? "" : "s"} ativo{activeEventsCount === 1 ? "" : "s"}
+              </span>
+            )}
+          </div>
+          <p className="text-sm text-[#94A3B8]">Bem-vindo de volta</p>
+          <h2 className="mt-1 truncate text-2xl font-semibold tracking-tight">
+            {loading ? "Carregando..." : userName}
+          </h2>
+          <p className="mt-2 max-w-2xl text-sm text-[#CBD5E1]">
+            {showEventControls
+              ? "Acompanhe vendas, pedidos, impressão e alertas operacionais no contexto selecionado."
+              : "Acompanhe a operação da loja online com indicadores de venda e status dos pedidos."}
+          </p>
+        </div>
+
+        {showEventControls && (
+          <div className="grid gap-3 sm:grid-cols-2 xl:min-w-[560px]">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-[#CBD5E1]">Período</label>
+              <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+                <SelectTrigger className="border-white/15 bg-white/10 text-[#F8FAFC] backdrop-blur hover:bg-white/15">
+                  <SelectValue placeholder="Selecione o período" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="TODAY">Hoje</SelectItem>
+                  <SelectItem value="24H">Últimas 24h</SelectItem>
+                  <SelectItem value="EVENT">Evento inteiro</SelectItem>
+                  <SelectItem value="7D">Últimos 7 dias</SelectItem>
+                  <SelectItem value="CUSTOM">Personalizado</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-[#CBD5E1]">Evento</label>
+              <Select
+                value={selectedId ?? undefined}
+                onValueChange={setSelectedId}
+                disabled={eventsLoading || events.length === 0}
+              >
+                <SelectTrigger className="border-white/15 bg-white/10 text-[#F8FAFC] backdrop-blur hover:bg-white/15">
+                  <SelectValue
+                    placeholder={
+                      eventsLoading
+                        ? "Carregando..."
+                        : events.length === 0
+                          ? "Nenhum evento"
+                          : "Selecione"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {events.map((event) => (
+                    <SelectItem key={event.id} value={event.id}>
+                      {event.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {selectedPeriodIsCustom && (
+              <>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-[#CBD5E1]">Data inicial</label>
+                  <input
+                    type="date"
+                    className="h-10 w-full rounded-md border border-white/15 bg-white/10 px-3 text-sm text-[#F8FAFC] outline-none backdrop-blur focus:ring-2 focus:ring-[#00D4FF]/40"
+                    value={customStartDate}
+                    onChange={(event) => setCustomStartDate(event.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-[#CBD5E1]">Data final</label>
+                  <input
+                    type="date"
+                    className="h-10 w-full rounded-md border border-white/15 bg-white/10 px-3 text-sm text-[#F8FAFC] outline-none backdrop-blur focus:ring-2 focus:ring-[#00D4FF]/40"
+                    value={customEndDate}
+                    onChange={(event) => setCustomEndDate(event.target.value)}
+                  />
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+      {showEventControls && (
+        <div className="relative mt-4 flex flex-wrap items-center gap-2 border-t border-white/10 pt-3 text-xs text-[#CBD5E1]">
+          <span className="font-medium text-[#F8FAFC]">{selectedEventName ?? "Nenhum evento selecionado"}</span>
+          <span className="text-[#64748B]">•</span>
+          <span>{selectedEventStatus}</span>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function SectionHeader({ title, description }: { title: string; description?: string }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <h3 className="text-base font-semibold tracking-tight text-foreground">{title}</h3>
+      {description && <p className="text-sm text-muted-foreground">{description}</p>}
+    </div>
+  );
+}
+
+function Panel({
+  children,
+  className = "p-4",
+  tone,
+}: {
+  children: ReactNode;
+  className?: string;
+  tone?: "warning";
+}) {
+  const toneClass =
+    tone === "warning"
+      ? "border-[#F59E0B]/35 bg-[#F59E0B]/10 text-[#B45309] dark:text-[#FDE68A]"
+      : "border-border bg-card text-foreground shadow-[var(--shadow-soft)]";
+  return <section className={`rounded-xl border ${toneClass} ${className}`}>{children}</section>;
+}
+
+function PanelTitle({
+  icon: Icon,
+  title,
+  description,
+  badge,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  description?: string;
+  badge?: string;
+}) {
+  return (
+    <div className="mb-4 flex items-start justify-between gap-3">
+      <div className="flex min-w-0 gap-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#00A6FB]/10 text-[#00A6FB]">
+          <Icon className="h-4 w-4" />
+        </div>
+        <div className="min-w-0">
+          <h3 className="truncate text-sm font-semibold text-foreground">{title}</h3>
+          {description && <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>}
+        </div>
+      </div>
+      {badge && (
+        <span className="shrink-0 rounded-full bg-[#00D4FF]/10 px-2.5 py-1 text-xs font-medium text-[#0284C7]">
+          {badge}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function KpiCard({
   label,
   value,
-  icon: Icon,
   hint,
+  icon: Icon,
+  tone,
 }: {
   label: string;
   value: string;
-  icon: React.ComponentType<{ className?: string }>;
   hint?: string;
+  icon: React.ComponentType<{ className?: string }>;
+  tone: "cyan" | "blue" | "success" | "warning" | "muted";
 }) {
+  const toneMap = {
+    cyan: "border-[#00D4FF]/25 bg-[#00D4FF]/8 text-[#0891B2]",
+    blue: "border-[#00A6FB]/25 bg-[#00A6FB]/8 text-[#0284C7]",
+    success: "border-[#22C55E]/25 bg-[#22C55E]/8 text-[#16A34A]",
+    warning: "border-[#F59E0B]/30 bg-[#F59E0B]/10 text-[#D97706]",
+    muted: "border-border bg-card text-muted-foreground",
+  } as const;
+
   return (
-    <div className="group rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-soft)] transition-all hover:-translate-y-0.5 hover:shadow-[var(--shadow-elegant)]">
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-medium text-muted-foreground">{label}</p>
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary transition-transform group-hover:scale-110">
+    <div className={`rounded-xl border bg-card p-4 shadow-[var(--shadow-soft)] ${toneMap[tone]}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+          <p className="mt-2 truncate text-2xl font-semibold tracking-tight text-foreground">{value}</p>
+          {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
+        </div>
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-current/10">
           <Icon className="h-4 w-4" />
         </div>
       </div>
-      <p className="mt-3 text-2xl font-semibold tracking-tight text-foreground">{value}</p>
-      {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
     </div>
   );
 }
@@ -970,23 +1167,24 @@ function StatusPill({
 }: {
   label: string;
   value: number;
-  tone: "amber" | "blue" | "emerald" | "rose";
+  tone: "amber" | "blue" | "cyan" | "emerald" | "rose";
 }) {
   const tones: Record<typeof tone, string> = {
-    amber: "bg-amber-500/10 text-amber-600 border-amber-500/20",
-    blue: "bg-blue-500/10 text-blue-600 border-blue-500/20",
-    emerald: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
-    rose: "bg-rose-500/10 text-rose-600 border-rose-500/20",
+    amber: "bg-[#F59E0B]/10 text-[#D97706] border-[#F59E0B]/25",
+    blue: "bg-[#3B82F6]/10 text-[#2563EB] border-[#3B82F6]/25",
+    cyan: "bg-[#00D4FF]/10 text-[#0891B2] border-[#00D4FF]/25",
+    emerald: "bg-[#22C55E]/10 text-[#16A34A] border-[#22C55E]/25",
+    rose: "bg-[#EF4444]/10 text-[#DC2626] border-[#EF4444]/25",
   };
   return (
-    <div className={`rounded-xl border p-4 ${tones[tone]}`}>
+    <div className={`rounded-lg border p-3 ${tones[tone]}`}>
       <p className="text-xs font-medium opacity-80">{label}</p>
       <p className="mt-1 text-2xl font-semibold tracking-tight">{value}</p>
     </div>
   );
 }
 
-function SummaryRow({
+function ActionRow({
   icon: Icon,
   label,
   value,
@@ -996,43 +1194,109 @@ function SummaryRow({
   icon: React.ComponentType<{ className?: string }>;
   label: string;
   value: string;
-  tone?: "amber" | "rose" | "blue";
+  tone: "amber" | "rose" | "blue" | "muted";
   onClick?: () => void;
 }) {
   const tones = {
-    amber: "border-amber-500/20 bg-amber-500/5 text-amber-700 hover:bg-amber-500/10",
-    rose: "border-rose-500/20 bg-rose-500/5 text-rose-700 hover:bg-rose-500/10",
-    blue: "border-blue-500/20 bg-blue-500/5 text-blue-700 hover:bg-blue-500/10",
+    amber: "border-[#F59E0B]/25 bg-[#F59E0B]/10 text-[#B45309] hover:bg-[#F59E0B]/15",
+    rose: "border-[#EF4444]/25 bg-[#EF4444]/10 text-[#B91C1C] hover:bg-[#EF4444]/15",
+    blue: "border-[#3B82F6]/25 bg-[#3B82F6]/10 text-[#1D4ED8] hover:bg-[#3B82F6]/15",
+    muted: "border-border bg-background/60 text-muted-foreground hover:bg-accent/50",
   };
   return (
-    <li 
+    <button
+      type="button"
+      disabled={!onClick}
       className={`flex items-center justify-between rounded-xl border px-3 py-2 transition-colors ${
-        tone ? tones[tone] : "border-border bg-background/60 text-muted-foreground hover:bg-accent/50"
-      } ${onClick ? "cursor-pointer" : ""}`}
+        tones[tone]
+      } ${onClick ? "cursor-pointer text-left" : "cursor-default"}`}
       onClick={onClick}
     >
       <span className="flex items-center gap-2">
         <Icon className="h-3.5 w-3.5" />
         {label}
       </span>
-      <span className={`font-semibold ${tone ? "" : "text-foreground"}`}>{value}</span>
-    </li>
+      <span className={tone === "muted" ? "font-semibold text-foreground" : "font-semibold"}>{value}</span>
+    </button>
   );
 }
 
-function LoadingBlock() {
+function MiniMetric({
+  label,
+  value,
+  icon: Icon,
+  tone = "muted",
+  onClick,
+}: {
+  label: string;
+  value: number;
+  icon: React.ComponentType<{ className?: string }>;
+  tone?: "success" | "danger" | "muted";
+  onClick?: () => void;
+}) {
+  const toneClass = {
+    success: "border-[#22C55E]/25 bg-[#22C55E]/10 text-[#16A34A]",
+    danger: "border-[#EF4444]/25 bg-[#EF4444]/10 text-[#DC2626]",
+    muted: "border-border bg-background/60 text-muted-foreground",
+  }[tone];
+
   return (
-    <div className="flex h-32 items-center justify-center text-muted-foreground">
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-lg border p-3 text-left transition-colors hover:bg-accent/40 ${toneClass}`}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs font-medium">{label}</span>
+        <Icon className="h-4 w-4" />
+      </div>
+      <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground">{value}</p>
+    </button>
+  );
+}
+
+function FinancialTile({
+  label,
+  value,
+  count,
+  tone,
+}: {
+  label: string;
+  value: string;
+  count: string;
+  tone: "amber" | "emerald" | "rose";
+}) {
+  const dot = {
+    amber: "bg-[#F59E0B]",
+    emerald: "bg-[#22C55E]",
+    rose: "bg-[#EF4444]",
+  }[tone];
+
+  return (
+    <div className="rounded-lg border border-border bg-background/60 p-4">
+      <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+        <span className={`h-2 w-2 rounded-full ${dot}`} />
+        {label}
+      </div>
+      <p className="mt-2 text-lg font-semibold tracking-tight text-foreground">{value}</p>
+      <p className="mt-1 text-xs text-muted-foreground">{count}</p>
+    </div>
+  );
+}
+
+function LoadingBlock({ compact }: { compact?: boolean }) {
+  return (
+    <div className={`flex ${compact ? "h-20" : "h-32"} items-center justify-center text-muted-foreground`}>
       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
       Carregando...
     </div>
   );
 }
 
-function EmptyBlock({ message }: { message: string }) {
+function EmptyBlock({ message, compact }: { message: string; compact?: boolean }) {
   return (
-    <div className="flex h-32 flex-col items-center justify-center text-center text-sm text-muted-foreground">
-      <TrendingUp className="mb-2 h-8 w-8 opacity-40" />
+    <div className={`flex ${compact ? "h-20" : "h-32"} flex-col items-center justify-center text-center text-sm text-muted-foreground`}>
+      <TrendingUp className={`${compact ? "mb-1 h-5 w-5" : "mb-2 h-8 w-8"} opacity-40`} />
       {message}
     </div>
   );
@@ -1047,11 +1311,14 @@ function ErrorBlock({ message }: { message: string }) {
   );
 }
 
-function ErrorBanner({ message }: { message: string }) {
+function ErrorBanner({ message, title }: { message: string; title?: string }) {
   return (
     <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
       <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-      <span>{message}</span>
+      <div>
+        {title && <p className="font-semibold">{title}</p>}
+        <p>{message}</p>
+      </div>
     </div>
   );
 }
@@ -1108,27 +1375,58 @@ function OnlineOrdersSection() {
 
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold tracking-tight">Pedidos Online</h3>
-        <span className="text-xs text-muted-foreground">Atualiza automaticamente</span>
+    <div className="space-y-5">
+      <SectionHeader
+        title="Pedidos Online"
+        description="Indicadores da loja online separados da operação de eventos."
+      />
+
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <KpiCard
+          label="Receita hoje"
+          value={formatCurrency(revenueToday)}
+          hint={`${ordersToday} pedidos`}
+          icon={DollarSign}
+          tone="cyan"
+        />
+        <KpiCard
+          label="Pedidos hoje"
+          value={String(ordersToday)}
+          hint="Pedidos não cancelados"
+          icon={ShoppingCart}
+          tone="blue"
+        />
+        <KpiCard
+          label="Ticket médio"
+          value={formatCurrency(avgTicket)}
+          hint="Hoje"
+          icon={TrendingUp}
+          tone="success"
+        />
+        <KpiCard
+          label="Total de pedidos"
+          value={String(orders.length)}
+          hint="Base carregada"
+          icon={Receipt}
+          tone="muted"
+        />
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Pedidos hoje" value={String(ordersToday)} icon={ShoppingCart} />
-        <StatCard label="Receita hoje" value={formatCurrency(revenueToday)} icon={DollarSign} />
-        <StatCard label="Ticket médio" value={formatCurrency(avgTicket)} icon={TrendingUp} />
-        <StatCard label="Total de pedidos" value={String(orders.length)} icon={Receipt} />
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <StatusPill label="Novos" value={countByStatus("NEW") + countByStatus("CONFIRMED")} tone="blue" />
-        <StatusPill label="Em preparo" value={countByStatus("PREPARING")} tone="amber" />
-        <StatusPill label="Em entrega" value={countByStatus("OUT_FOR_DELIVERY")} tone="blue" />
-        <StatusPill label="Concluídos" value={countByStatus("COMPLETED")} tone="emerald" />
-        <StatusPill label="Cancelados" value={countByStatus("CANCELLED")} tone="rose" />
-      </div>
+      <Panel className="p-5">
+        <PanelTitle
+          icon={ShoppingCart}
+          title="Fluxo da loja online"
+          description="Status atuais dos pedidos online."
+          badge="Atualiza automaticamente"
+        />
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <StatusPill label="Novos" value={countByStatus("NEW") + countByStatus("CONFIRMED")} tone="blue" />
+          <StatusPill label="Em preparo" value={countByStatus("PREPARING")} tone="amber" />
+          <StatusPill label="Em entrega" value={countByStatus("OUT_FOR_DELIVERY")} tone="cyan" />
+          <StatusPill label="Concluídos" value={countByStatus("COMPLETED")} tone="emerald" />
+          <StatusPill label="Cancelados" value={countByStatus("CANCELLED")} tone="rose" />
+        </div>
+      </Panel>
     </div>
   );
 }
-
