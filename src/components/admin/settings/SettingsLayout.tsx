@@ -1,24 +1,20 @@
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Menu } from "lucide-react";
 import {
-  Building2,
-  Palette,
-  Clock,
-  Store,
   Bike,
   BookOpen,
-  ShoppingBag,
-  ShoppingCart,
-  CreditCard,
-  Printer,
-  SlidersHorizontal,
-  MonitorSmartphone,
-  Cpu,
-  Link2,
+  Building2,
   CalendarDays,
-  Settings2,
+  Clock,
+  CreditCard,
+  Link2,
+  Menu,
+  MonitorSmartphone,
+  Palette,
+  Printer,
+  ShoppingCart,
+  Store,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -33,7 +29,6 @@ interface Item {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   capability?: keyof SettingsCapabilities;
-  moduleKey?: string;
   roles?: string[];
 }
 
@@ -47,17 +42,22 @@ const GROUPS: Group[] = [
     label: "Principal",
     items: [
       { to: "/admin/settings/organization", label: "Organização", icon: Building2 },
-      { to: "/admin/settings/branding", label: "Identidade Visual", icon: Palette },
+      { to: "/admin/settings/branding", label: "Identidade visual", icon: Palette },
       { to: "/admin/settings/business-hours", label: "Horários", icon: Clock },
+    ],
+  },
+  {
+    label: "Vendas",
+    items: [
+      { to: "/admin/settings/online-orders", label: "Loja Online", icon: Store, capability: "hasOnlineOrders" },
+      { to: "/admin/settings/delivery", label: "Delivery", icon: Bike, capability: "hasOnlineOrders" },
+      { to: "/admin/settings/catalog-online", label: "Catálogo Online", icon: BookOpen, capability: "hasOnlineOrders" },
+      { to: "/admin/settings/checkout", label: "Checkout", icon: ShoppingCart, capability: "hasOnlineOrders" },
     ],
   },
   {
     label: "Operação",
     items: [
-      { to: "/admin/settings/online-orders", label: "Loja Online", icon: Store, capability: "hasOnlineOrders" },
-      { to: "/admin/settings/delivery", label: "Delivery", icon: Bike, capability: "hasOnlineOrders" },
-      { to: "/admin/online-menu", label: "Catálogo Online", icon: BookOpen, capability: "hasOnlineOrders" },
-      { to: "/admin/settings/checkout", label: "Checkout", icon: ShoppingCart, capability: "hasOnlineOrders" },
       {
         to: "/admin/settings/payments",
         label: "Pagamentos",
@@ -71,45 +71,19 @@ const GROUPS: Group[] = [
         icon: Printer,
         capability: "hasPrinting",
       },
-
-      {
-        to: "/admin/settings/legacy",
-        search: { tab: "operacional" },
-        label: "Operacional",
-        icon: SlidersHorizontal,
-      },
-      {
-        to: "/admin/settings/legacy",
-        search: { tab: "totem" },
-        label: "Totens",
-        icon: MonitorSmartphone,
-        capability: "hasTotem",
-      },
+      { to: "/admin/devices", label: "Dispositivos", icon: MonitorSmartphone },
     ],
   },
   {
-    label: "Experiência da Loja",
+    label: "Integrações",
     items: [
-      {
-        to: "/admin/settings/catalog-online",
-        label: "Catálogo Online",
-        icon: ShoppingBag,
-        capability: "hasOnlineOrders",
-      },
-    ],
-  },
-  {
-    label: "Infraestrutura",
-    items: [
-      { to: "/admin/devices", label: "Dispositivos", icon: Cpu },
       { to: "/admin/public-links", label: "Links Públicos", icon: Link2 },
-      { to: "/admin/events", label: "Eventos", icon: CalendarDays, capability: "hasEvents" },
     ],
   },
   {
-    label: "Avançado",
+    label: "Eventos",
     items: [
-      { to: "/admin/settings/legacy", label: "Configurações Avançadas", icon: Settings2 },
+      { to: "/admin/events", label: "Padrões de eventos", icon: CalendarDays, capability: "hasEvents" },
     ],
   },
 ];
@@ -117,9 +91,8 @@ const GROUPS: Group[] = [
 function itemVisible(it: Item, capabilities: SettingsCapabilities, role?: string | null): boolean {
   if (it.roles && !it.roles.includes((role ?? "").toUpperCase())) return false;
   if (!it.capability) return true;
-  const v = capabilities[it.capability];
-  // If capability is unknown/undefined, keep visible (avoid hiding when backend hasn't reported).
-  return v !== false;
+  const value = capabilities[it.capability];
+  return value !== false;
 }
 
 function NavList({
@@ -136,23 +109,21 @@ function NavList({
   return (
     <nav className="flex-1 space-y-6 overflow-y-auto p-4">
       {GROUPS.map((group) => {
-        const visibleItems = group.items.filter((i) => itemVisible(i, capabilities, role));
+        const visibleItems = group.items.filter((item) => itemVisible(item, capabilities, role));
         if (visibleItems.length === 0) return null;
         return (
           <div key={group.label} className="space-y-1">
             <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
               {group.label}
             </p>
-            {visibleItems.map((it) => {
-              const active =
-                pathname === it.to ||
-                (it.to !== "/admin/settings/legacy" && pathname.startsWith(it.to + "/"));
-              const Icon = it.icon;
+            {visibleItems.map((item) => {
+              const active = pathname === item.to || pathname.startsWith(item.to + "/");
+              const Icon = item.icon;
               return (
                 <Link
-                  key={it.label + it.to}
-                  to={it.to}
-                  search={it.search as never}
+                  key={`${item.label}-${item.to}`}
+                  to={item.to}
+                  search={item.search as never}
                   onClick={onNavigate}
                   className={cn(
                     "group flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors",
@@ -162,7 +133,7 @@ function NavList({
                   )}
                 >
                   <Icon className="h-4 w-4" />
-                  <span className="truncate">{it.label}</span>
+                  <span className="truncate">{item.label}</span>
                 </Link>
               );
             })}
@@ -174,7 +145,7 @@ function NavList({
 }
 
 export function SettingsLayout({ children }: { children: ReactNode }) {
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
   const { organization } = useOrganization();
   const { user } = useAuth();
   const capabilities: SettingsCapabilities =
@@ -183,7 +154,6 @@ export function SettingsLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-[calc(100vh-8rem)] flex-col gap-4 md:flex-row md:gap-6">
-      {/* Mobile trigger */}
       <div className="md:hidden">
         <Sheet open={open} onOpenChange={setOpen}>
           <SheetTrigger asChild>
@@ -194,7 +164,7 @@ export function SettingsLayout({ children }: { children: ReactNode }) {
           </SheetTrigger>
           <SheetContent side="left" className="w-72 p-0">
             <SheetHeader className="border-b border-border px-4 py-3">
-              <SheetTitle>Configurações</SheetTitle>
+              <SheetTitle>Configurações da organização</SheetTitle>
             </SheetHeader>
             <NavList
               pathname={pathname}
@@ -206,7 +176,6 @@ export function SettingsLayout({ children }: { children: ReactNode }) {
         </Sheet>
       </div>
 
-      {/* Desktop sidebar */}
       <aside className="hidden w-60 shrink-0 md:block">
         <div className="sticky top-24 rounded-xl border border-border bg-card">
           <NavList pathname={pathname} capabilities={capabilities} role={user?.role} />

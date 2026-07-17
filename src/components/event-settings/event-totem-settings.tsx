@@ -212,10 +212,10 @@ export function EventTotemSettings({ eventId, onSaveSuccess }: EventTotemSetting
         <div className="space-y-1">
           <CardTitle className="flex items-center gap-2">
             <Monitor className="h-5 w-5 text-primary" />
-            Configurações do Totem
+            Aparência do autoatendimento
           </CardTitle>
           <CardDescription>
-            Defina identidade visual e comportamento do totem.
+            Defina identidade visual e comportamento da experiência de autoatendimento.
           </CardDescription>
         </div>
         <div className="flex items-center gap-2">
@@ -550,4 +550,3 @@ function AssetField({
     </div>
   );
 }
-

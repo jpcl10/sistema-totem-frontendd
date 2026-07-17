@@ -330,7 +330,7 @@ export function EventOperationSettings({ eventId, onChanged }: Props) {
                 onChange={(v) => update("blockOutOfStock", v)}
               />
               <ToggleRow
-                label="Mostrar produtos indisponíveis no Totem"
+                label="Mostrar produtos indisponíveis no autoatendimento"
                 checked={form.showUnavailableOnTotem}
                 onChange={(v) => update("showUnavailableOnTotem", v)}
               />
@@ -338,7 +338,7 @@ export function EventOperationSettings({ eventId, onChanged }: Props) {
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="op-reset">Tempo de reset automático do Totem (segundos)</Label>
+                <Label htmlFor="op-reset">Tempo de reset automático do autoatendimento (segundos)</Label>
                 <Input
                   id="op-reset"
                   type="number"
@@ -386,7 +386,7 @@ export function EventOperationSettings({ eventId, onChanged }: Props) {
                 />
                 <p className="text-xs text-muted-foreground">
                   Após esse período o QR Code PIX será invalidado, o pedido será cancelado
-                  automaticamente e o cliente retornará para a tela inicial do Totem.
+                  automaticamente e o cliente retornará para a tela inicial do autoatendimento.
                 </p>
               </div>
             </div>
@@ -429,7 +429,7 @@ export function EventOperationSettings({ eventId, onChanged }: Props) {
             </AlertDialogTitle>
             <AlertDialogDescription>
               {confirm === "deactivate" &&
-                "O evento ficará indisponível para novos pedidos no Totem e nos links públicos."}
+                "O evento ficará indisponível para novos pedidos no autoatendimento e nos links públicos."}
               {confirm === "activate" &&
                 "O evento voltará a aceitar pedidos e ficará visível nos canais públicos."}
               {confirm === "reopen" &&

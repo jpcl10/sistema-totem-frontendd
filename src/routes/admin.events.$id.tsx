@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   ArrowLeft,
   Plus,
@@ -16,6 +16,7 @@ import {
   ExternalLink,
   Copy,
   DollarSign,
+  CreditCard,
   Printer,
   ChevronRight,
   Filter,
@@ -64,9 +65,9 @@ import { resolveAssetUrl } from "@/lib/auth";
 import { getTotemUrl, getCallScreenUrl, openPublicUrl } from "@/lib/public-event-urls";
 import { EventTotemSettings } from "@/components/event-settings/event-totem-settings";
 import { EventOperationSettings } from "@/components/event-settings/event-operation-settings";
-import { EventPrintingSettings } from "@/components/event-settings/event-printing-settings";
-import { EventPixSettings } from "@/components/event-settings/event-pix-settings";
 import { useRequireModule } from "@/lib/require-module";
+import { useEffectivePaymentSettings } from "@/hooks/use-payment-settings";
+import { usePrintingSettings } from "@/hooks/use-printing-settings";
 
 export const Route = createFileRoute("/admin/events/$id")({
   component: EventDetailPage,
@@ -283,7 +284,7 @@ function EventDetailPage() {
             openPublicUrl(url);
           }}>
             <Monitor className="mr-2 h-4 w-4" />
-            Ver Totem
+            Ver autoatendimento
           </Button>
         </div>
       }
@@ -293,9 +294,7 @@ function EventDetailPage() {
           <TabsList className="w-full justify-start md:w-auto">
             <TabsTrigger value="overview">Visão geral</TabsTrigger>
             <TabsTrigger value="products">Produtos</TabsTrigger>
-            <TabsTrigger value="appearance">Aparência do Totem</TabsTrigger>
-            <TabsTrigger value="payments">Pagamentos</TabsTrigger>
-            <TabsTrigger value="printing">Impressão</TabsTrigger>
+            <TabsTrigger value="appearance">Aparência</TabsTrigger>
             <TabsTrigger value="operation">Operação</TabsTrigger>
             <TabsTrigger value="links">Links públicos</TabsTrigger>
           </TabsList>
@@ -347,14 +346,19 @@ function EventDetailPage() {
                       <ConfigAlert 
                         type="warning" 
                         title="Nenhum produto cadastrado" 
-                        desc="O totem não mostrará nada até que você vincule produtos." 
+                        desc="O autoatendimento não mostrará nada até que você vincule produtos." 
                       />
                     )}
                     {!event.pixEnabled && (
                       <ConfigAlert 
                         type="error" 
-                        title="Pagamento não configurado" 
-                        desc="O Pix manual está desativado. Verifique as configurações de pagamento." 
+                        title="Pagamentos não configurados para este evento." 
+                        desc="Revise a configuração efetiva herdada da organização." 
+                        action={
+                          <Button asChild size="sm" variant="outline">
+                            <Link to="/admin/settings/payments">Configurações de Pagamento</Link>
+                          </Button>
+                        }
                       />
                     )}
                     {!event.logoUrl && (
@@ -381,7 +385,7 @@ function EventDetailPage() {
                 <CardTitle>Operações rápidas</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <QuickActionButton icon={Monitor} label="Abrir Totem" onClick={() => {
+                <QuickActionButton icon={Monitor} label="Abrir autoatendimento" onClick={() => {
                   const url = getTotemUrl(event.slug);
                   openPublicUrl(url);
                 }} />
@@ -504,14 +508,12 @@ function EventDetailPage() {
         <TabsContent value="appearance">
           <EventTotemSettings eventId={id} />
         </TabsContent>
-        <TabsContent value="payments">
-          <EventPixSettings eventId={id} />
-        </TabsContent>
-        <TabsContent value="printing">
-          <EventPrintingSettings eventId={id} />
-        </TabsContent>
         <TabsContent value="operation">
-          <EventOperationSettings eventId={id} onChanged={() => { /* refresh handled internally */ }} />
+          <div className="space-y-6">
+            <EventPaymentInheritanceSummary eventId={id} />
+            <EventPrintingInheritanceSummary />
+            <EventOperationSettings eventId={id} onChanged={() => { /* refresh handled internally */ }} />
+          </div>
         </TabsContent>
 
       </Tabs>
@@ -573,19 +575,160 @@ function StatItem({ label, value, icon: Icon, warning }: { label: string, value:
   );
 }
 
-function ConfigAlert({ type, title, desc }: { type: "warning" | "error" | "info", title: string, desc: string }) {
+function ConfigAlert({
+  type,
+  title,
+  desc,
+  action,
+}: {
+  type: "warning" | "error" | "info";
+  title: string;
+  desc: string;
+  action?: ReactNode;
+}) {
   const styles = {
     warning: "bg-amber-500/10 border-amber-500/20 text-amber-600",
     error: "bg-red-500/10 border-red-500/20 text-red-600",
     info: "bg-blue-500/10 border-blue-500/20 text-blue-600",
   };
   return (
-    <div className={`flex items-start gap-3 rounded-xl border p-3 ${styles[type]}`}>
+    <div className={`flex flex-col gap-3 rounded-xl border p-3 sm:flex-row sm:items-start sm:justify-between ${styles[type]}`}>
+      <div className="flex items-start gap-3">
       <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
       <div>
         <p className="text-sm font-bold">{title}</p>
         <p className="text-xs opacity-80">{desc}</p>
       </div>
+      </div>
+      {action}
+    </div>
+  );
+}
+
+function EventPaymentInheritanceSummary({ eventId }: { eventId: string }) {
+  const { data, isLoading, isError } = useEffectivePaymentSettings({
+    contextType: "EVENT",
+    eventId,
+  });
+
+  const methods = data?.methods;
+  const enabledCount = methods ? Object.values(methods).filter(Boolean).length : 0;
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
+        <div>
+          <CardTitle className="flex items-center gap-2">
+            <CreditCard className="h-5 w-5 text-primary" />
+            Pagamentos do evento
+          </CardTitle>
+          <CardDescription>
+            Este evento herda os métodos e credenciais financeiras da organização.
+          </CardDescription>
+        </div>
+        <Button asChild size="sm" variant="outline">
+          <Link to="/admin/settings/payments">Configurações de Pagamento</Link>
+        </Button>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {isLoading ? (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Carregando configuração efetiva...
+          </div>
+        ) : isError || !data ? (
+          <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-700">
+            Não foi possível carregar a configuração efetiva de pagamentos.
+          </div>
+        ) : (
+          <>
+            {enabledCount === 0 && (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+                Pagamentos não configurados para este evento.
+              </div>
+            )}
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+              <PaymentMethodBadge label="PIX" enabled={data.methods.pix} />
+              <PaymentMethodBadge label="Crédito" enabled={data.methods.credit} />
+              <PaymentMethodBadge label="Débito" enabled={data.methods.debit} />
+              <PaymentMethodBadge label="Dinheiro" enabled={data.methods.cash} />
+              <PaymentMethodBadge label="Saldo NFC" enabled={data.methods.nfcBalance} />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Credenciais não são configuradas no evento. Overrides aceitos pelo backend ficam na
+              seção Contextos das configurações de pagamento.
+            </p>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function EventPrintingInheritanceSummary() {
+  const { data, isLoading, isError } = usePrintingSettings();
+  const effective = data?.effective;
+  const eventSource = effective?.sources?.EVENT;
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
+        <div>
+          <CardTitle className="flex items-center gap-2">
+            <Printer className="h-5 w-5 text-primary" />
+            Impressão do evento
+          </CardTitle>
+          <CardDescription>
+            A impressão é configurada na organização e aplicada por origem, setor e dispositivo.
+          </CardDescription>
+        </div>
+        <Button asChild size="sm" variant="outline">
+          <Link to="/admin/settings/printing">Configuração global de impressão</Link>
+        </Button>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {isLoading ? (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Carregando configuração de impressão...
+          </div>
+        ) : isError || !effective ? (
+          <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-700">
+            Não foi possível carregar a configuração herdada de impressão.
+          </div>
+        ) : (
+          <>
+            <div className="grid gap-2 sm:grid-cols-3">
+              <InfoPill label="Origem Evento" value={eventSource?.enabled ? "Habilitada" : "Desabilitada"} />
+              <InfoPill label="Impressão automática" value={eventSource?.autoPrint ? "Ativa" : "Inativa"} />
+              <InfoPill label="Modo" value={eventSource?.printMode ?? "Herdado"} />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Vincule impressoras e SK210 em Dispositivos; a regra global fica em Impressão.
+            </p>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function PaymentMethodBadge({ label, enabled }: { label: string; enabled: boolean }) {
+  return (
+    <div className="flex items-center justify-between rounded-lg border border-border bg-muted/20 px-3 py-2 text-sm">
+      <span className="font-medium">{label}</span>
+      <Badge variant={enabled ? "default" : "secondary"}>
+        {enabled ? "Herdado" : "Bloqueado"}
+      </Badge>
+    </div>
+  );
+}
+
+function InfoPill({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-border bg-muted/20 p-3">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="mt-1 text-sm font-medium">{value}</p>
     </div>
   );
 }
@@ -1170,7 +1313,7 @@ function EditProductModal({
             <div className="flex items-center justify-between rounded-lg border p-3">
               <div className="space-y-0.5">
                 <Label>Produto Ativo</Label>
-                <p className="text-xs text-muted-foreground">Visível no Totem</p>
+                <p className="text-xs text-muted-foreground">Visível no autoatendimento</p>
               </div>
               <Switch checked={active} onCheckedChange={setActive} />
             </div>

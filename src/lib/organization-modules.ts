@@ -57,7 +57,7 @@ export const MENU_BY_MODULE: Record<ModuleKey, NavItem[]> = {
     { label: "Pedidos", icon: ShoppingCart, to: "/admin/orders" },
   ],
   TOTEM: [
-    { label: "Totem", icon: Monitor, to: "/admin/devices" },
+    { label: "Dispositivos", icon: Monitor, to: "/admin/devices" },
   ],
   PAYMENTS: [{ label: "Pagamentos", icon: CreditCard, to: "/admin/financeiro" }],
   FINANCIAL: [{ label: "Financeiro", icon: DollarSign, to: "/admin/financeiro" }],
@@ -85,7 +85,7 @@ const MODULE_LABELS: Record<ModuleKey, string> = {
   ONLINE_ORDERS: "Pedidos Online",
   DELIVERY: "Delivery",
   EVENTS: "Eventos",
-  TOTEM: "Totem",
+  TOTEM: "Dispositivos",
   PAYMENTS: "Pagamentos",
   FINANCIAL: "Financeiro",
   PRINTING: "Impressão",

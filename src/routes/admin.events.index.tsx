@@ -443,7 +443,7 @@ function EventCard({
                     const url = getTotemUrl(event.slug);
                     openPublicUrl(url);
                   }}>
-                    <Monitor className="h-4 w-4" /> Abrir Totem
+                    <Monitor className="h-4 w-4" /> Abrir autoatendimento
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => {
                     const url = getCallScreenUrl(event.slug);

@@ -52,6 +52,8 @@ import { Route as AdminSettingsBrandingRouteImport } from './routes/admin.settin
 import { Route as AdminEventsIdRouteImport } from './routes/admin.events.$id'
 import { Route as AdminCustomersIdRouteImport } from './routes/admin.customers.$id'
 import { Route as AdminSettingsDeliveryRulesRouteImport } from './routes/admin.settings.delivery.rules'
+import { Route as AdminEventsIdPrintingRouteImport } from './routes/admin.events.$id.printing'
+import { Route as AdminEventsIdPaymentsRouteImport } from './routes/admin.events.$id.payments'
 
 const UnauthorizedRoute = UnauthorizedRouteImport.update({
   id: '/unauthorized',
@@ -273,6 +275,16 @@ const AdminSettingsDeliveryRulesRoute =
     path: '/rules',
     getParentRoute: () => AdminSettingsDeliveryRoute,
   } as any)
+const AdminEventsIdPrintingRoute = AdminEventsIdPrintingRouteImport.update({
+  id: '/printing',
+  path: '/printing',
+  getParentRoute: () => AdminEventsIdRoute,
+} as any)
+const AdminEventsIdPaymentsRoute = AdminEventsIdPaymentsRouteImport.update({
+  id: '/payments',
+  path: '/payments',
+  getParentRoute: () => AdminEventsIdRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -301,7 +313,7 @@ export interface FileRoutesByFullPath {
   '/super-admin/users': typeof SuperAdminUsersRoute
   '/super-admin/': typeof SuperAdminIndexRoute
   '/admin/customers/$id': typeof AdminCustomersIdRoute
-  '/admin/events/$id': typeof AdminEventsIdRoute
+  '/admin/events/$id': typeof AdminEventsIdRouteWithChildren
   '/admin/settings/branding': typeof AdminSettingsBrandingRoute
   '/admin/settings/business-hours': typeof AdminSettingsBusinessHoursRoute
   '/admin/settings/catalog-online': typeof AdminSettingsCatalogOnlineRoute
@@ -317,6 +329,8 @@ export interface FileRoutesByFullPath {
   '/admin/customers/': typeof AdminCustomersIndexRoute
   '/admin/events/': typeof AdminEventsIndexRoute
   '/admin/settings/': typeof AdminSettingsIndexRoute
+  '/admin/events/$id/payments': typeof AdminEventsIdPaymentsRoute
+  '/admin/events/$id/printing': typeof AdminEventsIdPrintingRoute
   '/admin/settings/delivery/rules': typeof AdminSettingsDeliveryRulesRoute
 }
 export interface FileRoutesByTo {
@@ -344,7 +358,7 @@ export interface FileRoutesByTo {
   '/super-admin/users': typeof SuperAdminUsersRoute
   '/super-admin': typeof SuperAdminIndexRoute
   '/admin/customers/$id': typeof AdminCustomersIdRoute
-  '/admin/events/$id': typeof AdminEventsIdRoute
+  '/admin/events/$id': typeof AdminEventsIdRouteWithChildren
   '/admin/settings/branding': typeof AdminSettingsBrandingRoute
   '/admin/settings/business-hours': typeof AdminSettingsBusinessHoursRoute
   '/admin/settings/catalog-online': typeof AdminSettingsCatalogOnlineRoute
@@ -360,6 +374,8 @@ export interface FileRoutesByTo {
   '/admin/customers': typeof AdminCustomersIndexRoute
   '/admin/events': typeof AdminEventsIndexRoute
   '/admin/settings': typeof AdminSettingsIndexRoute
+  '/admin/events/$id/payments': typeof AdminEventsIdPaymentsRoute
+  '/admin/events/$id/printing': typeof AdminEventsIdPrintingRoute
   '/admin/settings/delivery/rules': typeof AdminSettingsDeliveryRulesRoute
 }
 export interface FileRoutesById {
@@ -390,7 +406,7 @@ export interface FileRoutesById {
   '/super-admin/users': typeof SuperAdminUsersRoute
   '/super-admin/': typeof SuperAdminIndexRoute
   '/admin/customers/$id': typeof AdminCustomersIdRoute
-  '/admin/events/$id': typeof AdminEventsIdRoute
+  '/admin/events/$id': typeof AdminEventsIdRouteWithChildren
   '/admin/settings/branding': typeof AdminSettingsBrandingRoute
   '/admin/settings/business-hours': typeof AdminSettingsBusinessHoursRoute
   '/admin/settings/catalog-online': typeof AdminSettingsCatalogOnlineRoute
@@ -406,6 +422,8 @@ export interface FileRoutesById {
   '/admin/customers/': typeof AdminCustomersIndexRoute
   '/admin/events/': typeof AdminEventsIndexRoute
   '/admin/settings/': typeof AdminSettingsIndexRoute
+  '/admin/events/$id/payments': typeof AdminEventsIdPaymentsRoute
+  '/admin/events/$id/printing': typeof AdminEventsIdPrintingRoute
   '/admin/settings/delivery/rules': typeof AdminSettingsDeliveryRulesRoute
 }
 export interface FileRouteTypes {
@@ -453,6 +471,8 @@ export interface FileRouteTypes {
     | '/admin/customers/'
     | '/admin/events/'
     | '/admin/settings/'
+    | '/admin/events/$id/payments'
+    | '/admin/events/$id/printing'
     | '/admin/settings/delivery/rules'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -496,6 +516,8 @@ export interface FileRouteTypes {
     | '/admin/customers'
     | '/admin/events'
     | '/admin/settings'
+    | '/admin/events/$id/payments'
+    | '/admin/events/$id/printing'
     | '/admin/settings/delivery/rules'
   id:
     | '__root__'
@@ -541,6 +563,8 @@ export interface FileRouteTypes {
     | '/admin/customers/'
     | '/admin/events/'
     | '/admin/settings/'
+    | '/admin/events/$id/payments'
+    | '/admin/events/$id/printing'
     | '/admin/settings/delivery/rules'
   fileRoutesById: FileRoutesById
 }
@@ -858,6 +882,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminSettingsDeliveryRulesRouteImport
       parentRoute: typeof AdminSettingsDeliveryRoute
     }
+    '/admin/events/$id/printing': {
+      id: '/admin/events/$id/printing'
+      path: '/printing'
+      fullPath: '/admin/events/$id/printing'
+      preLoaderRoute: typeof AdminEventsIdPrintingRouteImport
+      parentRoute: typeof AdminEventsIdRoute
+    }
+    '/admin/events/$id/payments': {
+      id: '/admin/events/$id/payments'
+      path: '/payments'
+      fullPath: '/admin/events/$id/payments'
+      preLoaderRoute: typeof AdminEventsIdPaymentsRouteImport
+      parentRoute: typeof AdminEventsIdRoute
+    }
   }
 }
 
@@ -906,6 +944,20 @@ const AdminSettingsRouteWithChildren = AdminSettingsRoute._addFileChildren(
   AdminSettingsRouteChildren,
 )
 
+interface AdminEventsIdRouteChildren {
+  AdminEventsIdPaymentsRoute: typeof AdminEventsIdPaymentsRoute
+  AdminEventsIdPrintingRoute: typeof AdminEventsIdPrintingRoute
+}
+
+const AdminEventsIdRouteChildren: AdminEventsIdRouteChildren = {
+  AdminEventsIdPaymentsRoute: AdminEventsIdPaymentsRoute,
+  AdminEventsIdPrintingRoute: AdminEventsIdPrintingRoute,
+}
+
+const AdminEventsIdRouteWithChildren = AdminEventsIdRoute._addFileChildren(
+  AdminEventsIdRouteChildren,
+)
+
 interface AdminRouteChildren {
   AdminActivitiesRoute: typeof AdminActivitiesRoute
   AdminCatalogRoute: typeof AdminCatalogRoute
@@ -921,7 +973,7 @@ interface AdminRouteChildren {
   AdminPublicLinksRoute: typeof AdminPublicLinksRoute
   AdminSettingsRoute: typeof AdminSettingsRouteWithChildren
   AdminCustomersIdRoute: typeof AdminCustomersIdRoute
-  AdminEventsIdRoute: typeof AdminEventsIdRoute
+  AdminEventsIdRoute: typeof AdminEventsIdRouteWithChildren
   AdminCustomersIndexRoute: typeof AdminCustomersIndexRoute
   AdminEventsIndexRoute: typeof AdminEventsIndexRoute
 }
@@ -941,7 +993,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminPublicLinksRoute: AdminPublicLinksRoute,
   AdminSettingsRoute: AdminSettingsRouteWithChildren,
   AdminCustomersIdRoute: AdminCustomersIdRoute,
-  AdminEventsIdRoute: AdminEventsIdRoute,
+  AdminEventsIdRoute: AdminEventsIdRouteWithChildren,
   AdminCustomersIndexRoute: AdminCustomersIndexRoute,
   AdminEventsIndexRoute: AdminEventsIndexRoute,
 }
