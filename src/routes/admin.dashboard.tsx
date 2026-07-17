@@ -59,7 +59,27 @@ export const Route = createFileRoute("/admin/dashboard")({
   component: DashboardPage,
 });
 
-const ACTIVE_STATUSES = new Set(["active", "published", "ACTIVE", "PUBLISHED"]);
+const ACTIVE_STATUSES = new Set(["ACTIVE", "PUBLISHED"]);
+const INACTIVE_STATUSES = new Set(["DRAFT", "CANCELLED", "CANCELED", "CLOSED", "ENDED", "INACTIVE", "ARCHIVED"]);
+
+function isEventActive(event: EventItem): boolean {
+  if (event.active === true) return true;
+  if (event.active === false) return false;
+  const status = String(event.status ?? "").trim().toUpperCase();
+  if (!status || INACTIVE_STATUSES.has(status)) return false;
+  return ACTIVE_STATUSES.has(status);
+}
+
+function periodLabel(period: string): string {
+  const labels: Record<string, string> = {
+    TODAY: "hoje",
+    "24H": "nas últimas 24h",
+    EVENT: "no evento",
+    "7D": "nos últimos 7 dias",
+    CUSTOM: "no período",
+  };
+  return labels[period] ?? "no período";
+}
 
 function formatCurrency(cents?: number) {
   if (cents == null || Number.isNaN(cents)) return "R$ 0,00";
@@ -137,6 +157,46 @@ function itemSector(item: Record<string, unknown>): string | undefined {
     catalogProductCategory?.sector ??
     catalogProductCatalogCategory?.sector;
   return typeof raw === "string" ? raw : undefined;
+}
+
+function filterOrdersByPeriod(
+  orders: Order[],
+  period: string,
+  customStartDate?: string,
+  customEndDate?: string,
+): Order[] {
+  if (period === "EVENT") return orders;
+
+  const now = new Date();
+  let start: Date | null = null;
+  let end: Date | null = null;
+
+  if (period === "TODAY") {
+    start = new Date(now);
+    start.setHours(0, 0, 0, 0);
+  } else if (period === "24H") {
+    start = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  } else if (period === "7D") {
+    start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  } else if (period === "CUSTOM") {
+    if (customStartDate) {
+      start = new Date(`${customStartDate}T00:00:00`);
+    }
+    if (customEndDate) {
+      end = new Date(`${customEndDate}T23:59:59.999`);
+    }
+  }
+
+  if (!start && !end) return orders;
+
+  return orders.filter((order) => {
+    if (!order.createdAt) return false;
+    const createdAt = new Date(order.createdAt).getTime();
+    if (!Number.isFinite(createdAt)) return false;
+    if (start && createdAt < start.getTime()) return false;
+    if (end && createdAt > end.getTime()) return false;
+    return true;
+  });
 }
 
 function normalizeSectorKey(raw?: string): "BAR" | "KITCHEN" | null {
@@ -410,13 +470,18 @@ function DashboardPage() {
   });
 
   const activeEventsCount = useMemo(
-    () => events.filter((e) => ACTIVE_STATUSES.has((e.status ?? "").toString())).length,
+    () => events.filter(isEventActive).length,
     [events],
   );
 
+  const eventOrdersInSelectedPeriod = useMemo(
+    () => filterOrdersByPeriod(eventOrders, selectedPeriod, customStartDate, customEndDate),
+    [eventOrders, selectedPeriod, customStartDate, customEndDate],
+  );
+
   const dashboardMetrics = useMemo(
-    () => mergeMetrics(mergeMetrics(metrics, buildMetricsFromOrders(eventOrders, financialSummary)), buildMetricsFromPrintJobs(printJobs)),
-    [metrics, eventOrders, financialSummary, printJobs],
+    () => mergeMetrics(mergeMetrics(metrics, buildMetricsFromOrders(eventOrdersInSelectedPeriod, financialSummary)), buildMetricsFromPrintJobs(printJobs)),
+    [metrics, eventOrdersInSelectedPeriod, financialSummary, printJobs],
   );
 
   const sectorChart = useMemo(() => {
@@ -489,10 +554,9 @@ function DashboardPage() {
 
   const selectedEventStatus = useMemo(() => {
     if (!selectedEvent) return "Sem evento selecionado";
-    if (selectedEvent.active === true) return "Evento ativo";
+    if (isEventActive(selectedEvent)) return "Evento ativo";
     if (selectedEvent.active === false) return "Evento inativo";
     const raw = String(selectedEvent.status ?? "").toUpperCase();
-    if (raw === "ACTIVE" || raw === "PUBLISHED") return "Evento ativo";
     if (raw) return raw;
     return "Status não informado";
   }, [selectedEvent]);
@@ -500,23 +564,23 @@ function DashboardPage() {
   const primaryKpis = useMemo(
     () => [
       {
-        label: "Receita recebida",
-        value: metricsLoading ? "..." : formatCurrency(pickRevenueCents(financialSummary)),
-        hint: selectedPeriod === "TODAY" ? "Hoje" : "Período selecionado",
+        label: "Receita no período",
+        value: metricsLoading ? "..." : financialSummary ? formatCurrency(pickRevenueCents(financialSummary)) : "Indisponível",
+        hint: periodLabel(selectedPeriod),
         icon: DollarSign,
         tone: "cyan" as const,
       },
       {
-        label: "Pedidos",
+        label: "Pedidos no período",
         value: metricsLoading ? "..." : String(pickOrdersCount(dashboardMetrics)),
-        hint: `${financialSummary?.summary?.paidOrders ?? 0} pagos`,
+        hint: financialSummary ? `${financialSummary.summary?.paidOrders ?? 0} pagos` : periodLabel(selectedPeriod),
         icon: ShoppingCart,
         tone: "blue" as const,
       },
       {
         label: "Ticket médio",
-        value: metricsLoading ? "..." : formatCurrency(pickTicketCents(financialSummary)),
-        hint: "Pedidos pagos",
+        value: metricsLoading ? "..." : financialSummary ? formatCurrency(pickTicketCents(financialSummary)) : "Indisponível",
+        hint: "Receita paga / pedidos pagos",
         icon: TrendingUp,
         tone: "success" as const,
       },
@@ -524,7 +588,11 @@ function DashboardPage() {
         label: "Pendências",
         value: metricsLoading
           ? "..."
-          : String((financialSummary?.summary?.pendingOrders ?? 0) + printSummary.ERROR),
+          : financialSummary
+            ? String((financialSummary.summary?.pendingOrders ?? 0) + printSummary.ERROR)
+            : printSummary.ERROR > 0
+              ? String(printSummary.ERROR)
+              : "Indisponível",
         hint: "Pagamentos + impressão",
         icon: AlertTriangle,
         tone:
@@ -969,7 +1037,9 @@ function DashboardHeader({
             </span>
             {showEventControls && (
               <span className="rounded-full border border-[#00D4FF]/30 bg-[#00D4FF]/10 px-2.5 py-1 text-xs font-medium text-[#BFF4FF]">
-                {activeEventsCount} evento{activeEventsCount === 1 ? "" : "s"} ativo{activeEventsCount === 1 ? "" : "s"}
+                {eventsLoading
+                  ? "Carregando eventos..."
+                  : `${activeEventsCount} evento${activeEventsCount === 1 ? "" : "s"} ativo${activeEventsCount === 1 ? "" : "s"}`}
               </span>
             )}
           </div>
@@ -1334,31 +1404,34 @@ function OnlineOrdersSection() {
   });
 
   const orders = q.data?.data ?? [];
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const todayOrders = orders.filter((o) => {
-    if (!o.createdAt) return false;
-    return new Date(o.createdAt).getTime() >= today.getTime();
-  });
-
+  const onlineOrdersInScope = orders;
   const statusOf = (o: { status?: unknown }) =>
     String(o.status ?? "").toUpperCase();
   const countByStatus = (s: string) =>
-    orders.filter((o) => statusOf(o) === s).length;
+    onlineOrdersInScope.filter((o) => statusOf(o) === s).length;
 
-  const paidToday = todayOrders.filter((o) => statusOf(o) !== "CANCELLED");
-  const revenueToday = paidToday.reduce(
+  const billableOrders = onlineOrdersInScope.filter((o) => statusOf(o) !== "CANCELLED");
+  const scopedRevenue = billableOrders.reduce(
     (sum, o) => sum + (typeof o.totalInCents === "number" ? o.totalInCents : 0),
     0,
   );
-  const ordersToday = paidToday.length;
-  const avgTicket = ordersToday > 0 ? revenueToday / ordersToday : 0;
+  const scopedOrders = onlineOrdersInScope.length;
+  const avgTicket = billableOrders.length > 0 ? scopedRevenue / billableOrders.length : 0;
 
   if (q.isLoading) {
     return (
       <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-soft)]">
         <LoadingBlock />
       </div>
+    );
+  }
+
+  if (q.isError) {
+    return (
+      <ErrorBanner
+        title="Não foi possível carregar os pedidos online"
+        message={handleApiError(q.error, "Tente novamente em instantes.")}
+      />
     );
   }
 
@@ -1378,35 +1451,35 @@ function OnlineOrdersSection() {
     <div className="space-y-5">
       <SectionHeader
         title="Pedidos Online"
-        description="Indicadores da loja online separados da operação de eventos."
+        description="Indicadores da loja online na base carregada."
       />
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <KpiCard
-          label="Receita hoje"
-          value={formatCurrency(revenueToday)}
-          hint={`${ordersToday} pedidos`}
+          label="Receita carregada"
+          value={formatCurrency(scopedRevenue)}
+          hint={`${billableOrders.length} pedidos não cancelados`}
           icon={DollarSign}
           tone="cyan"
         />
         <KpiCard
-          label="Pedidos hoje"
-          value={String(ordersToday)}
-          hint="Pedidos não cancelados"
+          label="Pedidos carregados"
+          value={String(scopedOrders)}
+          hint="Mesmo escopo do fluxo"
           icon={ShoppingCart}
           tone="blue"
         />
         <KpiCard
           label="Ticket médio"
           value={formatCurrency(avgTicket)}
-          hint="Hoje"
+          hint="Receita / pedidos não cancelados"
           icon={TrendingUp}
           tone="success"
         />
         <KpiCard
-          label="Total de pedidos"
-          value={String(orders.length)}
-          hint="Base carregada"
+          label="Cancelados"
+          value={String(countByStatus("CANCELLED"))}
+          hint="Mesmo escopo do fluxo"
           icon={Receipt}
           tone="muted"
         />
@@ -1416,11 +1489,11 @@ function OnlineOrdersSection() {
         <PanelTitle
           icon={ShoppingCart}
           title="Fluxo da loja online"
-          description="Status atuais dos pedidos online."
+          description="Status dos mesmos pedidos considerados nos cards acima."
           badge="Atualiza automaticamente"
         />
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          <StatusPill label="Novos" value={countByStatus("NEW") + countByStatus("CONFIRMED")} tone="blue" />
+          <StatusPill label="Novos" value={countByStatus("NEW") + countByStatus("PENDING") + countByStatus("CONFIRMED")} tone="blue" />
           <StatusPill label="Em preparo" value={countByStatus("PREPARING")} tone="amber" />
           <StatusPill label="Em entrega" value={countByStatus("OUT_FOR_DELIVERY")} tone="cyan" />
           <StatusPill label="Concluídos" value={countByStatus("COMPLETED")} tone="emerald" />
