@@ -41,7 +41,7 @@ export function AdminLayout({ title, subtitle, actions, children }: AdminLayoutP
       <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-border bg-card/80 backdrop-blur md:flex">
         <div className="flex h-16 items-center gap-2 border-b border-border px-6">
           <img
-            src="/favicon.ico"
+            src="/branding/icon-1024.png"
             alt="Defumar Events"
             className="h-9 w-9 rounded-lg object-cover"
           />
