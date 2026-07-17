@@ -133,6 +133,9 @@ export async function loginRequest(email: string, password: string): Promise<Log
     body: JSON.stringify({ email, password }),
   });
   if (import.meta.env.DEV) console.info("[auth] /sessions status", res.status);
+  if (res.status === 401) {
+    throw new ApiError("E-mail ou senha inválidos.", { status: 401, code: "INVALID_CREDENTIALS" });
+  }
   if (!res.ok) throw await fromResponse(res, "Não foi possível entrar. Tente novamente.");
   const data = await res.json();
   const token = data.token ?? data.access_token ?? data.accessToken;
