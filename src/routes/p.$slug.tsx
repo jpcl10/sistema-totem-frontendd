@@ -117,6 +117,18 @@ function sortedOptions(o?: PublicProductOption[]): PublicProductOption[] {
   return [...(o ?? [])].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name));
 }
 
+function resolveFlavorFullPrice(
+  product: PublicStoreProduct,
+  selectedSizeOptionKey: string | null,
+): number {
+  const sizeGroup = (product.optionGroups ?? []).find((group) => isSizeGroup(group));
+  if (!sizeGroup || !selectedSizeOptionKey) {
+    return product.priceInCents;
+  }
+  const sizeOption = sizeGroup.options.find((option) => option.key === selectedSizeOptionKey);
+  return product.priceInCents + (sizeOption?.priceDeltaInCents ?? 0);
+}
+
 
 function brl(cents: number) {
   return (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -401,13 +413,25 @@ function PublicStorePage() {
         return next;
       }
       const deltaSum = selectedOptions.reduce(
-        (acc, s) => acc + s.displayOptions.reduce((a, o) => a + (o.priceDeltaInCents ?? 0), 0),
+        (acc, s) => {
+          const group = product.optionGroups?.find((g) => g.id === s.optionGroupId);
+          if (group && isSizeGroup(group)) return acc;
+          return acc + s.displayOptions.reduce((a, o) => a + (o.priceDeltaInCents ?? 0), 0);
+        },
         0,
       );
+      const selectedSizeGroup = product.optionGroups?.find((group) => isSizeGroup(group)) ?? null;
+      const selectedSizeOptionId = selectedSizeGroup
+        ? selectedOptions.find((s) => s.optionGroupId === selectedSizeGroup.id)?.optionIds[0]
+        : undefined;
+      const selectedSizeOption = selectedSizeGroup && selectedSizeOptionId
+        ? selectedSizeGroup.options.find((option) => option.id === selectedSizeOptionId) ?? null
+        : null;
+      const primaryFullPriceInCents = product.priceInCents + (selectedSizeOption?.priceDeltaInCents ?? 0);
       const basePriceInCents =
         displayFlavors.length === 2
           ? Math.max(...displayFlavors.map((flavor) => flavor.priceInCents))
-          : product.priceInCents;
+          : primaryFullPriceInCents;
       return [
         ...prev,
         {
@@ -1171,38 +1195,65 @@ function ProductModalBody({
     });
   }
 
-  // Sum of price deltas for currently selected options.
-  const deltaTotal = useMemo(() => {
-    let sum = 0;
-    for (const g of groups) {
-      const ids = selectedByGroup[g.id] ?? [];
-      for (const id of ids) {
-        const opt = g.options.find((o) => o.id === id);
-        if (opt) sum += opt.priceDeltaInCents ?? 0;
-      }
-    }
-    return sum;
-  }, [groups, selectedByGroup]);
-
   const secondFlavor = useMemo(
     () => flavorProducts.find((flavor) => flavor.id === secondFlavorId) ?? null,
     [flavorProducts, secondFlavorId],
   );
+  const sizeGroup = useMemo(
+    () => groups.find((group) => isSizeGroup(group)) ?? null,
+    [groups],
+  );
+  const selectedSizeOption = useMemo(() => {
+    if (!sizeGroup) return null;
+    const selectedId = selectedByGroup[sizeGroup.id]?.[0];
+    if (!selectedId) return null;
+    return sizeGroup.options.find((option) => option.id === selectedId) ?? null;
+  }, [selectedByGroup, sizeGroup]);
+  const selectedSizeOptionKey = selectedSizeOption?.key ?? null;
+  const selectedSizeDeltaInCents = selectedSizeOption?.priceDeltaInCents ?? 0;
+  const primaryFullPriceInCents = product.priceInCents + selectedSizeDeltaInCents;
+  const secondFlavorFullPriceInCents = secondFlavor
+    ? resolveFlavorFullPrice(secondFlavor, selectedSizeOptionKey)
+    : 0;
   const displayFlavors = useMemo(
     () =>
       pizzaMode === "HALF_AND_HALF" && secondFlavor
         ? [
-            { id: product.id, name: product.name, priceInCents: product.priceInCents },
-            { id: secondFlavor.id, name: secondFlavor.name, priceInCents: secondFlavor.priceInCents },
+            { id: product.id, name: product.name, priceInCents: primaryFullPriceInCents },
+            {
+              id: secondFlavor.id,
+              name: secondFlavor.name,
+              priceInCents: secondFlavorFullPriceInCents,
+            },
           ]
         : [],
-    [pizzaMode, product.id, product.name, product.priceInCents, secondFlavor],
+    [
+      pizzaMode,
+      product.id,
+      product.name,
+      primaryFullPriceInCents,
+      secondFlavor,
+      secondFlavorFullPriceInCents,
+    ],
+  );
+  const addonTotalInCents = useMemo(
+    () =>
+      groups.reduce((sum, group) => {
+        if (isSizeGroup(group)) return sum;
+        const ids = selectedByGroup[group.id] ?? [];
+        for (const id of ids) {
+          const opt = group.options.find((option) => option.id === id);
+          if (opt) sum += opt.priceDeltaInCents ?? 0;
+        }
+        return sum;
+      }, 0),
+    [groups, selectedByGroup],
   );
   const flavorBasePrice =
     acceptsHalfAndHalf && pizzaMode === "HALF_AND_HALF" && secondFlavor
-      ? Math.max(product.priceInCents, secondFlavor.priceInCents)
-      : product.priceInCents;
-  const previewUnitPrice = flavorBasePrice + deltaTotal;
+      ? Math.max(primaryFullPriceInCents, secondFlavorFullPriceInCents)
+      : primaryFullPriceInCents;
+  const previewUnitPrice = flavorBasePrice + addonTotalInCents;
 
   // Validation: required groups need >= minSelections; all groups <= maxSelections.
   const validation = useMemo(() => {
@@ -1309,19 +1360,19 @@ function ProductModalBody({
                     <p className="mb-2 text-xs font-bold text-muted-foreground">Primeira metade</p>
                     <div className="flex items-center justify-between gap-2 text-sm">
                       <span className="min-w-0 truncate font-medium">{product.name}</span>
-                      <span className="shrink-0 text-xs text-muted-foreground">{brl(product.priceInCents)}</span>
+                      <span className="shrink-0 text-xs text-muted-foreground">{brl(primaryFullPriceInCents)}</span>
                     </div>
                   </div>
                   <div className="rounded-lg border border-border/60 bg-background p-3">
                     <p className="mb-2 text-xs font-bold text-muted-foreground">Segunda metade</p>
                     <Select value={secondFlavorId} onValueChange={setSecondFlavorId}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Escolha um sabor" />
+                      <SelectValue placeholder="Escolha um sabor" />
                       </SelectTrigger>
                       <SelectContent>
                         {flavorProducts.map((flavor) => (
                           <SelectItem key={flavor.id} value={flavor.id}>
-                            {flavor.name} - {brl(flavor.priceInCents)}
+                            {flavor.name} - {brl(resolveFlavorFullPrice(flavor, selectedSizeOptionKey))}
                           </SelectItem>
                         ))}
                       </SelectContent>

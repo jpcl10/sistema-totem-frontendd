@@ -576,6 +576,7 @@ export interface PublicProductOptionLinkedProduct {
 
 export interface PublicProductOption {
   id: string;
+  key?: string;
   name: string;
   priceDeltaInCents: number;
   sortOrder: number;
@@ -585,6 +586,7 @@ export interface PublicProductOption {
 
 export interface PublicProductOptionGroup {
   id: string;
+  key?: string;
   name: string;
   description?: string | null;
   required: boolean;
