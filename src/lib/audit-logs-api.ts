@@ -29,15 +29,20 @@ export interface AuditLogQuery {
   limit?: number;
   action?: string;
   entity?: string;
+  entityId?: string;
+  eventId?: string;
   userId?: string;
+  actorUserId?: string;
   deviceId?: string;
   startDate?: string;
   endDate?: string;
+  dateFrom?: string;
+  dateTo?: string;
 }
 
 export async function listAuditLogs(
   token: string,
-  eventId: string,
+  eventId?: string,
   query: AuditLogQuery = {},
 ): Promise<AuditLogListResponse> {
   const params = new URLSearchParams();
@@ -48,14 +53,12 @@ export async function listAuditLogs(
     params.set(k, s);
   });
   const qs = params.toString();
-  const url = `${API_BASE_URL}/events/${encodeURIComponent(eventId)}/audit-logs${qs ? `?${qs}` : ""}`;
-  // eslint-disable-next-line no-console
-  // [redacted log]
+  const url = eventId
+    ? `${API_BASE_URL}/events/${encodeURIComponent(eventId)}/audit-logs${qs ? `?${qs}` : ""}`
+    : `${API_BASE_URL}/audit-logs${qs ? `?${qs}` : ""}`;
   const res = await apiFetch(url, { headers: authHeaders(token) });
   if (!res.ok) throw await fromResponse(res);
   const data = await res.json();
-  // eslint-disable-next-line no-console
-  // [redacted log]
   // Normalize: backend returns { auditLogs, page, limit, total, totalPages }
   const logs: AuditLog[] = Array.isArray(data)
     ? data
@@ -68,10 +71,14 @@ export async function listAuditLogs(
     : Array.isArray(data?.items)
     ? data.items
     : [];
-  const page = Number(data?.page ?? query.page ?? 1);
-  const limit = Number(data?.limit ?? query.limit ?? logs.length ?? 20);
-  const total = Number(data?.total ?? logs.length);
-  const totalPages = Number(data?.totalPages ?? Math.max(1, Math.ceil(total / Math.max(1, limit))));
+  const page = Number(data?.pagination?.page ?? data?.page ?? query.page ?? 1);
+  const limit = Number(data?.pagination?.limit ?? data?.limit ?? query.limit ?? logs.length ?? 20);
+  const total = Number(data?.pagination?.total ?? data?.total ?? logs.length);
+  const totalPages = Number(
+    data?.pagination?.totalPages ??
+      data?.totalPages ??
+      Math.max(1, Math.ceil(total / Math.max(1, limit))),
+  );
   return { data: logs, page, limit, total, totalPages };
 }
 

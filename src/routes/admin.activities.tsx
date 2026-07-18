@@ -106,6 +106,23 @@ const ACTION_META: Record<string, ActionMeta> = {
   EVENT_CLOSED: { label: "Evento encerrado", icon: Calendar, tone: "neutral" },
   PRODUCT_CREATED: { label: "Produto criado", icon: Package, tone: "info" },
   PRODUCT_UPDATED: { label: "Produto atualizado", icon: Package, tone: "info-soft" },
+  PRODUCT_ACTIVATED: { label: "Produto ativado", icon: Package, tone: "success" },
+  PRODUCT_DEACTIVATED: { label: "Produto desativado", icon: Ban, tone: "warning" },
+  HALF_AND_HALF_ENABLED: { label: "Meio a meio ativado", icon: Package, tone: "success" },
+  HALF_AND_HALF_DISABLED: { label: "Meio a meio desativado", icon: Package, tone: "warning" },
+  FLAVOR_ELIGIBILITY_ENABLED: { label: "Sabor habilitado", icon: Package, tone: "success" },
+  FLAVOR_ELIGIBILITY_DISABLED: { label: "Sabor desabilitado", icon: Package, tone: "warning" },
+  PRODUCT_PRICE_CHANGED: { label: "Preço alterado", icon: DollarSign, tone: "warning" },
+  PRODUCT_OPTION_CHANGED: { label: "Opção do produto alterada", icon: Package, tone: "info-soft" },
+  STORE_FORCE_OPENED: { label: "Loja aberta manualmente", icon: CheckCircle2, tone: "success" },
+  STORE_FORCE_CLOSED: { label: "Loja fechada manualmente", icon: Ban, tone: "destructive" },
+  STORE_RETURNED_TO_AUTO: { label: "Loja voltou ao automático", icon: Clock, tone: "info" },
+  STORE_AVAILABILITY_OVERRIDE_UPDATED: { label: "Status manual atualizado", icon: SettingsIcon, tone: "info-soft" },
+  BUSINESS_HOURS_UPDATED: { label: "Horários alterados", icon: Clock, tone: "info-soft" },
+  PAYMENT_SETTINGS_UPDATED: { label: "Pagamento configurado", icon: DollarSign, tone: "info-soft" },
+  PAYMENT_PROVIDER_SETTINGS_UPDATED: { label: "Provedor configurado", icon: DollarSign, tone: "info-soft" },
+  PAYMENT_PROVIDER_CONFIGURED: { label: "Provedor configurado", icon: DollarSign, tone: "info-soft" },
+  PAYMENT_CREDENTIAL_UPDATED: { label: "Credencial atualizada", icon: DollarSign, tone: "warning" },
   EVENT_PRODUCT_CREATED: { label: "Produto no evento", icon: Package, tone: "info" },
   EVENT_PRODUCT_UPDATED: { label: "Produto/preço atualizado", icon: Package, tone: "info-soft" },
   EVENT_PRODUCT_DELETED: { label: "Produto removido", icon: Trash2, tone: "destructive" },
@@ -155,6 +172,20 @@ const ENTITY_LABELS: Record<string, string> = {
   USER: "Usuário",
   EVENTPRODUCT: "Produto do evento",
   EVENT_PRODUCT: "Produto do evento",
+  CATALOGPRODUCT: "Produto do catálogo",
+  CATALOG_PRODUCT: "Produto do catálogo",
+  CATALOGPRODUCTOPTION: "Opção do produto",
+  CATALOG_PRODUCT_OPTION: "Opção do produto",
+  CATALOGPRODUCTOPTIONGROUP: "Grupo de opções",
+  CATALOG_PRODUCT_OPTION_GROUP: "Grupo de opções",
+  ONLINESTORE: "Loja online",
+  ONLINE_STORE: "Loja online",
+  ONLINESTORESETTINGS: "Configuração da loja",
+  ONLINE_STORE_SETTINGS: "Configuração da loja",
+  PAYMENTPROVIDERCREDENTIAL: "Credencial de pagamento",
+  PAYMENT_PROVIDER_CREDENTIAL: "Credencial de pagamento",
+  PAYMENTPROVIDERSETTINGS: "Provedor de pagamento",
+  PAYMENT_PROVIDER_SETTINGS: "Provedor de pagamento",
 };
 
 function translateEntity(entity?: string | null): string | null {
@@ -219,7 +250,7 @@ function ActivitiesPage() {
   const navigate = useNavigate();
   const orgId = useOrgId();
 
-  const [eventId, setEventId] = useState<string>("");
+  const [eventId, setEventId] = useState<string>("all");
 
   // filters
   const [page, setPage] = useState(1);
@@ -244,10 +275,6 @@ function ActivitiesPage() {
   });
   const events: EventItem[] = eventsQuery.data ?? [];
 
-  useEffect(() => {
-    if (!eventId && events.length > 0) setEventId(events[0].id);
-  }, [events, eventId]);
-
   const query: AuditLogQuery = useMemo(() => {
     const dates =
       period === "custom"
@@ -263,18 +290,22 @@ function ActivitiesPage() {
       entity: entityFilter.trim() || undefined,
       userId: userFilter.trim() || undefined,
       deviceId: deviceFilter.trim() || undefined,
+      eventId: eventId !== "all" ? eventId : undefined,
       ...dates,
     };
-  }, [page, period, customStart, customEnd, actionFilter, entityFilter, userFilter, deviceFilter]);
+  }, [page, period, customStart, customEnd, actionFilter, entityFilter, userFilter, deviceFilter, eventId]);
 
   const logsQuery = useQuery({
     queryKey: qk.activities.list(orgId, { eventId, ...query }),
-    queryFn: () => listAuditLogs(token!, eventId, query),
-    enabled: !!token && !!orgId && !!eventId,
+    queryFn: () => listAuditLogs(token!, undefined, query),
+    enabled: !!token && !!orgId,
     placeholderData: (prev) => prev,
   });
 
-  const logs: AuditLog[] = logsQuery.data?.data ?? [];
+  const logs: AuditLog[] = useMemo(
+    () => logsQuery.data?.data ?? [],
+    [logsQuery.data?.data],
+  );
   const totalPages = logsQuery.data?.totalPages ?? 1;
   const total = logsQuery.data?.total ?? 0;
   const loading = logsQuery.isFetching;
@@ -319,9 +350,9 @@ function ActivitiesPage() {
   return (
     <AdminLayout
       title="Atividades"
-      subtitle="Histórico operacional do evento: pedidos, pagamentos, impressões, dispositivos, produtos e alterações administrativas."
+      subtitle="Histórico operacional da organização: pedidos, pagamentos, impressões, produtos, loja online e alterações administrativas."
       actions={
-        <Button variant="outline" size="sm" onClick={load} disabled={loading || !eventId}>
+        <Button variant="outline" size="sm" onClick={load} disabled={loading}>
           <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
           Atualizar
         </Button>
@@ -351,9 +382,10 @@ function ActivitiesPage() {
             <label className="text-xs font-medium text-muted-foreground">Evento</label>
             <Select value={eventId} onValueChange={setEventId}>
               <SelectTrigger>
-                <SelectValue placeholder="Selecione um evento" />
+                <SelectValue placeholder="Todos os eventos" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="all">Todos os eventos</SelectItem>
                 {events.map((e) => (
                   <SelectItem key={e.id} value={e.id}>
                     {e.name}
