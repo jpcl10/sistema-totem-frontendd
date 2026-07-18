@@ -1132,8 +1132,8 @@ function ProductModalBody({
 
   const groups = useMemo(() => sortedGroups(product.optionGroups), [product.optionGroups]);
   const flavorProducts = useMemo(
-    () => [...(product.halfAndHalfFlavors ?? product.halfAndHalfFlavorProducts ?? [])].sort((a, b) => a.name.localeCompare(b.name)),
-    [product.halfAndHalfFlavorProducts, product.halfAndHalfFlavors],
+    () => [...(product.halfAndHalfFlavors ?? [])].sort((a, b) => a.name.localeCompare(b.name)),
+    [product.halfAndHalfFlavors],
   );
   const acceptsHalfAndHalf =
     product.supportsHalfAndHalf || product.acceptsHalfAndHalf || product.pricingRule === "MAX_SELECTED_FLAVOR";
