@@ -614,6 +614,8 @@ export interface PublicStoreProduct {
   priceInCents: number;
   pricingRule?: "STANDARD" | "MAX_SELECTED_FLAVOR" | string;
   acceptsHalfAndHalf?: boolean;
+  supportsHalfAndHalf?: boolean;
+  halfAndHalfFlavors?: PublicStoreProduct[];
   halfAndHalfFlavorProducts?: PublicStoreProduct[];
   sortOrder?: number;
   categoryId?: string;

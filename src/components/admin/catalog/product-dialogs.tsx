@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { AlertCircle, AlertTriangle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,7 +26,6 @@ import {
   updateCatalogProduct,
   type CatalogCategory,
   type CatalogProduct,
-  type CatalogProductPricingRule,
 } from "@/lib/catalog-api";
 import { CatalogOptionGroupsManager } from "@/components/admin/catalog-option-groups";
 import { useOrganization } from "@/contexts/organization-context";
@@ -33,6 +33,7 @@ import { parseCurrencyToCents } from "@/lib/utils";
 import { describeError, slugify } from "@/lib/catalog-helpers";
 import { ProductImageUploader } from "./product-image-uploader";
 
+const showLegacyPricingRuleSelector = false;
 
 export function NewProductDialog({
   token,
@@ -50,7 +51,8 @@ export function NewProductDialog({
   const [description, setDescription] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [priceInput, setPriceInput] = useState("");
-  const [pricingRule, setPricingRule] = useState<CatalogProductPricingRule>("STANDARD");
+  const [supportsHalfAndHalf, setSupportsHalfAndHalf] = useState(false);
+  const [canBeUsedAsFlavor, setCanBeUsedAsFlavor] = useState(true);
   const [halfAndHalfFlavorCategoryId, setHalfAndHalfFlavorCategoryId] = useState<string>(
     categories[0]?.id ?? "",
   );
@@ -93,9 +95,10 @@ export function NewProductDialog({
         description: description.trim() || undefined,
         imageUrl: imageUrl.trim() || undefined,
         priceInCents: priceCents ?? undefined,
-        pricingRule,
+        supportsHalfAndHalf,
+        canBeUsedAsFlavor,
         halfAndHalfFlavorCategoryId:
-          pricingRule === "MAX_SELECTED_FLAVOR"
+          supportsHalfAndHalf
             ? halfAndHalfFlavorCategoryId || catalogCategoryId
             : null,
         sortOrder:
@@ -177,10 +180,20 @@ export function NewProductDialog({
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label>Regra de preço</Label>
+            <label className="flex min-h-10 items-center gap-2 rounded-md border border-border px-3 py-2 text-sm">
+              <Checkbox
+                checked={supportsHalfAndHalf}
+                onCheckedChange={(checked) => setSupportsHalfAndHalf(checked === true)}
+                disabled={submitting}
+              />
+              <span>Permitir pizza meio a meio</span>
+            </label>
+            {/* Legacy pricing-rule selector intentionally hidden. */}
+            {showLegacyPricingRuleSelector && (
             <Select
-              value={pricingRule}
-              onValueChange={(v) => setPricingRule(v as CatalogProductPricingRule)}
-              disabled={submitting}
+              value="STANDARD"
+              onValueChange={() => undefined}
+              disabled
             >
               <SelectTrigger>
                 <SelectValue />
@@ -190,13 +203,14 @@ export function NewProductDialog({
                 <SelectItem value="MAX_SELECTED_FLAVOR">Meio a meio</SelectItem>
               </SelectContent>
             </Select>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="prod-half-cat">Categoria de sabores</Label>
             <Select
               value={halfAndHalfFlavorCategoryId}
               onValueChange={setHalfAndHalfFlavorCategoryId}
-              disabled={submitting || pricingRule !== "MAX_SELECTED_FLAVOR"}
+              disabled={submitting || !supportsHalfAndHalf}
             >
               <SelectTrigger id="prod-half-cat">
                 <SelectValue placeholder="Usar a categoria do produto" />
@@ -211,6 +225,14 @@ export function NewProductDialog({
             </Select>
           </div>
         </div>
+        <label className="flex min-h-10 items-center gap-2 rounded-md border border-border px-3 py-2 text-sm">
+          <Checkbox
+            checked={canBeUsedAsFlavor}
+            onCheckedChange={(checked) => setCanBeUsedAsFlavor(checked === true)}
+            disabled={submitting}
+          />
+          <span>Permitir usar este produto como sabor</span>
+        </label>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="prod-price">Preço-base (R$)</Label>
@@ -319,8 +341,12 @@ export function EditProductDialog({
   const [categoryId, setCategoryId] = useState<string>(initialCat);
   const [description, setDescription] = useState(product.description ?? "");
   const [imageUrl, setImageUrl] = useState(product.imageUrl ?? "");
-  const [pricingRule, setPricingRule] = useState<CatalogProductPricingRule>(
-    (product.pricingRule as CatalogProductPricingRule) ?? "STANDARD",
+  const legacyHalfAndHalf = product.pricingRule === "MAX_SELECTED_FLAVOR";
+  const [supportsHalfAndHalf, setSupportsHalfAndHalf] = useState<boolean>(
+    product.supportsHalfAndHalf === true || legacyHalfAndHalf,
+  );
+  const [canBeUsedAsFlavor, setCanBeUsedAsFlavor] = useState<boolean>(
+    product.canBeUsedAsFlavor !== false,
   );
   const [halfAndHalfFlavorCategoryId, setHalfAndHalfFlavorCategoryId] = useState<string>(
     product.halfAndHalfFlavorCategoryId ?? product.catalogCategoryId ?? initialCat,
@@ -342,7 +368,8 @@ export function EditProductDialog({
     categoryId: initialCat,
     description: product.description ?? "",
     imageUrl: product.imageUrl ?? "",
-    pricingRule: (product.pricingRule as CatalogProductPricingRule) ?? "STANDARD",
+    supportsHalfAndHalf: product.supportsHalfAndHalf === true || legacyHalfAndHalf,
+    canBeUsedAsFlavor: product.canBeUsedAsFlavor !== false,
     halfAndHalfFlavorCategoryId:
       product.halfAndHalfFlavorCategoryId ?? product.catalogCategoryId ?? initialCat,
     priceInput:
@@ -359,7 +386,8 @@ export function EditProductDialog({
     categoryId !== initialSnapshot.current.categoryId ||
     description !== initialSnapshot.current.description ||
     imageUrl !== initialSnapshot.current.imageUrl ||
-    pricingRule !== initialSnapshot.current.pricingRule ||
+    supportsHalfAndHalf !== initialSnapshot.current.supportsHalfAndHalf ||
+    canBeUsedAsFlavor !== initialSnapshot.current.canBeUsedAsFlavor ||
     halfAndHalfFlavorCategoryId !== initialSnapshot.current.halfAndHalfFlavorCategoryId ||
     priceInput !== initialSnapshot.current.priceInput ||
     sortOrderInput !== initialSnapshot.current.sortOrderInput ||
@@ -391,9 +419,10 @@ export function EditProductDialog({
         description: description.trim(),
         imageUrl: imageUrl.trim(),
         active,
-        pricingRule,
+        supportsHalfAndHalf,
+        canBeUsedAsFlavor,
         halfAndHalfFlavorCategoryId:
-          pricingRule === "MAX_SELECTED_FLAVOR"
+          supportsHalfAndHalf
             ? halfAndHalfFlavorCategoryId || categoryId
             : null,
         ...(priceCents != null ? { priceInCents: priceCents } : {}),
@@ -464,10 +493,20 @@ export function EditProductDialog({
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>Regra de preo</Label>
+                <label className="flex min-h-10 items-center gap-2 rounded-md border border-border px-3 py-2 text-sm">
+                  <Checkbox
+                    checked={supportsHalfAndHalf}
+                    onCheckedChange={(checked) => setSupportsHalfAndHalf(checked === true)}
+                    disabled={submitting}
+                  />
+                  <span>Permitir pizza meio a meio</span>
+                </label>
+                {/* Legacy pricing-rule selector intentionally hidden. */}
+                {showLegacyPricingRuleSelector && (
                 <Select
-                  value={pricingRule}
-                  onValueChange={(v) => setPricingRule(v as CatalogProductPricingRule)}
-                  disabled={submitting}
+                  value="STANDARD"
+                  onValueChange={() => undefined}
+                  disabled
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -477,13 +516,14 @@ export function EditProductDialog({
                     <SelectItem value="MAX_SELECTED_FLAVOR">Meio a meio</SelectItem>
                   </SelectContent>
                 </Select>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="eprod-half-cat">Categoria de sabores</Label>
                 <Select
                   value={halfAndHalfFlavorCategoryId}
                   onValueChange={setHalfAndHalfFlavorCategoryId}
-                  disabled={submitting || pricingRule !== "MAX_SELECTED_FLAVOR"}
+                  disabled={submitting || !supportsHalfAndHalf}
                 >
                   <SelectTrigger id="eprod-half-cat">
                     <SelectValue placeholder="Usar categoria do produto" />
@@ -498,6 +538,14 @@ export function EditProductDialog({
                 </Select>
               </div>
             </div>
+            <label className="flex min-h-10 items-center gap-2 rounded-md border border-border px-3 py-2 text-sm">
+              <Checkbox
+                checked={canBeUsedAsFlavor}
+                onCheckedChange={(checked) => setCanBeUsedAsFlavor(checked === true)}
+                disabled={submitting}
+              />
+              <span>Permitir usar este produto como sabor</span>
+            </label>
             <div className="space-y-2">
               <Label>Categoria do catálogo</Label>
               <Select value={categoryId} onValueChange={setCategoryId} disabled={submitting}>

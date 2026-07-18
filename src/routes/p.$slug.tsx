@@ -35,6 +35,13 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { resolveAssetUrl } from "@/lib/auth";
 import { handleApiError } from "@/lib/api-error";
 import { qk } from "@/lib/query-keys";
@@ -369,7 +376,8 @@ function PublicStorePage() {
     product: PublicStoreProduct,
     notes: string,
     selectedOptions: CartLineSelectedOption[],
-    selectedFlavors: { id: string; name: string; priceInCents: number }[],
+    selectedFlavorProductIds: string[],
+    displayFlavors: { id: string; name: string; priceInCents: number }[],
     quantity: number,
   ) {
     setCart((prev) => {
@@ -377,7 +385,7 @@ function PublicStorePage() {
       const optSig = JSON.stringify(
         selectedOptions.map((s) => ({ g: s.optionGroupId, o: [...s.optionIds].sort() })),
       );
-      const flavorSig = JSON.stringify(selectedFlavors.map((f) => f.id).sort());
+      const flavorSig = JSON.stringify(selectedFlavorProductIds.slice().sort());
       const idx = prev.findIndex(
         (l) =>
           l.product.id === product.id &&
@@ -397,8 +405,8 @@ function PublicStorePage() {
         0,
       );
       const basePriceInCents =
-        selectedFlavors.length === 2
-          ? Math.max(...selectedFlavors.map((flavor) => flavor.priceInCents))
+        displayFlavors.length === 2
+          ? Math.max(...displayFlavors.map((flavor) => flavor.priceInCents))
           : product.priceInCents;
       return [
         ...prev,
@@ -409,8 +417,8 @@ function PublicStorePage() {
           quantity,
           notes: trimmed || undefined,
           selectedOptions,
-          selectedFlavorProductIds: selectedFlavors.map((flavor) => flavor.id),
-          displayFlavors: selectedFlavors,
+          selectedFlavorProductIds,
+          displayFlavors,
           unitPriceInCents: basePriceInCents + deltaSum,
         },
       ];
@@ -834,8 +842,8 @@ function PublicStorePage() {
               setNotes={setAddNotes}
               isOpen={isOpen}
               fallbackImageUrl={defaultProductImg}
-              onAdd={(selectedOptions, selectedFlavors, qty) => {
-                addToCart(addingProduct, addNotes, selectedOptions, selectedFlavors, qty);
+              onAdd={(selectedOptions, selectedFlavorProductIds, displayFlavors, qty) => {
+                addToCart(addingProduct, addNotes, selectedOptions, selectedFlavorProductIds, displayFlavors, qty);
                 setAddingProduct(null);
                 setAddNotes("");
               }}
@@ -1109,7 +1117,8 @@ function ProductModalBody({
   isOpen: boolean;
   onAdd: (
     selectedOptions: CartLineSelectedOption[],
-    selectedFlavors: { id: string; name: string; priceInCents: number }[],
+    selectedFlavorProductIds: string[],
+    displayFlavors: { id: string; name: string; priceInCents: number }[],
     qty: number,
   ) => void;
   fallbackImageUrl?: string | null;
@@ -1123,11 +1132,13 @@ function ProductModalBody({
 
   const groups = useMemo(() => sortedGroups(product.optionGroups), [product.optionGroups]);
   const flavorProducts = useMemo(
-    () => [...(product.halfAndHalfFlavorProducts ?? [])].sort((a, b) => a.name.localeCompare(b.name)),
-    [product.halfAndHalfFlavorProducts],
+    () => [...(product.halfAndHalfFlavors ?? product.halfAndHalfFlavorProducts ?? [])].sort((a, b) => a.name.localeCompare(b.name)),
+    [product.halfAndHalfFlavorProducts, product.halfAndHalfFlavors],
   );
-  const acceptsHalfAndHalf = product.acceptsHalfAndHalf || product.pricingRule === "MAX_SELECTED_FLAVOR";
-  const [selectedFlavorIds, setSelectedFlavorIds] = useState<string[]>([]);
+  const acceptsHalfAndHalf =
+    product.supportsHalfAndHalf || product.acceptsHalfAndHalf || product.pricingRule === "MAX_SELECTED_FLAVOR";
+  const [pizzaMode, setPizzaMode] = useState<"WHOLE" | "HALF_AND_HALF">("WHOLE");
+  const [secondFlavorId, setSecondFlavorId] = useState("");
   // Selected option IDs per group.
   const [selectedByGroup, setSelectedByGroup] = useState<Record<string, string[]>>(() => {
     const init: Record<string, string[]> = {};
@@ -1135,7 +1146,8 @@ function ProductModalBody({
     return init;
   });
   useEffect(() => {
-    setSelectedFlavorIds([]);
+    setPizzaMode("WHOLE");
+    setSecondFlavorId("");
     const init: Record<string, string[]> = {};
     for (const g of groups) init[g.id] = [];
     setSelectedByGroup(init);
@@ -1159,14 +1171,6 @@ function ProductModalBody({
     });
   }
 
-  function setFlavorAt(index: number, flavorId: string) {
-    setSelectedFlavorIds((prev) => {
-      const next = [...prev];
-      next[index] = flavorId;
-      return next.filter(Boolean).slice(0, 2);
-    });
-  }
-
   // Sum of price deltas for currently selected options.
   const deltaTotal = useMemo(() => {
     let sum = 0;
@@ -1180,22 +1184,30 @@ function ProductModalBody({
     return sum;
   }, [groups, selectedByGroup]);
 
-  const selectedFlavors = useMemo(
-    () => selectedFlavorIds
-      .map((id) => flavorProducts.find((flavor) => flavor.id === id))
-      .filter((flavor): flavor is NonNullable<typeof flavor> => Boolean(flavor)),
-    [flavorProducts, selectedFlavorIds],
+  const secondFlavor = useMemo(
+    () => flavorProducts.find((flavor) => flavor.id === secondFlavorId) ?? null,
+    [flavorProducts, secondFlavorId],
+  );
+  const displayFlavors = useMemo(
+    () =>
+      pizzaMode === "HALF_AND_HALF" && secondFlavor
+        ? [
+            { id: product.id, name: product.name, priceInCents: product.priceInCents },
+            { id: secondFlavor.id, name: secondFlavor.name, priceInCents: secondFlavor.priceInCents },
+          ]
+        : [],
+    [pizzaMode, product.id, product.name, product.priceInCents, secondFlavor],
   );
   const flavorBasePrice =
-    acceptsHalfAndHalf && selectedFlavors.length === 2
-      ? Math.max(...selectedFlavors.map((flavor) => flavor.priceInCents))
+    acceptsHalfAndHalf && pizzaMode === "HALF_AND_HALF" && secondFlavor
+      ? Math.max(product.priceInCents, secondFlavor.priceInCents)
       : product.priceInCents;
   const previewUnitPrice = flavorBasePrice + deltaTotal;
 
   // Validation: required groups need >= minSelections; all groups <= maxSelections.
   const validation = useMemo(() => {
-    if (acceptsHalfAndHalf && selectedFlavorIds.length !== 2) {
-      return { ok: false, reason: "Escolha exatamente dois sabores" };
+    if (acceptsHalfAndHalf && pizzaMode === "HALF_AND_HALF" && !secondFlavor) {
+      return { ok: false, reason: "Escolha o segundo sabor" };
     }
     for (const g of groups) {
       const ids = selectedByGroup[g.id] ?? [];
@@ -1203,7 +1215,7 @@ function ProductModalBody({
       if (ids.length < min) return { ok: false, reason: `Selecione pelo menos ${min} em "${g.name}"` };
     }
     return { ok: true, reason: null as string | null };
-  }, [acceptsHalfAndHalf, groups, selectedByGroup, selectedFlavorIds.length]);
+  }, [acceptsHalfAndHalf, groups, pizzaMode, secondFlavor, selectedByGroup]);
 
   function handleAdd() {
     if (!validation.ok) {
@@ -1225,7 +1237,12 @@ function ProductModalBody({
         return { optionGroupId: g.id, optionIds: ids, displayOptions };
       })
       .filter((v): v is CartLineSelectedOption => v !== null);
-    onAdd(payload, selectedFlavors, qty);
+    onAdd(
+      payload,
+      pizzaMode === "HALF_AND_HALF" && secondFlavor ? [secondFlavor.id] : [],
+      displayFlavors,
+      qty,
+    );
   }
 
   return (
@@ -1265,39 +1282,53 @@ function ProductModalBody({
         {acceptsHalfAndHalf && (
           <div className="rounded-xl border border-border/60 bg-muted/30">
             <div className="border-b border-border/50 px-3 py-2">
-              <p className="text-sm font-bold">Escolha os sabores</p>
+              <p className="text-sm font-bold">Como você quer sua pizza?</p>
               <p className="text-[11px] text-muted-foreground">
-                Escolha a primeira metade e a segunda metade. O valor sera calculado pelo sabor mais caro.
+                O valor da pizza meio a meio será o do sabor de maior preço.
               </p>
             </div>
-            <div className="grid gap-2 p-3 sm:grid-cols-2">
-              {[0, 1].map((index) => (
-                <div key={index} className="rounded-lg border border-border/60 bg-background p-2">
-                  <p className="mb-2 text-xs font-bold text-muted-foreground">
-                    {index === 0 ? "Primeira metade" : "Segunda metade"}
-                  </p>
-                  <div className="max-h-56 space-y-1 overflow-y-auto pr-1">
-                    {flavorProducts.map((flavor) => {
-                      const active = selectedFlavorIds[index] === flavor.id;
-                      const alreadyPickedElsewhere = selectedFlavorIds.includes(flavor.id) && !active;
-                      return (
-                        <button
-                          key={`${index}-${flavor.id}`}
-                          type="button"
-                          disabled={alreadyPickedElsewhere}
-                          onClick={() => setFlavorAt(index, flavor.id)}
-                          className={`flex w-full items-center justify-between gap-2 rounded-md px-2 py-2 text-left text-sm transition ${
-                            active ? "bg-primary/10 text-primary" : "hover:bg-muted"
-                          } ${alreadyPickedElsewhere ? "cursor-not-allowed opacity-50" : ""}`}
-                        >
-                          <span className="min-w-0 truncate font-medium">{flavor.name}</span>
-                          <span className="shrink-0 text-xs text-muted-foreground">{brl(flavor.priceInCents)}</span>
-                        </button>
-                      );
-                    })}
+            <div className="space-y-3 p-3">
+              <RadioGroup
+                value={pizzaMode}
+                onValueChange={(value) => setPizzaMode(value as "WHOLE" | "HALF_AND_HALF")}
+                className="grid gap-2 sm:grid-cols-2"
+              >
+                <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-border/60 bg-background p-3 text-sm">
+                  <RadioGroupItem value="WHOLE" id={`whole-${product.id}`} />
+                  <span>Pizza inteira</span>
+                </label>
+                <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-border/60 bg-background p-3 text-sm">
+                  <RadioGroupItem value="HALF_AND_HALF" id={`half-${product.id}`} />
+                  <span>Meio a meio</span>
+                </label>
+              </RadioGroup>
+
+              {pizzaMode === "HALF_AND_HALF" && (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="rounded-lg border border-border/60 bg-background p-3">
+                    <p className="mb-2 text-xs font-bold text-muted-foreground">Primeira metade</p>
+                    <div className="flex items-center justify-between gap-2 text-sm">
+                      <span className="min-w-0 truncate font-medium">{product.name}</span>
+                      <span className="shrink-0 text-xs text-muted-foreground">{brl(product.priceInCents)}</span>
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-border/60 bg-background p-3">
+                    <p className="mb-2 text-xs font-bold text-muted-foreground">Segunda metade</p>
+                    <Select value={secondFlavorId} onValueChange={setSecondFlavorId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Escolha um sabor" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {flavorProducts.map((flavor) => (
+                          <SelectItem key={flavor.id} value={flavor.id}>
+                            {flavor.name} - {brl(flavor.priceInCents)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
-              ))}
+              )}
             </div>
           </div>
         )}

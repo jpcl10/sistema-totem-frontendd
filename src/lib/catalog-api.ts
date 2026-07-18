@@ -26,6 +26,8 @@ export interface CatalogProduct {
   catalogCategory?: CatalogCategory;
   /** PreÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§o-base do catÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡logo em centavos. */
   pricingRule?: CatalogProductPricingRule;
+  supportsHalfAndHalf?: boolean;
+  canBeUsedAsFlavor?: boolean;
   halfAndHalfFlavorCategoryId?: string | null;
   priceInCents?: number;
   sortOrder?: number;
@@ -152,6 +154,8 @@ export async function createCatalogProduct(
     imageUrl?: string;
     priceInCents?: number;
     pricingRule?: CatalogProductPricingRule;
+    supportsHalfAndHalf?: boolean;
+    canBeUsedAsFlavor?: boolean;
     halfAndHalfFlavorCategoryId?: string | null;
     sortOrder?: number;
     active?: boolean;
@@ -167,6 +171,12 @@ export async function createCatalogProduct(
   if (input.imageUrl) body.imageUrl = input.imageUrl;
   if (typeof input.priceInCents === "number") body.priceInCents = input.priceInCents;
   if (typeof input.pricingRule === "string") body.pricingRule = input.pricingRule;
+  if (typeof input.supportsHalfAndHalf === "boolean") {
+    body.supportsHalfAndHalf = input.supportsHalfAndHalf;
+  }
+  if (typeof input.canBeUsedAsFlavor === "boolean") {
+    body.canBeUsedAsFlavor = input.canBeUsedAsFlavor;
+  }
   if (input.halfAndHalfFlavorCategoryId !== undefined) {
     body.halfAndHalfFlavorCategoryId = input.halfAndHalfFlavorCategoryId;
   }
@@ -368,6 +378,8 @@ export async function updateCatalogProduct(
     active: boolean;
     priceInCents: number;
     pricingRule: CatalogProductPricingRule;
+    supportsHalfAndHalf: boolean;
+    canBeUsedAsFlavor: boolean;
     halfAndHalfFlavorCategoryId: string | null;
     sortOrder: number;
   }>,
