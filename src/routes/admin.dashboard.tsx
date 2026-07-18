@@ -54,6 +54,7 @@ import { handleApiError } from "@/lib/api-error";
 import { useQuery } from "@tanstack/react-query";
 import { listUnifiedOrders } from "@/lib/orders-api";
 import { listOrdersByEvent, type Order } from "@/lib/orders-api";
+import { resolveUnifiedOrderTotalCents } from "@/components/admin/orders/unified-adapter";
 
 export const Route = createFileRoute("/admin/dashboard")({
   component: DashboardPage,
@@ -1411,10 +1412,9 @@ function OnlineOrdersSection() {
     onlineOrdersInScope.filter((o) => statusOf(o) === s).length;
 
   const billableOrders = onlineOrdersInScope.filter((o) => statusOf(o) !== "CANCELLED");
-  const scopedRevenue = billableOrders.reduce(
-    (sum, o) => sum + (typeof o.totalInCents === "number" ? o.totalInCents : 0),
-    0,
-  );
+  const scopedRevenue = billableOrders.reduce((sum, order) => {
+    return sum + (resolveUnifiedOrderTotalCents(order) ?? 0);
+  }, 0);
   const scopedOrders = onlineOrdersInScope.length;
   const avgTicket = billableOrders.length > 0 ? scopedRevenue / billableOrders.length : 0;
 

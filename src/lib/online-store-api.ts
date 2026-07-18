@@ -42,6 +42,34 @@ export interface OnlineStoreDetail {
   products: OnlineProduct[];
 }
 
+export type StoreManualOverrideMode = "AUTO" | "FORCE_OPEN" | "FORCE_CLOSED";
+
+export interface OnlineStoreAvailability {
+  isActive: boolean;
+  isWithinBusinessHours: boolean;
+  manualOverride: StoreManualOverrideMode;
+  isOpen: boolean;
+  acceptingOrders: boolean;
+  reason: string | null;
+  timezone: string;
+  nextOpeningAt: string | null;
+  nextClosingAt: string | null;
+  legacyManualClosed?: boolean;
+}
+
+export interface OnlineStoreAvailabilityResponse {
+  availability: OnlineStoreAvailability;
+  operation?: Record<string, unknown>;
+  onlineOrders?: Record<string, unknown>;
+  sources?: Record<string, unknown>;
+}
+
+export interface UpdateOnlineStoreAvailabilityBody {
+  mode: StoreManualOverrideMode;
+  until?: string | null;
+  reason?: string | null;
+}
+
 async function handle<T>(res: Response, fallback?: string): Promise<T> {
   if (!res.ok) throw await fromResponse(res, fallback);
   return (await res.json()) as T;
@@ -121,6 +149,33 @@ export async function getOnlineStoreDetail(
   }
 
   return { store, categories, products };
+}
+
+export async function getOnlineStoreAvailability(
+  token: string,
+  storeId: string,
+): Promise<OnlineStoreAvailabilityResponse> {
+  const res = await apiFetch(
+    `${API_BASE_URL}/online-stores/${encodeURIComponent(storeId)}/availability`,
+    { headers: authHeaders(token) },
+  );
+  return handle<OnlineStoreAvailabilityResponse>(res, "NÃ£o foi possÃ­vel carregar o status da loja.");
+}
+
+export async function updateOnlineStoreAvailability(
+  token: string,
+  storeId: string,
+  body: UpdateOnlineStoreAvailabilityBody,
+): Promise<OnlineStoreAvailabilityResponse> {
+  const res = await apiFetch(
+    `${API_BASE_URL}/online-stores/${encodeURIComponent(storeId)}/availability`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...authHeaders(token) },
+      body: JSON.stringify(body),
+    },
+  );
+  return handle<OnlineStoreAvailabilityResponse>(res, "NÃ£o foi possÃ­vel alterar o status da loja.");
 }
 
 

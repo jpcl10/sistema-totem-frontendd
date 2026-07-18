@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient, type QueryKey } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, Trash2, Loader2, Pencil, CalendarClock, CircleDot } from "lucide-react";
+import { Plus, Trash2, Loader2, Pencil, CalendarClock, CircleDot, Power, RotateCcw } from "lucide-react";
 import { AdminLayout } from "@/components/admin-layout";
 import { SettingsLayout } from "@/components/admin/settings/SettingsLayout";
 import { SettingsSection } from "@/components/admin/settings/SettingsSection";
@@ -43,7 +43,12 @@ import {
 import { useAuth } from "@/lib/auth-context";
 import { useOrgId } from "@/hooks/use-org-id";
 import { qk } from "@/lib/query-keys";
-import { listOnlineStores } from "@/lib/online-store-api";
+import {
+  getOnlineStoreAvailability,
+  listOnlineStores,
+  updateOnlineStoreAvailability,
+  type StoreManualOverrideMode,
+} from "@/lib/online-store-api";
 import { listEvents } from "@/lib/events-api";
 import {
   getBusinessHours,
@@ -267,6 +272,10 @@ function BusinessHoursPage() {
     contextId,
     channel,
   });
+  const availabilityQueryKey = qk.onlineOrders.availability(
+    orgId,
+    context === "ONLINE_STORE" ? contextId : null,
+  );
 
   const scopeKey = `${context}:${contextId ?? "root"}:${channel}`;
 
@@ -286,6 +295,50 @@ function BusinessHoursPage() {
     queryFn: () => getEffectiveSettings(token!, filters),
     enabled: canFetch,
     refetchInterval: 60_000,
+  });
+
+  const availabilityQuery = useQuery({
+    queryKey: availabilityQueryKey,
+    queryFn: () => getOnlineStoreAvailability(token!, contextId!),
+    enabled: canFetch && context === "ONLINE_STORE" && !!contextId,
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
+  });
+
+  const availabilityMutation = useMutation({
+    mutationFn: (mode: StoreManualOverrideMode) => {
+      if (
+        mode === "FORCE_OPEN" &&
+        !window.confirm("Abrir o estabelecimento fora do horÃ¡rio programado?")
+      ) {
+        throw new Error("cancelled");
+      }
+      if (
+        mode === "FORCE_CLOSED" &&
+        !window.confirm("Fechar o estabelecimento agora? Pedidos novos serÃ£o bloqueados.")
+      ) {
+        throw new Error("cancelled");
+      }
+      return updateOnlineStoreAvailability(token!, contextId!, {
+        mode,
+        until: null,
+        reason:
+          mode === "FORCE_OPEN"
+            ? "Abertura manual"
+            : mode === "FORCE_CLOSED"
+              ? "Fechamento manual"
+              : null,
+      });
+    },
+    onSuccess: async () => {
+      toast.success("Status da loja atualizado");
+      await queryClient.invalidateQueries({ queryKey: availabilityQueryKey });
+      await queryClient.invalidateQueries({ queryKey: effectiveQueryKey });
+    },
+    onError: (err) => {
+      if (err instanceof Error && err.message === "cancelled") return;
+      handleApiError(err, "NÃ£o foi possÃ­vel alterar o status");
+    },
   });
 
   const [weekly, setWeekly] = useState<BusinessHourDay[]>([]);
@@ -352,10 +405,19 @@ function BusinessHoursPage() {
   }
 
   const effective = effectiveQuery.data;
-  const openNow = query.isSuccess
-    ? calculateOpenNow(query.data?.weekly ?? [], query.data?.exceptions ?? [], context, contextId, channel)
-    : undefined;
-  const source = effective?.source;
+  const availability = availabilityQuery.data?.availability;
+  const openNow =
+    context === "ONLINE_STORE"
+      ? availability?.isOpen
+      : query.isSuccess
+        ? calculateOpenNow(query.data?.weekly ?? [], query.data?.exceptions ?? [], context, contextId, channel)
+        : undefined;
+  const source =
+    context === "ONLINE_STORE"
+      ? availability?.manualOverride === "AUTO"
+        ? "SCHEDULE"
+        : availability?.manualOverride
+      : effective?.source;
   const hasConfiguredHours = (query.data?.weekly?.length ?? 0) > 0;
   const shouldShowEmpty = query.isSuccess && !hasConfiguredHours && emptyDraftKey !== scopeKey;
 
@@ -508,6 +570,84 @@ function BusinessHoursPage() {
             </div>
           </SettingsSection>
 
+          {context === "ONLINE_STORE" && contextId && (
+            <SettingsSection
+              title="Status atual do estabelecimento"
+              description="Status efetivo usado pela loja pÃºblica e pelo bloqueio de novos pedidos."
+              actions={
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={availabilityMutation.isPending}
+                    onClick={() => availabilityMutation.mutate("AUTO")}
+                  >
+                    <RotateCcw className="mr-2 h-4 w-4" />
+                    AutomÃ¡tico
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={availabilityMutation.isPending}
+                    onClick={() => availabilityMutation.mutate("FORCE_OPEN")}
+                  >
+                    <Power className="mr-2 h-4 w-4" />
+                    Abrir agora
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={availabilityMutation.isPending}
+                    onClick={() => availabilityMutation.mutate("FORCE_CLOSED")}
+                  >
+                    <Power className="mr-2 h-4 w-4" />
+                    Fechar agora
+                  </Button>
+                </div>
+              }
+            >
+              {availabilityQuery.isPending ? (
+                <div className="h-16 animate-pulse rounded-lg bg-muted/40" />
+              ) : availabilityQuery.isError || !availability ? (
+                <PageError message="NÃ£o foi possÃ­vel carregar o status da loja." onRetry={() => availabilityQuery.refetch()} />
+              ) : (
+                <div className="grid gap-3 text-sm md:grid-cols-4">
+                  <div className="rounded-lg border border-border p-3">
+                    <p className="text-xs text-muted-foreground">Status</p>
+                    <p className="mt-1 font-semibold">
+                      {availability.isOpen ? "Aberto" : "Fechado"}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-border p-3">
+                    <p className="text-xs text-muted-foreground">Fonte</p>
+                    <p className="mt-1 font-semibold">
+                      {availability.manualOverride === "AUTO"
+                        ? "HorÃ¡rio programado"
+                        : availability.manualOverride === "FORCE_OPEN"
+                          ? "Aberto manualmente"
+                          : "Fechado manualmente"}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-border p-3">
+                    <p className="text-xs text-muted-foreground">PrÃ³xima mudanÃ§a</p>
+                    <p className="mt-1 font-semibold">
+                      {formatDateTime(availability.nextClosingAt ?? availability.nextOpeningAt) ?? "Sem previsÃ£o"}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-border p-3">
+                    <p className="text-xs text-muted-foreground">Timezone</p>
+                    <p className="mt-1 font-semibold">{availability.timezone}</p>
+                  </div>
+                  {availability.reason && (
+                    <p className="text-xs text-muted-foreground md:col-span-4">
+                      Motivo: {reasonLabel(availability.reason)}
+                    </p>
+                  )}
+                </div>
+              )}
+            </SettingsSection>
+          )}
+
           {context === "ONLINE_STORE" && !contextId ? (
             <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
               Selecione uma loja para carregar os horários.
@@ -584,6 +724,12 @@ function BusinessHoursPage() {
 
 function sourceLabel(s: string): string {
   switch (s) {
+    case "SCHEDULE":
+      return "Horario";
+    case "FORCE_OPEN":
+      return "Aberto manualmente";
+    case "FORCE_CLOSED":
+      return "Fechado manualmente";
     case "ORGANIZATION":
       return "Organização";
     case "ONLINE_STORE":
@@ -597,6 +743,35 @@ function sourceLabel(s: string): string {
     default:
       return s;
   }
+}
+
+function reasonLabel(reason: string): string {
+  switch (reason) {
+    case "OUTSIDE_BUSINESS_HOURS":
+      return "Fora do horario programado";
+    case "MANUALLY_CLOSED":
+      return "Fechado manualmente";
+    case "STORE_INACTIVE":
+      return "Loja inativa";
+    case "ONLINE_ORDERING_DISABLED":
+      return "Pedidos online desativados";
+    case "MINIMUM_ORDER_NOT_REACHED":
+      return "Pedido minimo nao atingido";
+    default:
+      return reason;
+  }
+}
+
+function formatDateTime(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function DayRow({

@@ -81,7 +81,7 @@ function pickNumber(...vals: unknown[]): number | undefined {
  * Priority: totals.totalInCents > totals.subtotal + deliveryFee >
  *           totalInCents at root > sum of items.
  */
-function resolveTotalCents(dto: UnifiedOrderDTO): number | undefined {
+export function resolveUnifiedOrderTotalCents(dto: UnifiedOrderDTO): number | undefined {
   const rec = asRecord(dto);
   const totals = asRecord(rec.totals);
   const total = pickNumber(
@@ -113,8 +113,23 @@ function resolveTotalCents(dto: UnifiedOrderDTO): number | undefined {
         it.priceInCents,
         it.price_in_cents,
         it.unitPriceInCents,
+        it.unit_price_in_cents,
       );
-      if (typeof unit === "number") sum += unit * qty;
+      if (typeof unit === "number") {
+        const options = Array.isArray(it.options) ? (it.options as unknown[]) : [];
+        const optionsTotal = options.reduce<number>((acc, rawOption) => {
+          const option = asRecord(rawOption);
+          return acc + (pickNumber(
+            option.priceDeltaInCents,
+            option.price_delta_in_cents,
+            option.priceInCents,
+            option.price_in_cents,
+            option.amountInCents,
+            option.amount_in_cents,
+          ) ?? 0);
+        }, 0);
+        sum += (unit + optionsTotal) * qty;
+      }
     }
     if (sum > 0) return sum;
   }
@@ -164,7 +179,7 @@ export function unifiedToKanbanOrder(dto: UnifiedOrderDTO): AdaptedOrder {
     : undefined;
 
   const context = resolveContext(dto);
-  const totalCents = resolveTotalCents(dto);
+  const totalCents = resolveUnifiedOrderTotalCents(dto);
   const payment = asRecord(rec.payment);
   const fulfillment = asRecord(rec.fulfillment);
 

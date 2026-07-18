@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { toast } from "sonner";
 import {
@@ -83,6 +83,12 @@ interface CartLine {
   quantity: number;
   notes?: string;
   selectedOptions: CartLineSelectedOption[];
+  selectedFlavorProductIds: string[];
+  displayFlavors: {
+    id: string;
+    name: string;
+    priceInCents: number;
+  }[];
   /** base + sum of all option priceDeltaInCents (visual only). */
   unitPriceInCents: number;
 }
@@ -182,11 +188,14 @@ const checkoutSchema = z
 
 function PublicStorePage() {
   const { slug } = Route.useParams();
+  const queryClient = useQueryClient();
 
   const q = useQuery({
     queryKey: qk.publicStore.bySlug(slug),
     queryFn: () => getPublicStore(slug),
     staleTime: 60_000,
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
     retry: 1,
   });
 
@@ -216,12 +225,24 @@ function PublicStorePage() {
 
   const isOpen = useMemo(() => {
     if (!store) return false;
-    if (typeof store.openNow === "boolean") return store.openNow;
-    if (typeof store.isOpen === "boolean") return store.isOpen;
-    if (typeof store.open === "boolean") return store.open;
-    if (typeof store.active === "boolean") return store.active;
-    return true;
+    if (typeof store.operation?.acceptingOrders === "boolean") return store.operation.acceptingOrders;
+    if (typeof store.acceptingOrders === "boolean") return store.acceptingOrders;
+    return false;
   }, [store]);
+
+  const openStatusMessage = useMemo(() => {
+    if (!store) return "Carregando";
+    if (isOpen) return store.openStatusMessage || store.operation?.statusMessage || "Aberto agora";
+    const nextOpening = store.operation?.nextOpeningAt ?? store.nextOpeningAt;
+    if (nextOpening) {
+      const label = new Date(nextOpening).toLocaleTimeString("pt-BR", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      return `Fechado · Abre às ${label}`;
+    }
+    return store.operation?.statusMessage || store.openStatusMessage || "Fechado";
+  }, [isOpen, store]);
 
   // Resolved branding (all fields optional — fall back to previous behavior).
   const branding = useMemo(() => {
@@ -348,6 +369,7 @@ function PublicStorePage() {
     product: PublicStoreProduct,
     notes: string,
     selectedOptions: CartLineSelectedOption[],
+    selectedFlavors: { id: string; name: string; priceInCents: number }[],
     quantity: number,
   ) {
     setCart((prev) => {
@@ -355,10 +377,12 @@ function PublicStorePage() {
       const optSig = JSON.stringify(
         selectedOptions.map((s) => ({ g: s.optionGroupId, o: [...s.optionIds].sort() })),
       );
+      const flavorSig = JSON.stringify(selectedFlavors.map((f) => f.id).sort());
       const idx = prev.findIndex(
         (l) =>
           l.product.id === product.id &&
           (l.notes ?? "") === trimmed &&
+          JSON.stringify(l.selectedFlavorProductIds.slice().sort()) === flavorSig &&
           JSON.stringify(
             l.selectedOptions.map((s) => ({ g: s.optionGroupId, o: [...s.optionIds].sort() })),
           ) === optSig,
@@ -372,7 +396,10 @@ function PublicStorePage() {
         (acc, s) => acc + s.displayOptions.reduce((a, o) => a + (o.priceDeltaInCents ?? 0), 0),
         0,
       );
-      const basePriceInCents = product.priceInCents;
+      const basePriceInCents =
+        selectedFlavors.length === 2
+          ? Math.max(...selectedFlavors.map((flavor) => flavor.priceInCents))
+          : product.priceInCents;
       return [
         ...prev,
         {
@@ -382,6 +409,8 @@ function PublicStorePage() {
           quantity,
           notes: trimmed || undefined,
           selectedOptions,
+          selectedFlavorProductIds: selectedFlavors.map((flavor) => flavor.id),
+          displayFlavors: selectedFlavors,
           unitPriceInCents: basePriceInCents + deltaSum,
         },
       ];
@@ -424,7 +453,7 @@ function PublicStorePage() {
         toast.error("Pedidos online estão desativados no momento.");
         return;
       }
-      if (op.openNow === false) {
+      if (op.acceptingOrders === false || op.openNow === false) {
         toast.error(op.closedMessage ?? "A loja está fechada no momento.");
         return;
       }
@@ -475,6 +504,7 @@ function PublicStorePage() {
           productId: l.product.id,
           quantity: l.quantity,
           notes: l.notes,
+          selectedFlavorProductIds: l.selectedFlavorProductIds,
           selectedOptions: l.selectedOptions.length > 0
             ? l.selectedOptions.map((s) => ({
                 optionGroupId: s.optionGroupId,
@@ -497,7 +527,11 @@ function PublicStorePage() {
         err && typeof err === "object" && "code" in err
           ? String((err as { code?: unknown }).code)
           : "";
-      if (code === "DELIVERY_DISABLED") {
+      if (code === "STORE_CLOSED") {
+        setCheckoutOpen(true);
+        await queryClient.invalidateQueries({ queryKey: qk.publicStore.bySlug(slug) });
+        toast.error("O estabelecimento esta fechado no momento. Seu carrinho foi mantido.");
+      } else if (code === "DELIVERY_DISABLED") {
         toast.error(
           "Esta loja não está aceitando entregas no momento. Escolha retirada no balcão.",
         );
@@ -592,29 +626,29 @@ function PublicStorePage() {
           )}
         </div>
 
-        <div className="mx-auto -mt-12 max-w-4xl px-4 sm:-mt-14 sm:px-6">
-          <div className="flex items-end gap-4">
+        <div className="mx-auto -mt-10 max-w-4xl px-3 sm:-mt-14 sm:px-6">
+          <div className="flex items-center gap-3 sm:items-end sm:gap-4">
             <div className="relative shrink-0">
               {logo ? (
                 <img
                   src={logo}
                   alt={store.name}
-                  className="h-24 w-24 rounded-2xl border-4 border-background bg-card object-cover shadow-xl ring-1 ring-border/40 sm:h-28 sm:w-28"
+                  className="h-20 w-20 rounded-xl border-[3px] border-background bg-card object-cover shadow-xl ring-1 ring-border/40 min-[390px]:h-24 min-[390px]:w-24 sm:h-28 sm:w-28 sm:rounded-2xl sm:border-4"
                   loading="eager"
                 />
               ) : (
-                <div className="flex h-24 w-24 items-center justify-center rounded-2xl border-4 border-background bg-gradient-to-br from-primary to-primary-glow text-3xl font-black text-primary-foreground shadow-xl sm:h-28 sm:w-28">
+                <div className="flex h-20 w-20 items-center justify-center rounded-xl border-[3px] border-background bg-gradient-to-br from-primary to-primary-glow text-2xl font-black text-primary-foreground shadow-xl min-[390px]:h-24 min-[390px]:w-24 sm:h-28 sm:w-28 sm:rounded-2xl sm:border-4 sm:text-3xl">
                   {store.name.charAt(0).toUpperCase()}
                 </div>
               )}
             </div>
-            <div className="min-w-0 flex-1 pb-1.5">
-              <h1 className="truncate text-2xl font-black tracking-tight text-foreground sm:text-3xl">
+            <div className="min-w-0 flex-1 pb-0.5 sm:pb-1.5">
+              <h1 className="line-clamp-2 break-words text-xl font-black leading-tight tracking-tight text-foreground min-[390px]:text-2xl sm:text-3xl">
                 {store.name}
               </h1>
-              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+              <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] sm:gap-x-2 sm:text-xs">
                 <span
-                  className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                  className={`inline-flex shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 font-semibold sm:gap-1.5 sm:px-2 ${
                     isOpen
                       ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
                       : "bg-rose-500/15 text-rose-700 dark:text-rose-400"
@@ -630,15 +664,21 @@ function PublicStorePage() {
                       }`}
                     />
                   </span>
-                  {store.openStatusMessage || (isOpen ? "Aberto agora" : "Fechado")}
+                  {openStatusMessage}
                 </span>
-                <span className="inline-flex items-center gap-1 text-muted-foreground">
-                  <Clock className="h-3 w-3" /> {deliveryTime}
+                <span className="inline-flex shrink-0 items-center gap-1 text-muted-foreground">
+                  <Clock className="h-3 w-3 shrink-0" /> {deliveryTime}
                 </span>
                 {store.city && (
-                  <span className="inline-flex items-center gap-1 text-muted-foreground">
-                    <MapPin className="h-3 w-3" /> {store.city}
-                    {store.state ? ` · ${store.state}` : ""}
+                  <span
+                    className="inline-flex min-w-0 basis-full items-center gap-1 text-muted-foreground sm:basis-auto"
+                    title={`${store.city}${store.state ? ` · ${store.state}` : ""}`}
+                  >
+                    <MapPin className="h-3 w-3 shrink-0" />
+                    <span className="min-w-0 truncate">
+                      {store.city}
+                      {store.state ? ` · ${store.state}` : ""}
+                    </span>
                   </span>
                 )}
               </div>
@@ -794,8 +834,8 @@ function PublicStorePage() {
               setNotes={setAddNotes}
               isOpen={isOpen}
               fallbackImageUrl={defaultProductImg}
-              onAdd={(selectedOptions, qty) => {
-                addToCart(addingProduct, addNotes, selectedOptions, qty);
+              onAdd={(selectedOptions, selectedFlavors, qty) => {
+                addToCart(addingProduct, addNotes, selectedOptions, selectedFlavors, qty);
                 setAddingProduct(null);
                 setAddNotes("");
               }}
@@ -826,6 +866,15 @@ function PublicStorePage() {
                     <p className="text-xs text-muted-foreground">
                       {brl(l.unitPriceInCents)}
                     </p>
+                    {l.displayFlavors.length > 0 && (
+                      <ul className="mt-1 space-y-0.5">
+                        {l.displayFlavors.map((flavor, index) => (
+                          <li key={`${l.key}-flavor-${index}`} className="text-[11px] text-muted-foreground">
+                            <span className="font-semibold">1/2</span> {flavor.name}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                     {l.selectedOptions.length > 0 && (
                       <ul className="mt-1 space-y-0.5">
                         {l.selectedOptions.flatMap((s) =>
@@ -1058,7 +1107,11 @@ function ProductModalBody({
   notes: string;
   setNotes: (v: string) => void;
   isOpen: boolean;
-  onAdd: (selectedOptions: CartLineSelectedOption[], qty: number) => void;
+  onAdd: (
+    selectedOptions: CartLineSelectedOption[],
+    selectedFlavors: { id: string; name: string; priceInCents: number }[],
+    qty: number,
+  ) => void;
   fallbackImageUrl?: string | null;
 }) {
   const [qty, setQty] = useState(1);
@@ -1069,12 +1122,24 @@ function ProductModalBody({
   const img = resolved ?? fallbackImageUrl;
 
   const groups = useMemo(() => sortedGroups(product.optionGroups), [product.optionGroups]);
+  const flavorProducts = useMemo(
+    () => [...(product.halfAndHalfFlavorProducts ?? [])].sort((a, b) => a.name.localeCompare(b.name)),
+    [product.halfAndHalfFlavorProducts],
+  );
+  const acceptsHalfAndHalf = product.acceptsHalfAndHalf || product.pricingRule === "MAX_SELECTED_FLAVOR";
+  const [selectedFlavorIds, setSelectedFlavorIds] = useState<string[]>([]);
   // Selected option IDs per group.
   const [selectedByGroup, setSelectedByGroup] = useState<Record<string, string[]>>(() => {
     const init: Record<string, string[]> = {};
     for (const g of groups) init[g.id] = [];
     return init;
   });
+  useEffect(() => {
+    setSelectedFlavorIds([]);
+    const init: Record<string, string[]> = {};
+    for (const g of groups) init[g.id] = [];
+    setSelectedByGroup(init);
+  }, [product.id]);
 
   function toggleOption(group: PublicProductOptionGroup, optionId: string) {
     setSelectedByGroup((prev) => {
@@ -1094,6 +1159,14 @@ function ProductModalBody({
     });
   }
 
+  function setFlavorAt(index: number, flavorId: string) {
+    setSelectedFlavorIds((prev) => {
+      const next = [...prev];
+      next[index] = flavorId;
+      return next.filter(Boolean).slice(0, 2);
+    });
+  }
+
   // Sum of price deltas for currently selected options.
   const deltaTotal = useMemo(() => {
     let sum = 0;
@@ -1107,17 +1180,30 @@ function ProductModalBody({
     return sum;
   }, [groups, selectedByGroup]);
 
-  const unitPrice = product.priceInCents + deltaTotal;
+  const selectedFlavors = useMemo(
+    () => selectedFlavorIds
+      .map((id) => flavorProducts.find((flavor) => flavor.id === id))
+      .filter((flavor): flavor is NonNullable<typeof flavor> => Boolean(flavor)),
+    [flavorProducts, selectedFlavorIds],
+  );
+  const flavorBasePrice =
+    acceptsHalfAndHalf && selectedFlavors.length === 2
+      ? Math.max(...selectedFlavors.map((flavor) => flavor.priceInCents))
+      : product.priceInCents;
+  const previewUnitPrice = flavorBasePrice + deltaTotal;
 
   // Validation: required groups need >= minSelections; all groups <= maxSelections.
   const validation = useMemo(() => {
+    if (acceptsHalfAndHalf && selectedFlavorIds.length !== 2) {
+      return { ok: false, reason: "Escolha exatamente dois sabores" };
+    }
     for (const g of groups) {
       const ids = selectedByGroup[g.id] ?? [];
       const min = g.required ? Math.max(1, g.minSelections || 1) : (g.minSelections || 0);
       if (ids.length < min) return { ok: false, reason: `Selecione pelo menos ${min} em "${g.name}"` };
     }
     return { ok: true, reason: null as string | null };
-  }, [groups, selectedByGroup]);
+  }, [acceptsHalfAndHalf, groups, selectedByGroup, selectedFlavorIds.length]);
 
   function handleAdd() {
     if (!validation.ok) {
@@ -1139,7 +1225,7 @@ function ProductModalBody({
         return { optionGroupId: g.id, optionIds: ids, displayOptions };
       })
       .filter((v): v is CartLineSelectedOption => v !== null);
-    onAdd(payload, qty);
+    onAdd(payload, selectedFlavors, qty);
   }
 
   return (
@@ -1170,11 +1256,51 @@ function ProductModalBody({
           )}
         </div>
         <div className="flex items-baseline gap-2">
-          <span className="text-2xl font-black text-primary">{brl(product.priceInCents)}</span>
+          <span className="text-2xl font-black text-primary">{brl(previewUnitPrice)}</span>
           {typeof original === "number" && original > product.priceInCents && (
             <span className="text-sm text-muted-foreground line-through">{brl(original)}</span>
           )}
         </div>
+
+        {acceptsHalfAndHalf && (
+          <div className="rounded-xl border border-border/60 bg-muted/30">
+            <div className="border-b border-border/50 px-3 py-2">
+              <p className="text-sm font-bold">Escolha os sabores</p>
+              <p className="text-[11px] text-muted-foreground">
+                Escolha a primeira metade e a segunda metade. O valor sera calculado pelo sabor mais caro.
+              </p>
+            </div>
+            <div className="grid gap-2 p-3 sm:grid-cols-2">
+              {[0, 1].map((index) => (
+                <div key={index} className="rounded-lg border border-border/60 bg-background p-2">
+                  <p className="mb-2 text-xs font-bold text-muted-foreground">
+                    {index === 0 ? "Primeira metade" : "Segunda metade"}
+                  </p>
+                  <div className="max-h-56 space-y-1 overflow-y-auto pr-1">
+                    {flavorProducts.map((flavor) => {
+                      const active = selectedFlavorIds[index] === flavor.id;
+                      const alreadyPickedElsewhere = selectedFlavorIds.includes(flavor.id) && !active;
+                      return (
+                        <button
+                          key={`${index}-${flavor.id}`}
+                          type="button"
+                          disabled={alreadyPickedElsewhere}
+                          onClick={() => setFlavorAt(index, flavor.id)}
+                          className={`flex w-full items-center justify-between gap-2 rounded-md px-2 py-2 text-left text-sm transition ${
+                            active ? "bg-primary/10 text-primary" : "hover:bg-muted"
+                          } ${alreadyPickedElsewhere ? "cursor-not-allowed opacity-50" : ""}`}
+                        >
+                          <span className="min-w-0 truncate font-medium">{flavor.name}</span>
+                          <span className="shrink-0 text-xs text-muted-foreground">{brl(flavor.priceInCents)}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {groups.map((g) => {
           const selected = selectedByGroup[g.id] ?? [];
@@ -1288,7 +1414,7 @@ function ProductModalBody({
               ? "Loja fechada"
               : product.soldOut
                 ? "Esgotado"
-                : `Adicionar · ${brl(unitPrice * qty)}`}
+                : `Adicionar · ${brl(previewUnitPrice * qty)}`}
           </Button>
         </div>
       </div>

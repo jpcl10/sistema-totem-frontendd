@@ -13,6 +13,7 @@ export interface CatalogCategory {
   [k: string]: unknown;
 }
 
+export type CatalogProductPricingRule = "STANDARD" | "MAX_SELECTED_FLAVOR";
 export interface CatalogProduct {
   id: string;
   name: string;
@@ -23,7 +24,9 @@ export interface CatalogProduct {
   categoryId?: string;
   category?: CatalogCategory;
   catalogCategory?: CatalogCategory;
-  /** Preço-base do catálogo em centavos. */
+  /** PreÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§o-base do catÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡logo em centavos. */
+  pricingRule?: CatalogProductPricingRule;
+  halfAndHalfFlavorCategoryId?: string | null;
   priceInCents?: number;
   sortOrder?: number;
   active?: boolean;
@@ -54,13 +57,13 @@ export interface EventCatalogProduct {
   id: string; // EventProduct id (used as order item id)
   eventId: string;
   catalogProductId?: string;
-  /** Preço efetivo (priceInCents) — decidido pelo backend. */
+  /** PreÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§o efetivo (priceInCents) ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â decidido pelo backend. */
   priceInCents: number;
-  /** Preço-base do catálogo em centavos (informativo). */
+  /** PreÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§o-base do catÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡logo em centavos (informativo). */
   catalogPriceInCents?: number;
-  /** Preço específico do evento em centavos; null quando herda catálogo. */
+  /** PreÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§o especÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­fico do evento em centavos; null quando herda catÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡logo. */
   eventPriceInCents?: number | null;
-  /** Origem do preço efetivo. */
+  /** Origem do preÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§o efetivo. */
   priceSource?: PriceSource;
   active?: boolean;
   status?: string;
@@ -74,12 +77,12 @@ export interface EventCatalogProduct {
   stockQuantity?: number;
   soldOut?: boolean;
   sortOrder?: number;
-  /** Grupos de opções herdados do CatalogProduct. */
+  /** Grupos de opÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âµes herdados do CatalogProduct. */
   optionGroups?: CatalogOptionGroup[];
   [k: string]: unknown;
 }
 
-/** Produto do catálogo com marcação de vínculo já existente ao evento. */
+/** Produto do catÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡logo com marcaÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o de vÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­nculo jÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡ existente ao evento. */
 export interface AvailableCatalogProduct extends CatalogProduct {
   alreadyLinked?: boolean;
   optionGroups?: CatalogOptionGroup[];
@@ -148,6 +151,8 @@ export async function createCatalogProduct(
     description?: string;
     imageUrl?: string;
     priceInCents?: number;
+    pricingRule?: CatalogProductPricingRule;
+    halfAndHalfFlavorCategoryId?: string | null;
     sortOrder?: number;
     active?: boolean;
   },
@@ -161,6 +166,10 @@ export async function createCatalogProduct(
   if (input.description) body.description = input.description;
   if (input.imageUrl) body.imageUrl = input.imageUrl;
   if (typeof input.priceInCents === "number") body.priceInCents = input.priceInCents;
+  if (typeof input.pricingRule === "string") body.pricingRule = input.pricingRule;
+  if (input.halfAndHalfFlavorCategoryId !== undefined) {
+    body.halfAndHalfFlavorCategoryId = input.halfAndHalfFlavorCategoryId;
+  }
   if (typeof input.sortOrder === "number") body.sortOrder = input.sortOrder;
   if (typeof input.active === "boolean") body.active = input.active;
   const res = await apiFetch(`${API_BASE_URL}/catalog/products`, {
@@ -267,7 +276,7 @@ export async function addEventCatalogProduct(
   eventId: string,
   input: {
     catalogProductId: string;
-    /** null = usar preço do catálogo; número (centavos) = preço específico do evento */
+    /** null = usar preÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§o do catÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡logo; nÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âºmero (centavos) = preÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§o especÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­fico do evento */
     priceInCents: number | null;
     active?: boolean;
     trackStock?: boolean;
@@ -291,7 +300,7 @@ export async function updateEventCatalogProduct(
   eventId: string,
   eventProductId: string,
   patch: Partial<{
-    /** null = usar preço do catálogo; número (centavos) = preço específico do evento */
+    /** null = usar preÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§o do catÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡logo; nÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âºmero (centavos) = preÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§o especÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­fico do evento */
     priceInCents: number | null;
     active: boolean;
     trackStock: boolean;
@@ -358,6 +367,8 @@ export async function updateCatalogProduct(
     categoryId: string;
     active: boolean;
     priceInCents: number;
+    pricingRule: CatalogProductPricingRule;
+    halfAndHalfFlavorCategoryId: string | null;
     sortOrder: number;
   }>,
 ): Promise<CatalogProduct> {

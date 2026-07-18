@@ -54,6 +54,7 @@ const FRIENDLY_BY_CODE: Record<string, string> = {
   DELIVERY_DISABLED: "Esta loja não está aceitando entregas no momento. Escolha retirada no balcão.",
   PICKUP_DISABLED: "Esta loja não está aceitando retirada no momento.",
   FULFILLMENT_DISABLED: "Esta loja não está aceitando pedidos no momento.",
+  STORE_CLOSED: "O estabelecimento está fechado no momento.",
   MINIMUM_ORDER_NOT_MET: "Pedido mínimo não atingido.",
 
   // Upload

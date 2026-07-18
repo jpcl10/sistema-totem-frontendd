@@ -489,10 +489,17 @@ export async function getCallScreenOrders(slug: string): Promise<CallScreenData>
 /* ---------------- Public Online Store (Guello's Pizza etc.) ---------------- */
 
 export interface PublicStoreOperation {
-  onlineOrderingEnabled: boolean;
-  digitalMenuEnabled: boolean;
-  autoAcceptOrders: boolean;
+  onlineOrderingEnabled?: boolean;
+  digitalMenuEnabled?: boolean;
+  autoAcceptOrders?: boolean;
   openNow: boolean;
+  acceptingOrders?: boolean;
+  statusMessage?: string | null;
+  unavailableReason?: string | null;
+  availabilityReason?: string | null;
+  timezone?: string | null;
+  nextOpeningAt?: string | null;
+  nextClosingAt?: string | null;
   closedMessage: string | null;
   checkoutNotice: string | null;
   orderConfirmationMessage: string | null;
@@ -529,6 +536,10 @@ export interface PublicStore {
   whatsapp?: string;
   phone?: string;
   isOpen?: boolean;
+  acceptingOrders?: boolean;
+  availabilityReason?: string | null;
+  nextOpeningAt?: string | null;
+  nextClosingAt?: string | null;
   open?: boolean;
   active?: boolean;
   status?: string;
@@ -601,6 +612,9 @@ export interface PublicStoreProduct {
   description?: string;
   imageUrl?: string | null;
   priceInCents: number;
+  pricingRule?: "STANDARD" | "MAX_SELECTED_FLAVOR" | string;
+  acceptsHalfAndHalf?: boolean;
+  halfAndHalfFlavorProducts?: PublicStoreProduct[];
   sortOrder?: number;
   categoryId?: string;
   active?: boolean;
@@ -808,6 +822,7 @@ export interface CreatePublicOrderItem {
   quantity: number;
   notes?: string;
   selectedOptions?: CreatePublicOrderItemSelectedOption[];
+  selectedFlavorProductIds?: string[];
 }
 
 

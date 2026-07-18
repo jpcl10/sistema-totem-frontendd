@@ -33,6 +33,11 @@ function ProductMeta({
       <span className="rounded-md border border-border/60 bg-muted/30 px-1.5 py-0.5">
         {counts.options} {counts.options === 1 ? "opção" : "opções"}
       </span>
+      {product.pricingRule === "MAX_SELECTED_FLAVOR" && (
+        <span className="rounded-md border border-primary/30 bg-primary/10 px-1.5 py-0.5 font-medium text-primary">
+          Meio a meio
+        </span>
+      )}
       {product.category?.sector && <SectorBadge sector={product.category.sector} />}
     </div>
   );

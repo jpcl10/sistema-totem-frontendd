@@ -25,6 +25,7 @@ import {
   updateCatalogProduct,
   type CatalogCategory,
   type CatalogProduct,
+  type CatalogProductPricingRule,
 } from "@/lib/catalog-api";
 import { CatalogOptionGroupsManager } from "@/components/admin/catalog-option-groups";
 import { useOrganization } from "@/contexts/organization-context";
@@ -49,6 +50,10 @@ export function NewProductDialog({
   const [description, setDescription] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [priceInput, setPriceInput] = useState("");
+  const [pricingRule, setPricingRule] = useState<CatalogProductPricingRule>("STANDARD");
+  const [halfAndHalfFlavorCategoryId, setHalfAndHalfFlavorCategoryId] = useState<string>(
+    categories[0]?.id ?? "",
+  );
   const [sortOrderInput, setSortOrderInput] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -88,6 +93,11 @@ export function NewProductDialog({
         description: description.trim() || undefined,
         imageUrl: imageUrl.trim() || undefined,
         priceInCents: priceCents ?? undefined,
+        pricingRule,
+        halfAndHalfFlavorCategoryId:
+          pricingRule === "MAX_SELECTED_FLAVOR"
+            ? halfAndHalfFlavorCategoryId || catalogCategoryId
+            : null,
         sortOrder:
           sortOrderNum != null && Number.isFinite(sortOrderNum) ? sortOrderNum : undefined,
       });
@@ -111,7 +121,7 @@ export function NewProductDialog({
     <DialogContent className="sm:max-w-lg">
       <DialogHeader>
         <DialogTitle>Novo produto do catálogo</DialogTitle>
-        <DialogDescription>
+          <DialogDescription>
           Produto global da organização. O preço é definido por evento.
         </DialogDescription>
       </DialogHeader>
@@ -164,6 +174,43 @@ export function NewProductDialog({
           </Select>
         </div>
 
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label>Regra de preço</Label>
+            <Select
+              value={pricingRule}
+              onValueChange={(v) => setPricingRule(v as CatalogProductPricingRule)}
+              disabled={submitting}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="STANDARD">Preço padrão</SelectItem>
+                <SelectItem value="MAX_SELECTED_FLAVOR">Meio a meio</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="prod-half-cat">Categoria de sabores</Label>
+            <Select
+              value={halfAndHalfFlavorCategoryId}
+              onValueChange={setHalfAndHalfFlavorCategoryId}
+              disabled={submitting || pricingRule !== "MAX_SELECTED_FLAVOR"}
+            >
+              <SelectTrigger id="prod-half-cat">
+                <SelectValue placeholder="Usar a categoria do produto" />
+              </SelectTrigger>
+              <SelectContent>
+                {categories.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="prod-price">Preço-base (R$)</Label>
@@ -272,6 +319,12 @@ export function EditProductDialog({
   const [categoryId, setCategoryId] = useState<string>(initialCat);
   const [description, setDescription] = useState(product.description ?? "");
   const [imageUrl, setImageUrl] = useState(product.imageUrl ?? "");
+  const [pricingRule, setPricingRule] = useState<CatalogProductPricingRule>(
+    (product.pricingRule as CatalogProductPricingRule) ?? "STANDARD",
+  );
+  const [halfAndHalfFlavorCategoryId, setHalfAndHalfFlavorCategoryId] = useState<string>(
+    product.halfAndHalfFlavorCategoryId ?? product.catalogCategoryId ?? initialCat,
+  );
   const [priceInput, setPriceInput] = useState(
     typeof product.priceInCents === "number"
       ? (product.priceInCents / 100).toFixed(2).replace(".", ",")
@@ -289,6 +342,9 @@ export function EditProductDialog({
     categoryId: initialCat,
     description: product.description ?? "",
     imageUrl: product.imageUrl ?? "",
+    pricingRule: (product.pricingRule as CatalogProductPricingRule) ?? "STANDARD",
+    halfAndHalfFlavorCategoryId:
+      product.halfAndHalfFlavorCategoryId ?? product.catalogCategoryId ?? initialCat,
     priceInput:
       typeof product.priceInCents === "number"
         ? (product.priceInCents / 100).toFixed(2).replace(".", ",")
@@ -303,6 +359,8 @@ export function EditProductDialog({
     categoryId !== initialSnapshot.current.categoryId ||
     description !== initialSnapshot.current.description ||
     imageUrl !== initialSnapshot.current.imageUrl ||
+    pricingRule !== initialSnapshot.current.pricingRule ||
+    halfAndHalfFlavorCategoryId !== initialSnapshot.current.halfAndHalfFlavorCategoryId ||
     priceInput !== initialSnapshot.current.priceInput ||
     sortOrderInput !== initialSnapshot.current.sortOrderInput ||
     active !== initialSnapshot.current.active;
@@ -333,6 +391,11 @@ export function EditProductDialog({
         description: description.trim(),
         imageUrl: imageUrl.trim(),
         active,
+        pricingRule,
+        halfAndHalfFlavorCategoryId:
+          pricingRule === "MAX_SELECTED_FLAVOR"
+            ? halfAndHalfFlavorCategoryId || categoryId
+            : null,
         ...(priceCents != null ? { priceInCents: priceCents } : {}),
         ...(sortOrderNum != null && Number.isFinite(sortOrderNum)
           ? { sortOrder: sortOrderNum }
@@ -398,6 +461,43 @@ export function EditProductDialog({
               </div>
             </div>
 
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Regra de preo</Label>
+                <Select
+                  value={pricingRule}
+                  onValueChange={(v) => setPricingRule(v as CatalogProductPricingRule)}
+                  disabled={submitting}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                <SelectItem value="STANDARD">Preço padrão</SelectItem>
+                    <SelectItem value="MAX_SELECTED_FLAVOR">Meio a meio</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="eprod-half-cat">Categoria de sabores</Label>
+                <Select
+                  value={halfAndHalfFlavorCategoryId}
+                  onValueChange={setHalfAndHalfFlavorCategoryId}
+                  disabled={submitting || pricingRule !== "MAX_SELECTED_FLAVOR"}
+                >
+                  <SelectTrigger id="eprod-half-cat">
+                    <SelectValue placeholder="Usar categoria do produto" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
             <div className="space-y-2">
               <Label>Categoria do catálogo</Label>
               <Select value={categoryId} onValueChange={setCategoryId} disabled={submitting}>

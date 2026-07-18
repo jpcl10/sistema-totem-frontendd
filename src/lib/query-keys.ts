@@ -66,6 +66,8 @@ export const qk = {
     stores: (orgId: OrgId) => ["online-stores", orgId] as const,
     store: (orgId: OrgId, storeId: string) =>
       ["online-stores", orgId, storeId] as const,
+    availability: (orgId: OrgId, storeId: string | null | undefined) =>
+      ["online-stores", orgId, storeId ?? null, "availability"] as const,
   },
 
   events: {
