@@ -642,6 +642,11 @@ function DevicesPage() {
               onRegenerate={() => handleRegenerate(dv)}
               onCopyCode={() => handleCopy(dv.code, "Código")}
               onOpenLegacy={() => goToLegacyPrinter(dv)}
+              onViewDetails={() => {
+                if (dv.source !== "legacy_printer") {
+                  navigate({ to: "/admin/devices/$id", params: { id: dv.id } });
+                }
+              }}
             />
           ))}
 
@@ -742,6 +747,7 @@ function DeviceCard({
   onRegenerate,
   onCopyCode,
   onOpenLegacy,
+  onViewDetails,
 }: {
   device: UnifiedDevice;
   contextType: "STORE" | "EVENT" | "NONE";
@@ -750,6 +756,7 @@ function DeviceCard({
   onRegenerate: () => void;
   onCopyCode: () => void;
   onOpenLegacy: () => void;
+  onViewDetails: () => void;
 }) {
   const Icon = TYPE_ICON[device.type] ?? Monitor;
   const health = getHealth(device.lastHeartbeatAt);
@@ -882,6 +889,9 @@ function DeviceCard({
               </Button>
               <Button variant="ghost" size="sm" onClick={onRegenerate}>
                 <KeyRound className="h-3.5 w-3.5" /> Gerar credenciais
+              </Button>
+              <Button variant="outline" size="sm" onClick={onViewDetails}>
+                <Monitor className="h-3.5 w-3.5" /> Ver detalhes
               </Button>
               <Button variant="outline" size="sm" onClick={onEdit}>
                 <Pencil className="h-3.5 w-3.5" /> Editar

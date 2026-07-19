@@ -50,6 +50,7 @@ import { Route as AdminSettingsCatalogOnlineRouteImport } from './routes/admin.s
 import { Route as AdminSettingsBusinessHoursRouteImport } from './routes/admin.settings.business-hours'
 import { Route as AdminSettingsBrandingRouteImport } from './routes/admin.settings.branding'
 import { Route as AdminEventsIdRouteImport } from './routes/admin.events.$id'
+import { Route as AdminDevicesIdRouteImport } from './routes/admin.devices.$id'
 import { Route as AdminCustomersIdRouteImport } from './routes/admin.customers.$id'
 import { Route as AdminSettingsDeliveryRulesRouteImport } from './routes/admin.settings.delivery.rules'
 import { Route as AdminEventsIdPrintingRouteImport } from './routes/admin.events.$id.printing'
@@ -264,6 +265,11 @@ const AdminEventsIdRoute = AdminEventsIdRouteImport.update({
   path: '/events/$id',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminDevicesIdRoute = AdminDevicesIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => AdminDevicesRoute,
+} as any)
 const AdminCustomersIdRoute = AdminCustomersIdRouteImport.update({
   id: '/customers/$id',
   path: '/customers/$id',
@@ -294,7 +300,7 @@ export interface FileRoutesByFullPath {
   '/admin/activities': typeof AdminActivitiesRoute
   '/admin/catalog': typeof AdminCatalogRoute
   '/admin/dashboard': typeof AdminDashboardRoute
-  '/admin/devices': typeof AdminDevicesRoute
+  '/admin/devices': typeof AdminDevicesRouteWithChildren
   '/admin/financeiro': typeof AdminFinanceiroRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/nfc-cards': typeof AdminNfcCardsRoute
@@ -313,6 +319,7 @@ export interface FileRoutesByFullPath {
   '/super-admin/users': typeof SuperAdminUsersRoute
   '/super-admin/': typeof SuperAdminIndexRoute
   '/admin/customers/$id': typeof AdminCustomersIdRoute
+  '/admin/devices/$id': typeof AdminDevicesIdRoute
   '/admin/events/$id': typeof AdminEventsIdRouteWithChildren
   '/admin/settings/branding': typeof AdminSettingsBrandingRoute
   '/admin/settings/business-hours': typeof AdminSettingsBusinessHoursRoute
@@ -340,7 +347,7 @@ export interface FileRoutesByTo {
   '/admin/activities': typeof AdminActivitiesRoute
   '/admin/catalog': typeof AdminCatalogRoute
   '/admin/dashboard': typeof AdminDashboardRoute
-  '/admin/devices': typeof AdminDevicesRoute
+  '/admin/devices': typeof AdminDevicesRouteWithChildren
   '/admin/financeiro': typeof AdminFinanceiroRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/nfc-cards': typeof AdminNfcCardsRoute
@@ -358,6 +365,7 @@ export interface FileRoutesByTo {
   '/super-admin/users': typeof SuperAdminUsersRoute
   '/super-admin': typeof SuperAdminIndexRoute
   '/admin/customers/$id': typeof AdminCustomersIdRoute
+  '/admin/devices/$id': typeof AdminDevicesIdRoute
   '/admin/events/$id': typeof AdminEventsIdRouteWithChildren
   '/admin/settings/branding': typeof AdminSettingsBrandingRoute
   '/admin/settings/business-hours': typeof AdminSettingsBusinessHoursRoute
@@ -387,7 +395,7 @@ export interface FileRoutesById {
   '/admin/activities': typeof AdminActivitiesRoute
   '/admin/catalog': typeof AdminCatalogRoute
   '/admin/dashboard': typeof AdminDashboardRoute
-  '/admin/devices': typeof AdminDevicesRoute
+  '/admin/devices': typeof AdminDevicesRouteWithChildren
   '/admin/financeiro': typeof AdminFinanceiroRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/nfc-cards': typeof AdminNfcCardsRoute
@@ -406,6 +414,7 @@ export interface FileRoutesById {
   '/super-admin/users': typeof SuperAdminUsersRoute
   '/super-admin/': typeof SuperAdminIndexRoute
   '/admin/customers/$id': typeof AdminCustomersIdRoute
+  '/admin/devices/$id': typeof AdminDevicesIdRoute
   '/admin/events/$id': typeof AdminEventsIdRouteWithChildren
   '/admin/settings/branding': typeof AdminSettingsBrandingRoute
   '/admin/settings/business-hours': typeof AdminSettingsBusinessHoursRoute
@@ -455,6 +464,7 @@ export interface FileRouteTypes {
     | '/super-admin/users'
     | '/super-admin/'
     | '/admin/customers/$id'
+    | '/admin/devices/$id'
     | '/admin/events/$id'
     | '/admin/settings/branding'
     | '/admin/settings/business-hours'
@@ -500,6 +510,7 @@ export interface FileRouteTypes {
     | '/super-admin/users'
     | '/super-admin'
     | '/admin/customers/$id'
+    | '/admin/devices/$id'
     | '/admin/events/$id'
     | '/admin/settings/branding'
     | '/admin/settings/business-hours'
@@ -547,6 +558,7 @@ export interface FileRouteTypes {
     | '/super-admin/users'
     | '/super-admin/'
     | '/admin/customers/$id'
+    | '/admin/devices/$id'
     | '/admin/events/$id'
     | '/admin/settings/branding'
     | '/admin/settings/business-hours'
@@ -868,6 +880,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminEventsIdRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/devices/$id': {
+      id: '/admin/devices/$id'
+      path: '/$id'
+      fullPath: '/admin/devices/$id'
+      preLoaderRoute: typeof AdminDevicesIdRouteImport
+      parentRoute: typeof AdminDevicesRoute
+    }
     '/admin/customers/$id': {
       id: '/admin/customers/$id'
       path: '/customers/$id'
@@ -898,6 +917,18 @@ declare module '@tanstack/react-router' {
     }
   }
 }
+
+interface AdminDevicesRouteChildren {
+  AdminDevicesIdRoute: typeof AdminDevicesIdRoute
+}
+
+const AdminDevicesRouteChildren: AdminDevicesRouteChildren = {
+  AdminDevicesIdRoute: AdminDevicesIdRoute,
+}
+
+const AdminDevicesRouteWithChildren = AdminDevicesRoute._addFileChildren(
+  AdminDevicesRouteChildren,
+)
 
 interface AdminSettingsDeliveryRouteChildren {
   AdminSettingsDeliveryRulesRoute: typeof AdminSettingsDeliveryRulesRoute
@@ -962,7 +993,7 @@ interface AdminRouteChildren {
   AdminActivitiesRoute: typeof AdminActivitiesRoute
   AdminCatalogRoute: typeof AdminCatalogRoute
   AdminDashboardRoute: typeof AdminDashboardRoute
-  AdminDevicesRoute: typeof AdminDevicesRoute
+  AdminDevicesRoute: typeof AdminDevicesRouteWithChildren
   AdminFinanceiroRoute: typeof AdminFinanceiroRoute
   AdminLoginRoute: typeof AdminLoginRoute
   AdminNfcCardsRoute: typeof AdminNfcCardsRoute
@@ -982,7 +1013,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminActivitiesRoute: AdminActivitiesRoute,
   AdminCatalogRoute: AdminCatalogRoute,
   AdminDashboardRoute: AdminDashboardRoute,
-  AdminDevicesRoute: AdminDevicesRoute,
+  AdminDevicesRoute: AdminDevicesRouteWithChildren,
   AdminFinanceiroRoute: AdminFinanceiroRoute,
   AdminLoginRoute: AdminLoginRoute,
   AdminNfcCardsRoute: AdminNfcCardsRoute,
