@@ -37,6 +37,7 @@ import { Route as AdminActivitiesRouteImport } from './routes/admin.activities'
 import { Route as AdminSettingsIndexRouteImport } from './routes/admin.settings.index'
 import { Route as AdminEventsIndexRouteImport } from './routes/admin.events.index'
 import { Route as AdminCustomersIndexRouteImport } from './routes/admin.customers.index'
+import { Route as EOrganizationSlugEventSlugRouteImport } from './routes/e.$organizationSlug.$eventSlug'
 import { Route as ChamadaLojaSlugRouteImport } from './routes/chamada.loja.$slug'
 import { Route as ChamadaEventoSlugRouteImport } from './routes/chamada.evento.$slug'
 import { Route as AdminSettingsPrintingRouteImport } from './routes/admin.settings.printing'
@@ -196,6 +197,12 @@ const AdminCustomersIndexRoute = AdminCustomersIndexRouteImport.update({
   path: '/customers/',
   getParentRoute: () => AdminRoute,
 } as any)
+const EOrganizationSlugEventSlugRoute =
+  EOrganizationSlugEventSlugRouteImport.update({
+    id: '/e/$organizationSlug/$eventSlug',
+    path: '/e/$organizationSlug/$eventSlug',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ChamadaLojaSlugRoute = ChamadaLojaSlugRouteImport.update({
   id: '/chamada/loja/$slug',
   path: '/chamada/loja/$slug',
@@ -333,6 +340,7 @@ export interface FileRoutesByFullPath {
   '/admin/settings/printing': typeof AdminSettingsPrintingRoute
   '/chamada/evento/$slug': typeof ChamadaEventoSlugRoute
   '/chamada/loja/$slug': typeof ChamadaLojaSlugRoute
+  '/e/$organizationSlug/$eventSlug': typeof EOrganizationSlugEventSlugRoute
   '/admin/customers/': typeof AdminCustomersIndexRoute
   '/admin/events/': typeof AdminEventsIndexRoute
   '/admin/settings/': typeof AdminSettingsIndexRoute
@@ -379,6 +387,7 @@ export interface FileRoutesByTo {
   '/admin/settings/printing': typeof AdminSettingsPrintingRoute
   '/chamada/evento/$slug': typeof ChamadaEventoSlugRoute
   '/chamada/loja/$slug': typeof ChamadaLojaSlugRoute
+  '/e/$organizationSlug/$eventSlug': typeof EOrganizationSlugEventSlugRoute
   '/admin/customers': typeof AdminCustomersIndexRoute
   '/admin/events': typeof AdminEventsIndexRoute
   '/admin/settings': typeof AdminSettingsIndexRoute
@@ -428,6 +437,7 @@ export interface FileRoutesById {
   '/admin/settings/printing': typeof AdminSettingsPrintingRoute
   '/chamada/evento/$slug': typeof ChamadaEventoSlugRoute
   '/chamada/loja/$slug': typeof ChamadaLojaSlugRoute
+  '/e/$organizationSlug/$eventSlug': typeof EOrganizationSlugEventSlugRoute
   '/admin/customers/': typeof AdminCustomersIndexRoute
   '/admin/events/': typeof AdminEventsIndexRoute
   '/admin/settings/': typeof AdminSettingsIndexRoute
@@ -478,6 +488,7 @@ export interface FileRouteTypes {
     | '/admin/settings/printing'
     | '/chamada/evento/$slug'
     | '/chamada/loja/$slug'
+    | '/e/$organizationSlug/$eventSlug'
     | '/admin/customers/'
     | '/admin/events/'
     | '/admin/settings/'
@@ -524,6 +535,7 @@ export interface FileRouteTypes {
     | '/admin/settings/printing'
     | '/chamada/evento/$slug'
     | '/chamada/loja/$slug'
+    | '/e/$organizationSlug/$eventSlug'
     | '/admin/customers'
     | '/admin/events'
     | '/admin/settings'
@@ -572,6 +584,7 @@ export interface FileRouteTypes {
     | '/admin/settings/printing'
     | '/chamada/evento/$slug'
     | '/chamada/loja/$slug'
+    | '/e/$organizationSlug/$eventSlug'
     | '/admin/customers/'
     | '/admin/events/'
     | '/admin/settings/'
@@ -589,6 +602,7 @@ export interface RootRouteChildren {
   PSlugRoute: typeof PSlugRoute
   ChamadaEventoSlugRoute: typeof ChamadaEventoSlugRoute
   ChamadaLojaSlugRoute: typeof ChamadaLojaSlugRoute
+  EOrganizationSlugEventSlugRoute: typeof EOrganizationSlugEventSlugRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -788,6 +802,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/customers/'
       preLoaderRoute: typeof AdminCustomersIndexRouteImport
       parentRoute: typeof AdminRoute
+    }
+    '/e/$organizationSlug/$eventSlug': {
+      id: '/e/$organizationSlug/$eventSlug'
+      path: '/e/$organizationSlug/$eventSlug'
+      fullPath: '/e/$organizationSlug/$eventSlug'
+      preLoaderRoute: typeof EOrganizationSlugEventSlugRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/chamada/loja/$slug': {
       id: '/chamada/loja/$slug'
@@ -1062,6 +1083,7 @@ const rootRouteChildren: RootRouteChildren = {
   PSlugRoute: PSlugRoute,
   ChamadaEventoSlugRoute: ChamadaEventoSlugRoute,
   ChamadaLojaSlugRoute: ChamadaLojaSlugRoute,
+  EOrganizationSlugEventSlugRoute: EOrganizationSlugEventSlugRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

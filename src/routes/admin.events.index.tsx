@@ -65,6 +65,7 @@ import { toast } from "sonner";
 import { EventLogo } from "@/components/EventLogo";
 import { formatCurrency } from "@/lib/utils";
 import { useRequireModule } from "@/lib/require-module";
+import { useOrganization } from "@/contexts/organization-context";
 
 export const Route = createFileRoute("/admin/events/")({
   component: EventsPage,
@@ -98,6 +99,7 @@ function EventsPage() {
   useRequireModule(["EVENTS"]);
   const navigate = useNavigate();
   const { token, loading: authLoading } = useAuth();
+  const { organizationSlug } = useOrganization();
   
   const [metrics, setMetrics] = useState<Record<string, any>>({});
   const [open, setOpen] = useState(false);
@@ -279,6 +281,7 @@ function EventsPage() {
                 <EventCard 
                   key={ev.id} 
                   event={ev} 
+                  organizationSlug={organizationSlug}
                   metrics={metrics[ev.id]}
                   onAction={(action) => handleEventAction(action, ev)}
                   onDuplicate={() => handleDuplicate(ev)}
@@ -295,11 +298,13 @@ function EventsPage() {
 
 function EventCard({ 
   event, 
+  organizationSlug,
   metrics,
   onAction,
   onDuplicate
 }: { 
   event: EventItem; 
+  organizationSlug?: string | null;
   metrics?: any;
   onAction: (action: string) => void;
   onDuplicate: () => void;
@@ -440,13 +445,13 @@ function EventCard({
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => {
-                    const url = getTotemUrl(event.slug);
+                    const url = getTotemUrl(event.slug, organizationSlug);
                     openPublicUrl(url);
                   }}>
                     <Monitor className="h-4 w-4" /> Abrir autoatendimento
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => {
-                    const url = getCallScreenUrl(event.slug);
+                    const url = getCallScreenUrl(event.slug, organizationSlug);
                     openPublicUrl(url);
                   }}>
                     <Tv className="h-4 w-4" /> Tela de Chamada

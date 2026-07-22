@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+﻿import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   Minus,
@@ -50,13 +50,18 @@ import { ProductImage } from "@/components/ProductImage";
 import { handleApiError, toFriendlyMessage } from "@/lib/api-error";
 import {
   getPublicMenu,
+  getCanonicalPublicMenu,
+  resolveLegacyPublicEvent,
   createPublicOrder,
+  createPublicOrderCanonical,
   getCheckoutPaymentSettings,
   createPixAutomaticPayment,
   checkoutPayment,
   getPublicOrderStatus,
   identifyNfc,
+  identifyNfcCanonical,
   payWithNfcBalance,
+  payWithNfcBalanceCanonical,
   type PublicMenu,
   type PublicProduct,
   type PublicCategory,
@@ -121,7 +126,7 @@ function TotemWelcomeScreen({
       )}
 
       <div className="relative z-10 flex flex-1 flex-col items-center justify-center gap-8 px-6 pb-10 pt-8 text-center">
-        {/* Identidade: logo OU nome (não duplicar) */}
+        {/* Identidade: logo OU nome (nÃ£o duplicar) */}
         {logoUrl ? (
           <>
             <img
@@ -153,7 +158,7 @@ function TotemWelcomeScreen({
           </p>
         )}
 
-        {/* CTA primário */}
+        {/* CTA primÃ¡rio */}
         <button
           type="button"
           onClick={onStart}
@@ -164,11 +169,11 @@ function TotemWelcomeScreen({
             boxShadow: "0 10px 40px -10px rgba(0,0,0,0.35)",
           }}
         >
-          <span>Começar pedido</span>
+          <span>ComeÃ§ar pedido</span>
           <ArrowRight className="h-6 w-6 transition-transform duration-300 group-hover:translate-x-1" />
         </button>
 
-        {/* Cartão NFC informativo — comportamento existente preservado */}
+        {/* CartÃ£o NFC informativo â€” comportamento existente preservado */}
         <div className="w-full max-w-md rounded-2xl border border-border/40 bg-white/5 p-5 backdrop-blur-sm">
           <div className="flex items-center gap-4">
             <div
@@ -179,10 +184,10 @@ function TotemWelcomeScreen({
             </div>
             <div className="text-left">
               <p className="text-sm font-bold uppercase tracking-wide">
-                Aproxime sua pulseira ou cartão
+                Aproxime sua pulseira ou cartÃ£o
               </p>
               <p className="mt-1 text-xs" style={{ opacity: 0.7 }}>
-                Identificação rápida e segura.
+                IdentificaÃ§Ã£o rÃ¡pida e segura.
               </p>
             </div>
           </div>
@@ -194,20 +199,20 @@ function TotemWelcomeScreen({
 
 function categoryEmoji(name: string): string {
   const n = name.toLowerCase();
-  if (/(drink|coquetel|cocktail|caipi)/.test(n)) return "🍹";
-  if (/(cerveja|beer|chopp)/.test(n)) return "🍺";
-  if (/(vinho|wine)/.test(n)) return "🍷";
-  if (/(bebida|refri|suco|água|agua|water)/.test(n)) return "🥤";
-  if (/(café|cafe|coffee)/.test(n)) return "☕";
-  if (/(burg|hamb|sandu|sandwich)/.test(n)) return "🍔";
-  if (/(pizza)/.test(n)) return "🍕";
-  if (/(porç|porc|fritas|petisco|snack)/.test(n)) return "🍟";
-  if (/(sobremesa|doce|dessert|sorvete|ice)/.test(n)) return "🍰";
-  if (/(churras|carne|bbq|grill|defum)/.test(n)) return "🔥";
-  if (/(salada|veg|salad)/.test(n)) return "🥗";
-  if (/(massa|pasta|macar)/.test(n)) return "🍝";
-  if (/(combo|kit|promo)/.test(n)) return "⭐";
-  return "🍽️";
+  if (/(drink|coquetel|cocktail|caipi)/.test(n)) return "ðŸ¹";
+  if (/(cerveja|beer|chopp)/.test(n)) return "ðŸº";
+  if (/(vinho|wine)/.test(n)) return "ðŸ·";
+  if (/(bebida|refri|suco|Ã¡gua|agua|water)/.test(n)) return "ðŸ¥¤";
+  if (/(cafÃ©|cafe|coffee)/.test(n)) return "â˜•";
+  if (/(burg|hamb|sandu|sandwich)/.test(n)) return "ðŸ”";
+  if (/(pizza)/.test(n)) return "ðŸ•";
+  if (/(porÃ§|porc|fritas|petisco|snack)/.test(n)) return "ðŸŸ";
+  if (/(sobremesa|doce|dessert|sorvete|ice)/.test(n)) return "ðŸ°";
+  if (/(churras|carne|bbq|grill|defum)/.test(n)) return "ðŸ”¥";
+  if (/(salada|veg|salad)/.test(n)) return "ðŸ¥—";
+  if (/(massa|pasta|macar)/.test(n)) return "ðŸ";
+  if (/(combo|kit|promo)/.test(n)) return "â­";
+  return "ðŸ½ï¸";
 }
 
 function TotemCategoryPicker({
@@ -251,13 +256,13 @@ function TotemCategoryPicker({
           </p>
         )}
         <h1 className="text-3xl font-black leading-tight tracking-tight sm:text-4xl">
-          O que você deseja{" "}
+          O que vocÃª deseja{" "}
           <span className="bg-gradient-to-r from-[#60A5FA] via-[#3B82F6] to-[#7CC4FF] bg-clip-text text-transparent">
             hoje?
           </span>
         </h1>
         <p className="mt-3 max-w-md text-sm text-white/65 sm:text-base">
-          Selecione uma categoria para visualizar os produtos disponíveis.
+          Selecione uma categoria para visualizar os produtos disponÃ­veis.
         </p>
       </div>
 
@@ -275,9 +280,9 @@ function TotemCategoryPicker({
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-bold uppercase tracking-wide text-white">
-                {hasNfcIdentified ? "Cartão identificado" : "Aproxime sua pulseira ou cartão"}
+                {hasNfcIdentified ? "CartÃ£o identificado" : "Aproxime sua pulseira ou cartÃ£o"}
               </p>
-              <p className="mt-0.5 text-xs text-white/60">Identificação rápida e segura.</p>
+              <p className="mt-0.5 text-xs text-white/60">IdentificaÃ§Ã£o rÃ¡pida e segura.</p>
             </div>
             <ArrowRight className="h-5 w-5 text-white/40 transition-transform group-hover:translate-x-1" />
           </div>
@@ -323,9 +328,9 @@ function TotemCategoryPicker({
       <div className="relative z-10 mx-auto w-full max-w-3xl px-6 pb-8">
         <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 rounded-2xl border border-white/10 bg-white/[0.03] px-6 py-4 text-center backdrop-blur-xl">
           {[
-            { icon: QrCode, label: "PIX", sub: "Atendimento rápido" },
+            { icon: QrCode, label: "PIX", sub: "Atendimento rÃ¡pido" },
             { icon: Nfc, label: "NFC", sub: "Pagamento seguro" },
-            { icon: CreditCard, label: "Cartão", sub: "Tempo real" },
+            { icon: CreditCard, label: "CartÃ£o", sub: "Tempo real" },
           ].map(({ icon: Icon, label, sub }) => (
             <div key={label} className="flex items-center gap-3">
               <Icon className="h-5 w-5 text-[#7CC4FF]" />
@@ -371,8 +376,16 @@ function maxQty(p: PublicProduct): number {
   return Number.POSITIVE_INFINITY;
 }
 
-function PublicMenuPage() {
-  const { slug } = Route.useParams();
+export function PublicMenuPage({
+  organizationSlug: organizationSlugProp,
+  eventSlug: eventSlugProp,
+}: {
+  organizationSlug?: string;
+  eventSlug?: string;
+} = {}) {
+  const params = Route.useParams();
+  const slug = eventSlugProp ?? params.slug;
+  const organizationSlug = organizationSlugProp ?? null;
   const [menu, setMenu] = useState<PublicMenu | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -431,6 +444,11 @@ function PublicMenuPage() {
   const [showWelcome, setShowWelcome] = useState(true);
   // Premium category picker shown right after welcome, before the catalog list
   const [showCategoryPicker, setShowCategoryPicker] = useState(true);
+  const [legacyResolution, setLegacyResolution] = useState<{
+    code?: string;
+    canonicalUrl?: string | null;
+    message?: string;
+  } | null>(null);
 
   // Auto-dismiss welcome + picker once a customer is identified via NFC
   useEffect(() => {
@@ -478,7 +496,7 @@ function PublicMenuPage() {
   const runNfcIdentify = async (uidInput: string, opts: { auto?: boolean } = {}) => {
     const raw = uidInput.replace(/[^0-9A-Fa-f]/g, "").toUpperCase();
     if (raw.length < 8) {
-      if (!opts.auto) setNfcError("Informe um UID válido (mín. 8 caracteres hex).");
+      if (!opts.auto) setNfcError("Informe um UID vÃ¡lido (mÃ­n. 8 caracteres hex).");
       return;
     }
     // Dismiss virtual keyboard / blur active element
@@ -496,7 +514,12 @@ function PublicMenuPage() {
     // Brief reading animation for perceived feedback
     const minDelay = new Promise((r) => setTimeout(r, 600));
     try {
-      const [result] = await Promise.all([identifyNfc(slug, raw), minDelay]);
+      const [result] = await Promise.all([
+        organizationSlug
+          ? identifyNfcCanonical(organizationSlug, slug, raw)
+          : identifyNfc(slug, raw),
+        minDelay,
+      ]);
       setNfcReading(false);
       if (result.blocked) {
         setNfcBlocked(true);
@@ -544,7 +567,7 @@ function PublicMenuPage() {
     return () => clearTimeout(t);
   }, [nfcNotFound, nfcBlocked]);
 
-  // Listen to SK210 native NFC bridge — fully automatic identification
+  // Listen to SK210 native NFC bridge â€” fully automatic identification
   useEffect(() => {
     const onSk210 = (ev: Event) => {
       const detail = (ev as CustomEvent<{ uid?: string }>).detail;
@@ -585,7 +608,7 @@ function PublicMenuPage() {
         return () => clearTimeout(timer);
       }
       // If it's PIX PENDING, we NEVER auto-reset.
-      // The user must click "Novo pedido" or "Voltar ao início".
+      // The user must click "Novo pedido" or "Voltar ao inÃ­cio".
     }
   }, [confirmation, paymentStep, isKioskMode]);
 
@@ -694,7 +717,35 @@ function PublicMenuPage() {
   useEffect(() => {
     let alive = true;
     setLoading(true);
-    getPublicMenu(slug)
+    if (!organizationSlug) {
+      resolveLegacyPublicEvent(slug)
+        .then((result) => {
+          if (!alive) return;
+          setLegacyResolution(result);
+          if (result.canonicalUrl) {
+            window.location.replace(result.canonicalUrl);
+            return;
+          }
+          if (result.code === "AMBIGUOUS_EVENT_SLUG") {
+            setError(result.message ?? "Este link não identifica um evento de forma única.");
+          } else if (result.code === "LEGACY_EVENT_SLUG") {
+            setError(result.message ?? "Use a URL canônica da organização para acessar este evento.");
+          } else {
+            setError("Evento não encontrado");
+          }
+        })
+        .catch(
+          (e) => alive && setError(toFriendlyMessage(e, "Não foi possível carregar o cardápio.")),
+        )
+        .finally(() => alive && setLoading(false));
+      return () => {
+        alive = false;
+      };
+    }
+    getCanonicalPublicMenu({
+      organizationSlug,
+      eventSlug: slug,
+    })
       .then((m) => {
         if (!alive) return;
         setMenu(m);
@@ -707,7 +758,7 @@ function PublicMenuPage() {
     return () => {
       alive = false;
     };
-  }, [slug]);
+  }, [slug, organizationSlug]);
 
   const event = menu?.event;
   const primary = event?.primaryColor || "#0f172a";
@@ -748,7 +799,7 @@ function PublicMenuPage() {
       });
 
       if (filtered.length !== prev.length) {
-        toast.info("Alguns itens do seu carrinho não estão mais disponíveis e foram removidos.");
+        toast.info("Alguns itens do seu carrinho nÃ£o estÃ£o mais disponÃ­veis e foram removidos.");
       }
       return filtered;
     });
@@ -756,11 +807,11 @@ function PublicMenuPage() {
 
   const addToCart = (product: PublicProduct) => {
     if (product.soldOut === true) {
-      toast.error("Este produto não está mais disponível.");
+      toast.error("Este produto nÃ£o estÃ¡ mais disponÃ­vel.");
       return;
     }
     if (!isAvailable(product)) {
-      toast.error("Este produto não está mais disponível.");
+      toast.error("Este produto nÃ£o estÃ¡ mais disponÃ­vel.");
       return;
     }
     const max = maxQty(product);
@@ -776,7 +827,7 @@ function PublicMenuPage() {
         return copy;
       }
       if (1 > max) {
-        toast.error("Este produto não está mais disponível.");
+        toast.error("Este produto nÃ£o estÃ¡ mais disponÃ­vel.");
         return prev;
       }
       return [...prev, { product, quantity: 1 }];
@@ -833,7 +884,12 @@ function PublicMenuPage() {
     }
     setNameError(null);
     try {
-      const fresh = await getPublicMenu(slug);
+      const fresh = organizationSlug
+        ? await getCanonicalPublicMenu({
+            organizationSlug,
+            eventSlug: slug,
+          })
+        : await getPublicMenu(slug);
       setMenu(fresh);
       const freshProducts = new Map<string, PublicProduct>();
       for (const c of fresh.categories) {
@@ -843,13 +899,13 @@ function PublicMenuPage() {
       for (const item of cart) {
         const fp = freshProducts.get(item.product.id);
         if (!fp || fp.active === false || fp.soldOut === true) {
-          toast.error(`Este produto não está mais disponível: ${item.product.name}`);
+          toast.error(`Este produto nÃ£o estÃ¡ mais disponÃ­vel: ${item.product.name}`);
           return false;
         }
         if (fp.trackStock === true) {
           const stock = fp.stockQuantity ?? 0;
           if (stock <= 0) {
-            toast.error(`Este produto não está mais disponível: ${item.product.name}`);
+            toast.error(`Este produto nÃ£o estÃ¡ mais disponÃ­vel: ${item.product.name}`);
             return false;
           }
           if (item.quantity > stock) {
@@ -862,7 +918,7 @@ function PublicMenuPage() {
       }
       return true;
     } catch (e) {
-      handleApiError(e, "Não foi possível validar seu pedido. Tente novamente.");
+      handleApiError(e, "NÃ£o foi possÃ­vel validar seu pedido. Tente novamente.");
       return false;
     }
   };
@@ -932,8 +988,8 @@ function PublicMenuPage() {
             ? {
                 ...prev,
                 error: isTimeout
-                  ? "Não foi possível iniciar o pagamento agora. Tente novamente ou chame o operador."
-                  : "Não foi possível carregar as opções de pagamento.",
+                  ? "NÃ£o foi possÃ­vel iniciar o pagamento agora. Tente novamente ou chame o operador."
+                  : "NÃ£o foi possÃ­vel carregar as opÃ§Ãµes de pagamento.",
               }
             : null,
         );
@@ -975,7 +1031,7 @@ function PublicMenuPage() {
         } catch (err) {
           if (import.meta.env.DEV) console.warn("enqueue print jobs failed", err);
           toast.error(
-            "Pedido confirmado, mas houve falha ao enviar para impressão. Chame o operador.",
+            "Pedido confirmado, mas houve falha ao enviar para impressÃ£o. Chame o operador.",
           );
         }
       }
@@ -993,7 +1049,9 @@ function PublicMenuPage() {
     setSubmitting(true);
     try {
       const payload = buildOrderPayload(pix);
-      const order = await createPublicOrder(slug, payload);
+      const order = organizationSlug
+        ? await createPublicOrderCanonical(organizationSlug, slug, payload)
+        : await createPublicOrder(slug, payload);
       await handleOrderCreated(order);
     } catch (e) {
       const msg = String((e as { message?: string })?.message ?? "").toLowerCase();
@@ -1005,7 +1063,7 @@ function PublicMenuPage() {
       ) {
         toast.error("Estoque insuficiente para este produto.");
       } else {
-        handleApiError(e, "Não foi possível finalizar seu pedido. Tente novamente.");
+        handleApiError(e, "NÃ£o foi possÃ­vel finalizar seu pedido. Tente novamente.");
       }
     } finally {
       setSubmitting(false);
@@ -1020,11 +1078,11 @@ function PublicMenuPage() {
       // Validate balance before opening confirmation
       const balance = identifiedCustomer?.balanceInCents ?? 0;
       if (!identifiedCustomer) {
-        toast.error("Aproxime seu cartão NFC para usar saldo.");
+        toast.error("Aproxime seu cartÃ£o NFC para usar saldo.");
         return;
       }
       if (balance < totalCents) {
-        toast.error(`Saldo insuficiente. Disponível: ${formatBRL(balance)}`);
+        toast.error(`Saldo insuficiente. DisponÃ­vel: ${formatBRL(balance)}`);
         return;
       }
       setNfcConfirmOpen(true);
@@ -1046,13 +1104,21 @@ function PublicMenuPage() {
     setPaymentStep("loading");
     try {
       // Create order first (pending). Backend pay-with-nfc-balance will mark it paid.
-      const order = await createPublicOrder(slug, {
-        customerName: customerName.trim(),
-        items: cart.map((c) => ({ productId: c.product.id, quantity: c.quantity })),
-        paymentMethod: "NFC_BALANCE",
-        paymentStatus: "PENDING",
-        status: "PENDING",
-      });
+      const order = organizationSlug
+        ? await createPublicOrderCanonical(organizationSlug, slug, {
+            customerName: customerName.trim(),
+            items: cart.map((c) => ({ productId: c.product.id, quantity: c.quantity })),
+            paymentMethod: "NFC_BALANCE",
+            paymentStatus: "PENDING",
+            status: "PENDING",
+          })
+        : await createPublicOrder(slug, {
+            customerName: customerName.trim(),
+            items: cart.map((c) => ({ productId: c.product.id, quantity: c.quantity })),
+            paymentMethod: "NFC_BALANCE",
+            paymentStatus: "PENDING",
+            status: "PENDING",
+          });
 
       const num = String(order.number ?? order.orderNumber ?? order.code ?? order.id);
       setConfirmation({
@@ -1066,7 +1132,9 @@ function PublicMenuPage() {
         error: null,
       });
 
-      const result = await payWithNfcBalance(slug, order.id, uid);
+      const result = organizationSlug
+        ? await payWithNfcBalanceCanonical(organizationSlug, slug, order.id, uid)
+        : await payWithNfcBalance(slug, order.id, uid);
       const newBalance =
         result.newBalanceInCents ??
         (result.card?.balanceInCents as number | undefined) ??
@@ -1083,14 +1151,14 @@ function PublicMenuPage() {
       setNfcConfirmOpen(false);
     } catch (e) {
       const msg = String((e as { message?: string })?.message ?? "").toLowerCase();
-      let friendly = "Não foi possível concluir o pagamento com saldo NFC.";
+      let friendly = "NÃ£o foi possÃ­vel concluir o pagamento com saldo NFC.";
       if (msg.includes("insuf") || msg.includes("balance"))
-        friendly = "Saldo insuficiente no cartão.";
-      else if (msg.includes("block")) friendly = "Cartão bloqueado. Procure um operador.";
+        friendly = "Saldo insuficiente no cartÃ£o.";
+      else if (msg.includes("block")) friendly = "CartÃ£o bloqueado. Procure um operador.";
       else if (msg.includes("not found") || msg.includes("404"))
-        friendly = "Cartão não encontrado.";
+        friendly = "CartÃ£o nÃ£o encontrado.";
       else if (msg.includes("already") || msg.includes("paid"))
-        friendly = "Este pedido já foi pago.";
+        friendly = "Este pedido jÃ¡ foi pago.";
       toast.error(friendly);
       setPaymentStep("operator");
       setConfirmation((prev) => (prev ? { ...prev, error: friendly } : prev));
@@ -1107,7 +1175,7 @@ function PublicMenuPage() {
   if (error || !menu) {
     return (
       <PublicChannelError
-        message={error ?? "Evento não encontrado"}
+        message={error ?? "Evento nÃ£o encontrado"}
         onRetry={() => window.location.reload()}
       />
     );
@@ -1164,7 +1232,7 @@ function PublicMenuPage() {
         overscrollBehavior: "none",
       }}
     >
-      {/* Header padronizado (canal público) */}
+      {/* Header padronizado (canal pÃºblico) */}
       <PublicChannelHeader event={event}>
         {menu.categories.length > 0 && (
           <nav className="border-t border-border/40 backdrop-blur-sm">
@@ -1222,11 +1290,11 @@ function PublicMenuPage() {
             </div>
             <div className="flex-1 min-w-0">
               <div className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-0.5">
-                Identificação NFC
+                IdentificaÃ§Ã£o NFC
               </div>
-              <div className="text-lg font-black leading-tight">Aproxime seu cartão</div>
+              <div className="text-lg font-black leading-tight">Aproxime seu cartÃ£o</div>
               <div className="text-xs font-medium opacity-85 mt-0.5">
-                Identificação rápida e segura
+                IdentificaÃ§Ã£o rÃ¡pida e segura
               </div>
             </div>
             <div
@@ -1253,7 +1321,7 @@ function PublicMenuPage() {
               </div>
               <div className="text-xs font-bold text-emerald-800 mt-0.5 flex items-center gap-2">
                 <span>{identifiedCustomer.code}</span>
-                <span className="opacity-40">•</span>
+                <span className="opacity-40">â€¢</span>
                 <span className="inline-flex items-center gap-1">
                   <Nfc className="size-3" /> NFC
                 </span>
@@ -1262,7 +1330,7 @@ function PublicMenuPage() {
             <button
               onClick={clearIdentifiedCustomer}
               className="size-10 rounded-full bg-white/70 hover:bg-white flex items-center justify-center text-emerald-800 transition-colors"
-              aria-label="Remover identificação"
+              aria-label="Remover identificaÃ§Ã£o"
             >
               <X className="size-5" />
             </button>
@@ -1274,9 +1342,9 @@ function PublicMenuPage() {
             <div className="bg-muted size-24 rounded-full flex items-center justify-center mx-auto mb-6">
               <ShoppingCart className="size-10 text-muted-foreground opacity-50" />
             </div>
-            <h2 className="text-2xl font-bold mb-3">Nenhum produto disponível</h2>
+            <h2 className="text-2xl font-bold mb-3">Nenhum produto disponÃ­vel</h2>
             <p className="text-muted-foreground max-w-xs mx-auto">
-              No momento não há itens disponíveis para compra. Por favor, verifique mais tarde.
+              No momento nÃ£o hÃ¡ itens disponÃ­veis para compra. Por favor, verifique mais tarde.
             </p>
           </div>
         ) : (
@@ -1394,9 +1462,9 @@ function PublicMenuPage() {
                 <Nfc className="size-12 animate-pulse" />
               </div>
             </div>
-            <DialogTitle className="text-white text-2xl font-black">Lendo cartão…</DialogTitle>
+            <DialogTitle className="text-white text-2xl font-black">Lendo cartÃ£oâ€¦</DialogTitle>
             <DialogDescription className="text-white/85 text-sm font-medium mt-1">
-              Mantenha o cartão próximo ao leitor
+              Mantenha o cartÃ£o prÃ³ximo ao leitor
             </DialogDescription>
           </div>
         </DialogContent>
@@ -1414,7 +1482,7 @@ function PublicMenuPage() {
             <div className="size-20 rounded-full bg-white/20 backdrop-blur flex items-center justify-center mx-auto mb-4 shadow-inner animate-in zoom-in duration-300">
               <ShieldAlert className="size-12" />
             </div>
-            <DialogTitle className="text-white text-2xl font-black">Cartão bloqueado</DialogTitle>
+            <DialogTitle className="text-white text-2xl font-black">CartÃ£o bloqueado</DialogTitle>
             <DialogDescription className="text-white/85 text-sm font-medium mt-1">
               Procure a equipe do evento.
             </DialogDescription>
@@ -1434,7 +1502,7 @@ function PublicMenuPage() {
               <AlertTriangle className="size-12" />
             </div>
             <DialogTitle className="text-white text-2xl font-black">
-              Cartão não cadastrado
+              CartÃ£o nÃ£o cadastrado
             </DialogTitle>
             <DialogDescription className="text-white/85 text-sm font-medium mt-1">
               Verifique com a equipe do evento.
@@ -1472,7 +1540,7 @@ function PublicMenuPage() {
                 Identificar Cliente
               </DialogTitle>
               <DialogDescription className="text-white/85 text-sm font-medium">
-                Aproxime o cartão do leitor ou informe o UID manualmente.
+                Aproxime o cartÃ£o do leitor ou informe o UID manualmente.
               </DialogDescription>
             </DialogHeader>
           </div>
@@ -1482,9 +1550,9 @@ function PublicMenuPage() {
               <div className="rounded-2xl border-2 border-red-200 bg-red-50 p-5 flex items-start gap-3 animate-in fade-in zoom-in-95 duration-200">
                 <ShieldAlert className="size-6 text-red-600 flex-shrink-0 mt-0.5" />
                 <div>
-                  <div className="font-black text-red-900">Cartão bloqueado</div>
+                  <div className="font-black text-red-900">CartÃ£o bloqueado</div>
                   <div className="text-sm text-red-800 font-medium mt-1">
-                    Procure a equipe do evento para liberar este cartão.
+                    Procure a equipe do evento para liberar este cartÃ£o.
                   </div>
                 </div>
               </div>
@@ -1493,7 +1561,7 @@ function PublicMenuPage() {
                 <div className="rounded-2xl border-2 border-amber-200 bg-amber-50 p-5 flex items-start gap-3">
                   <AlertTriangle className="size-6 text-amber-600 flex-shrink-0 mt-0.5" />
                   <div>
-                    <div className="font-black text-amber-900">Cartão não cadastrado</div>
+                    <div className="font-black text-amber-900">CartÃ£o nÃ£o cadastrado</div>
                     <div className="text-sm text-amber-800 font-medium mt-1">
                       Verifique o UID ou procure a equipe do evento.
                     </div>
@@ -1504,14 +1572,14 @@ function PublicMenuPage() {
                   onClick={() => setNfcOpen(false)}
                   className="w-full h-12 rounded-2xl font-bold"
                 >
-                  Continuar sem identificação
+                  Continuar sem identificaÃ§Ã£o
                 </Button>
               </div>
             ) : null}
 
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">
-                UID do cartão
+                UID do cartÃ£o
               </label>
               <Input
                 value={nfcUid}
@@ -1521,7 +1589,7 @@ function PublicMenuPage() {
                   setNfcNotFound(false);
                   setNfcBlocked(false);
                 }}
-                placeholder="Aproxime o cartão ou digite o UID"
+                placeholder="Aproxime o cartÃ£o ou digite o UID"
                 inputMode="text"
                 className="h-14 text-lg font-bold rounded-xl border-2 focus-visible:ring-primary/20 font-mono tracking-wider"
                 onKeyDown={(e) => {
@@ -1543,7 +1611,7 @@ function PublicMenuPage() {
             >
               {nfcLoading ? (
                 <>
-                  <Loader2 className="size-5 animate-spin mr-2" /> Identificando…
+                  <Loader2 className="size-5 animate-spin mr-2" /> Identificandoâ€¦
                 </>
               ) : (
                 <>
@@ -1566,10 +1634,10 @@ function PublicMenuPage() {
               <CheckCircle2 className="size-3" /> Identificado
             </div>
             <DialogTitle className="text-white text-3xl font-black">
-              Olá, {identifiedCustomer?.name?.split(" ")[0] ?? "Cliente"} 👋
+              OlÃ¡, {identifiedCustomer?.name?.split(" ")[0] ?? "Cliente"} ðŸ‘‹
             </DialogTitle>
             <DialogDescription className="text-white/85 text-sm font-medium mt-1">
-              Cartão reconhecido com sucesso.
+              CartÃ£o reconhecido com sucesso.
             </DialogDescription>
           </div>
 
@@ -1577,7 +1645,7 @@ function PublicMenuPage() {
             <div className="grid grid-cols-2 gap-3">
               <div className="rounded-2xl bg-muted/40 p-4">
                 <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">
-                  Cartão
+                  CartÃ£o
                 </div>
                 <div className="font-black text-lg font-mono">{identifiedCustomer?.code}</div>
               </div>
@@ -1588,7 +1656,7 @@ function PublicMenuPage() {
                 <div className="font-black text-lg capitalize">
                   {identifiedCustomer?.type === "CUSTOMER"
                     ? "Cliente"
-                    : (identifiedCustomer?.type ?? "—").toLowerCase()}
+                    : (identifiedCustomer?.type ?? "â€”").toLowerCase()}
                 </div>
               </div>
             </div>
@@ -1642,7 +1710,7 @@ function PublicMenuPage() {
               Confirmar pagamento
             </DialogTitle>
             <DialogDescription className="text-white/85 text-sm font-medium">
-              Pagamento com saldo do cartão NFC.
+              Pagamento com saldo do cartÃ£o NFC.
             </DialogDescription>
           </div>
 
@@ -1652,7 +1720,7 @@ function PublicMenuPage() {
                 <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">
                   Cliente
                 </div>
-                <div className="font-bold text-sm truncate">{identifiedCustomer?.name ?? "—"}</div>
+                <div className="font-bold text-sm truncate">{identifiedCustomer?.name ?? "â€”"}</div>
               </div>
               <div className="rounded-2xl bg-muted/40 p-4">
                 <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">
@@ -1670,7 +1738,7 @@ function PublicMenuPage() {
               </div>
               <div className="rounded-2xl bg-emerald-50 p-4 border border-emerald-200">
                 <div className="text-[10px] font-black uppercase tracking-widest text-emerald-700 mb-1">
-                  Saldo após
+                  Saldo apÃ³s
                 </div>
                 <div className="font-black text-base text-emerald-700">
                   {formatBRL(Math.max(0, (identifiedCustomer?.balanceInCents ?? 0) - totalCents))}
@@ -1695,7 +1763,7 @@ function PublicMenuPage() {
               >
                 {nfcPaying ? (
                   <>
-                    <Loader2 className="size-5 animate-spin mr-2" /> Pagando…
+                    <Loader2 className="size-5 animate-spin mr-2" /> Pagandoâ€¦
                   </>
                 ) : (
                   "Confirmar"
@@ -1729,7 +1797,7 @@ function PublicMenuPage() {
             Novo Pedido
           </Button>
           <p className="mt-4 text-xs text-muted-foreground">
-            Retornando ao início em alguns segundos...
+            Retornando ao inÃ­cio em alguns segundos...
           </p>
         </div>
       )}
@@ -1749,7 +1817,7 @@ function PublicMenuPage() {
                 Pague com PIX
               </h2>
               <p className="text-base sm:text-lg font-bold mt-1" style={{ color: primary }}>
-                Pedido #{confirmation.number} — {formatBRL(confirmation.totalInCents || 0)}
+                Pedido #{confirmation.number} â€” {formatBRL(confirmation.totalInCents || 0)}
               </p>
               {confirmation.customerName && (
                 <p className="text-sm text-muted-foreground font-medium mt-0.5">
@@ -1763,7 +1831,7 @@ function PublicMenuPage() {
                     className={`text-xs font-bold uppercase tracking-widest ${remainingSeconds < 30 ? "text-red-600" : remainingSeconds < 60 ? "text-amber-600" : "text-muted-foreground"}`}
                   >
                     {remainingSeconds < 60
-                      ? "⚠ Menos de 1 minuto restante"
+                      ? "âš  Menos de 1 minuto restante"
                       : "Tempo restante para pagamento"}
                   </div>
                   <div
@@ -1801,20 +1869,20 @@ function PublicMenuPage() {
                   onClick={() => {
                     const code = confirmation.transaction?.pixCopyPaste;
                     if (!code) {
-                      toast.error("Código PIX indisponível. Tente novamente ou chame o operador.");
+                      toast.error("CÃ³digo PIX indisponÃ­vel. Tente novamente ou chame o operador.");
                       return;
                     }
                     navigator.clipboard.writeText(code);
-                    toast.success("Código PIX copiado!");
+                    toast.success("CÃ³digo PIX copiado!");
                   }}
                 >
                   <Copy className="size-4" />
-                  Copiar código PIX
+                  Copiar cÃ³digo PIX
                 </Button>
               )}
 
               <p className="mt-3 text-sm text-muted-foreground font-medium">
-                Após pagar, aguarde a confirmação automática.
+                ApÃ³s pagar, aguarde a confirmaÃ§Ã£o automÃ¡tica.
               </p>
 
               <Button
@@ -1862,17 +1930,17 @@ function PublicMenuPage() {
                 {paymentStep === "loading"
                   ? "Preparando pagamento..."
                   : paymentStep === "paid"
-                    ? "Seu pagamento foi confirmado. Seu pedido será preparado."
+                    ? "Seu pagamento foi confirmado. Seu pedido serÃ¡ preparado."
                     : confirmation.pix
-                      ? "Seu pedido foi registrado e está aguardando confirmação do pagamento."
-                      : "Seu pedido foi recebido e será processado."}
+                      ? "Seu pedido foi registrado e estÃ¡ aguardando confirmaÃ§Ã£o do pagamento."
+                      : "Seu pedido foi recebido e serÃ¡ processado."}
               </p>
 
               <div className="bg-muted/30 w-full max-w-md py-8 px-6 rounded-[2.5rem] border-2 border-dashed mb-8">
                 <div className="grid grid-cols-2 gap-4 text-left">
                   <div>
                     <div className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-black mb-1">
-                      Número
+                      NÃºmero
                     </div>
                     <div
                       className="text-4xl font-black tracking-tighter"
@@ -1922,7 +1990,7 @@ function PublicMenuPage() {
                   {paymentStep === "paid" && nfcPaidBalance !== null && (
                     <div className="col-span-2">
                       <div className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-black mb-1">
-                        Saldo restante no cartão
+                        Saldo restante no cartÃ£o
                       </div>
                       <div className="text-2xl font-black text-purple-700">
                         {formatBRL(nfcPaidBalance)}
@@ -1951,7 +2019,7 @@ function PublicMenuPage() {
                         Pague com PIX
                       </h3>
                       <p className="text-sm font-medium text-muted-foreground mb-4">
-                        Escaneie o QR Code ou copie o código PIX abaixo.
+                        Escaneie o QR Code ou copie o cÃ³digo PIX abaixo.
                       </p>
 
                       <div className="flex flex-col items-center gap-4">
@@ -1975,16 +2043,16 @@ function PublicMenuPage() {
                               const code = confirmation.transaction?.pixCopyPaste;
                               if (!code) {
                                 toast.error(
-                                  "Código PIX indisponível. Tente novamente ou chame o operador.",
+                                  "CÃ³digo PIX indisponÃ­vel. Tente novamente ou chame o operador.",
                                 );
                                 return;
                               }
                               navigator.clipboard.writeText(code);
-                              toast.success("Código PIX copiado!");
+                              toast.success("CÃ³digo PIX copiado!");
                             }}
                           >
                             <Copy className="size-5" />
-                            Copiar código PIX
+                            Copiar cÃ³digo PIX
                           </Button>
                         )}
                       </div>
@@ -1992,8 +2060,8 @@ function PublicMenuPage() {
                       <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100 text-blue-800 text-sm font-bold flex gap-3 animate-pulse">
                         <Clock className="size-5 flex-shrink-0" />
                         <p>
-                          Após o pagamento, aguarde a confirmação automática. Não feche esta tela
-                          até concluir o pagamento.
+                          ApÃ³s o pagamento, aguarde a confirmaÃ§Ã£o automÃ¡tica. NÃ£o feche esta tela
+                          atÃ© concluir o pagamento.
                         </p>
                       </div>
                     </div>
@@ -2010,7 +2078,7 @@ function PublicMenuPage() {
                       </h3>
 
                       <div className="p-3 bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold rounded-xl mb-4">
-                        PIX automático indisponível no momento. Use o PIX manual abaixo.
+                        PIX automÃ¡tico indisponÃ­vel no momento. Use o PIX manual abaixo.
                       </div>
 
                       <div className="space-y-4">
@@ -2074,8 +2142,8 @@ function PublicMenuPage() {
                       <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100 text-amber-800 text-sm font-bold flex gap-3">
                         <Clock className="size-5 flex-shrink-0" />
                         <p>
-                          Após pagar, apresente o comprovante ao operador. Seu pedido será preparado
-                          após a confirmação.
+                          ApÃ³s pagar, apresente o comprovante ao operador. Seu pedido serÃ¡ preparado
+                          apÃ³s a confirmaÃ§Ã£o.
                         </p>
                       </div>
                     </div>
@@ -2127,13 +2195,13 @@ function PublicMenuPage() {
                 >
                   {confirmation.pix && paymentStep !== "paid"
                     ? "Cancelar pedido"
-                    : "Voltar ao início"}
+                    : "Voltar ao inÃ­cio"}
                 </Button>
               </div>
 
               {(!confirmation.pix || paymentStep === "paid") && (
                 <p className="mt-8 text-xs text-muted-foreground opacity-50 font-medium italic">
-                  Esta tela fechará automaticamente...
+                  Esta tela fecharÃ¡ automaticamente...
                 </p>
               )}
             </div>
@@ -2344,8 +2412,8 @@ function CartSheet({
             <div className="bg-muted size-20 rounded-full flex items-center justify-center mx-auto mb-6 opacity-50">
               <ShoppingCart className="size-10" />
             </div>
-            <p className="text-xl font-bold">Seu carrinho está vazio</p>
-            <p className="text-sm mt-2">Escolha alguns produtos para começar seu pedido.</p>
+            <p className="text-xl font-bold">Seu carrinho estÃ¡ vazio</p>
+            <p className="text-sm mt-2">Escolha alguns produtos para comeÃ§ar seu pedido.</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -2418,7 +2486,7 @@ function CartSheet({
           <Input
             value={customerName}
             onChange={(e) => setCustomerName(e.target.value)}
-            placeholder="Ex: João Silva"
+            placeholder="Ex: JoÃ£o Silva"
             maxLength={60}
             className={`${isKioskMode ? "h-16" : "h-14"} text-lg font-bold rounded-xl border-2 focus-visible:ring-primary/20`}
             aria-invalid={!!nameError}
@@ -2447,7 +2515,7 @@ function CartSheet({
                 </div>
                 <div className="min-w-0">
                   <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                    Cartão NFC conectado
+                    CartÃ£o NFC conectado
                   </div>
                   <div className="font-bold truncate text-sm">{identifiedCustomer.name}</div>
                 </div>
@@ -2503,7 +2571,7 @@ function CartSheet({
                 Saldo NFC
               </div>
               <div className="text-sm font-bold mt-0.5">
-                {nfcDisabled ? "Aproxime seu cartão" : "Usar saldo do cartão"}
+                {nfcDisabled ? "Aproxime seu cartÃ£o" : "Usar saldo do cartÃ£o"}
               </div>
             </button>
           </div>
@@ -2535,7 +2603,7 @@ function CartSheet({
         >
           {submitting ? (
             <>
-              <Loader2 className="size-5 animate-spin mr-2" /> Enviando…
+              <Loader2 className="size-5 animate-spin mr-2" /> Enviandoâ€¦
             </>
           ) : paymentMethod === "NFC" ? (
             "Pagar com Saldo NFC"
@@ -2575,7 +2643,7 @@ function PixDialog({
       await navigator.clipboard.writeText(key);
       toast.success("Chave PIX copiada!");
     } catch {
-      toast.error("Não foi possível copiar a chave.");
+      toast.error("NÃ£o foi possÃ­vel copiar a chave.");
     }
   };
 
@@ -2616,7 +2684,7 @@ function PixDialog({
           </div>
         ) : (
           <div className="rounded-xl border border-dashed p-4 text-center text-sm text-muted-foreground">
-            Chave PIX não configurada.
+            Chave PIX nÃ£o configurada.
           </div>
         )}
 
@@ -2662,13 +2730,15 @@ function PixDialog({
         >
           {submitting ? (
             <>
-              <Loader2 className="size-5 animate-spin" /> Enviando…
+              <Loader2 className="size-5 animate-spin" /> Enviandoâ€¦
             </>
           ) : (
-            "Aguardar Confirmação"
+            "Aguardar ConfirmaÃ§Ã£o"
           )}
         </Button>
       </div>
     </DialogContent>
   );
 }
+
+

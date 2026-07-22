@@ -48,7 +48,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useOrganization } from "@/contexts/organization-context";
 import { listOnlineStores, type OnlineStore } from "@/lib/online-store-api";
 import { listEvents, type EventItem } from "@/lib/events-api";
-import { getTotemUrl, getCallScreenUrl } from "@/lib/public-event-urls";
+import { buildPublicEventUrl, getCallScreenUrl } from "@/lib/public-event-urls";
 import { cn } from "@/lib/utils";
 
 interface Search {
@@ -201,7 +201,7 @@ function isFinished(status?: string): boolean {
 
 function PublicLinksPage() {
   const { token } = useAuth();
-  const { organizationId, organizationName } = useOrganization();
+  const { organizationId, organizationName, organizationSlug } = useOrganization();
   const { eventId: deepEventId } = Route.useSearch();
 
   const [qrTarget, setQrTarget] = useState<LinkResource | null>(null);
@@ -366,8 +366,15 @@ function PublicLinksPage() {
             >
               {filteredEvents.map((ev) => {
                 const finished = isFinished(ev.status);
-                const totemUrl = absoluteUrl(getTotemUrl(ev.slug));
-                const chamadaUrl = absoluteUrl(getCallScreenUrl(ev.slug));
+                const totemUrl = absoluteUrl(
+                  organizationSlug
+                    ? buildPublicEventUrl({
+                        organizationSlug,
+                        eventSlug: ev.slug,
+                      })
+                    : `/e/${ev.slug}`,
+                );
+                const chamadaUrl = absoluteUrl(getCallScreenUrl(ev.slug, organizationSlug ?? undefined));
                 return (
                   <AccordionItem
                     key={ev.id}

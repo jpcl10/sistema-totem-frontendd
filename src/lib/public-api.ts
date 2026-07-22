@@ -50,6 +50,20 @@ export interface PublicMenu {
   event: PublicEvent;
   categories: PublicCategory[];
   products?: PublicProduct[];
+  code?: string;
+  message?: string;
+  canonicalUrl?: string | null;
+  canonicalPath?: string | null;
+  organizationSlug?: string;
+}
+
+export interface LegacyPublicEventResolution {
+  code?: string;
+  message?: string;
+  canonicalUrl?: string | null;
+  canonicalPath?: string | null;
+  organizationSlug?: string;
+  eventSlug?: string;
 }
 
 export interface CheckoutPaymentSettings {
@@ -109,6 +123,16 @@ export interface CheckoutPaymentResponse {
 async function handle<T>(res: Response): Promise<T> {
   if (!res.ok) throw await fromResponse(res);
   return res.json() as Promise<T>;
+}
+
+function encodeEventPath({
+  organizationSlug,
+  eventSlug,
+}: {
+  organizationSlug: string;
+  eventSlug: string;
+}) {
+  return `/public/organizations/${encodeURIComponent(organizationSlug)}/events/${encodeURIComponent(eventSlug)}`;
 }
 
 function normalizePublicEvent(raw: unknown): PublicEvent {
@@ -263,6 +287,51 @@ export async function getPublicMenu(slug: string): Promise<PublicMenu> {
   return { event, categories, products: topProducts };
 }
 
+export async function resolveLegacyPublicEvent(slug: string): Promise<LegacyPublicEventResolution> {
+  const res = await apiFetch(
+    `${API_BASE_URL}/public/events/${encodeURIComponent(slug)}/catalog-menu`,
+    { headers: { ...API_HEADERS } },
+  );
+  return handle<LegacyPublicEventResolution>(res);
+}
+
+export async function getCanonicalPublicMenu({
+  organizationSlug,
+  eventSlug,
+}: {
+  organizationSlug: string;
+  eventSlug: string;
+}): Promise<PublicMenu> {
+  const res = await apiFetch(
+    `${API_BASE_URL}${encodeEventPath({ organizationSlug, eventSlug })}/catalog-menu`,
+    { headers: { ...API_HEADERS } },
+  );
+  const data = await handle<unknown>(res);
+  const obj = (data && typeof data === "object" ? data : {}) as Record<string, unknown>;
+  const event = normalizePublicEvent(obj.event ?? obj);
+  const eventObj = event as unknown as Record<string, unknown>;
+  const categories =
+    ((eventObj?.categories as PublicCategory[] | undefined)
+      ?? (obj.categories as PublicCategory[] | undefined)
+      ?? []);
+  const topProducts = (obj.products as PublicProduct[] | undefined) ?? [];
+  return {
+    event: {
+      ...event,
+      canonicalUrl: typeof obj.canonicalUrl === "string" ? obj.canonicalUrl : undefined,
+      canonicalPath: typeof obj.canonicalPath === "string" ? obj.canonicalPath : undefined,
+      organizationSlug: typeof obj.organizationSlug === "string" ? obj.organizationSlug : undefined,
+      code: typeof obj.code === "string" ? obj.code : undefined,
+      message: typeof obj.message === "string" ? obj.message : undefined,
+    },
+    categories: categories.map((c) => ({
+      ...c,
+      products: c.products ?? topProducts.filter((p) => p.categoryId === c.id),
+    })),
+    products: topProducts,
+  };
+}
+
 export interface NfcIdentifiedCustomer {
   cardId: string;
   uid: string;
@@ -315,6 +384,34 @@ export async function identifyNfc(slug: string, uid: string): Promise<NfcIdentif
   return { found: !!data.found, blocked: !!blocked, customer: normalizedCustomer };
 }
 
+export async function identifyNfcCanonical(
+  organizationSlug: string,
+  eventSlug: string,
+  uid: string,
+): Promise<NfcIdentifyResponse> {
+  const normalized = uid.replace(/[^0-9A-Fa-f]/g, "").toUpperCase();
+  const res = await apiFetch(
+    `${API_BASE_URL}${encodeEventPath({ organizationSlug, eventSlug })}/nfc/identify`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...API_HEADERS },
+      body: JSON.stringify({ uid: normalized }),
+    },
+  );
+  const data = await handle<NfcIdentifyResponse & { card?: Record<string, unknown> }>(res);
+  const customer = data.customer;
+  const blocked = data.blocked === true || (customer?.status && String(customer.status).toUpperCase() === "BLOCKED");
+  let normalizedCustomer = customer;
+  if (customer) {
+    const balance =
+      pickBalance(customer as unknown as Record<string, unknown>) ??
+      pickBalance((data as unknown as Record<string, unknown>).card as Record<string, unknown> | undefined) ??
+      pickBalance(data as unknown as Record<string, unknown>);
+    normalizedCustomer = { ...customer, balanceInCents: balance };
+  }
+  return { found: !!data.found, blocked: !!blocked, customer: normalizedCustomer };
+}
+
 export interface NfcPaymentResult {
   success: boolean;
   order?: PublicOrderResponse;
@@ -332,6 +429,28 @@ export async function payWithNfcBalance(
   const normalized = uid.replace(/[^0-9A-Fa-f]/g, "").toUpperCase();
   const res = await apiFetch(
     `${API_BASE_URL}/public/events/${encodeURIComponent(slug)}/orders/${encodeURIComponent(orderId)}/pay-with-nfc-balance`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...API_HEADERS },
+      body: JSON.stringify({ uid: normalized }),
+    },
+  );
+  const data = await handle<NfcPaymentResult>(res);
+  const newBalance =
+    pickBalance(data as unknown as Record<string, unknown>) ??
+    pickBalance(data.card as Record<string, unknown> | undefined);
+  return { ...data, success: true, newBalanceInCents: newBalance };
+}
+
+export async function payWithNfcBalanceCanonical(
+  organizationSlug: string,
+  eventSlug: string,
+  orderId: string,
+  uid: string,
+): Promise<NfcPaymentResult> {
+  const normalized = uid.replace(/[^0-9A-Fa-f]/g, "").toUpperCase();
+  const res = await apiFetch(
+    `${API_BASE_URL}${encodeEventPath({ organizationSlug, eventSlug })}/orders/${encodeURIComponent(orderId)}/pay-with-nfc-balance`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json", ...API_HEADERS },
@@ -370,6 +489,27 @@ export async function createPublicOrder(
 ): Promise<PublicOrderResponse> {
   const res = await apiFetch(
     `${API_BASE_URL}/public/events/${encodeURIComponent(slug)}/orders`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...API_HEADERS },
+      body: JSON.stringify(input),
+    },
+  );
+  const data = await handle<PublicOrderResponse | { order: PublicOrderResponse }>(res);
+  return normalizePublicOrder(
+    "order" in (data as object)
+      ? (data as { order: PublicOrderResponse }).order
+      : (data as PublicOrderResponse),
+  );
+}
+
+export async function createPublicOrderCanonical(
+  organizationSlug: string,
+  eventSlug: string,
+  input: CreatePublicOrderInput,
+): Promise<PublicOrderResponse> {
+  const res = await apiFetch(
+    `${API_BASE_URL}${encodeEventPath({ organizationSlug, eventSlug })}/orders`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json", ...API_HEADERS },
@@ -483,6 +623,19 @@ export async function getCallScreenOrders(slug: string): Promise<CallScreenData>
   const res = await apiFetch(`${API_BASE_URL}/public/events/${encodeURIComponent(slug)}/call-screen-orders`, {
     headers: { ...API_HEADERS },
   });
+  return handle<CallScreenData>(res);
+}
+
+export async function getCallScreenOrdersCanonical(
+  organizationSlug: string,
+  eventSlug: string,
+): Promise<CallScreenData> {
+  const res = await apiFetch(
+    `${API_BASE_URL}${encodeEventPath({ organizationSlug, eventSlug })}/call-screen-orders`,
+    {
+      headers: { ...API_HEADERS },
+    },
+  );
   return handle<CallScreenData>(res);
 }
 
