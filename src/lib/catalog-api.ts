@@ -367,12 +367,29 @@ export async function updateCatalogCategory(
   return unwrapOne<CatalogCategory>(data, "category", "catalogCategory");
 }
 
-export async function deleteCatalogCategory(token: string, id: string): Promise<void> {
+export interface CatalogDeleteResult {
+  code: string;
+  action: "DELETED" | "DEACTIVATED" | "BLOCKED";
+  message: string;
+  categoryId?: string;
+  productId?: string;
+  product?: CatalogProduct;
+  productCount?: number;
+  dependencies?: Record<string, number>;
+  products?: Array<{ id: string; name: string; active?: boolean }>;
+}
+
+export async function deleteCatalogCategory(
+  token: string,
+  id: string,
+  organizationId?: string | null,
+): Promise<CatalogDeleteResult> {
   const res = await apiFetch(`${API_BASE_URL}/catalog/categories/${encodeURIComponent(id)}`, {
     method: "DELETE",
-    headers: authHeaders(token),
+    headers: catalogHeaders(token, organizationId),
   });
   if (!res.ok) throw await fromResponse(res);
+  return handle<CatalogDeleteResult>(res);
 }
 
 export async function updateCatalogProduct(
@@ -403,12 +420,17 @@ export async function updateCatalogProduct(
   return unwrapOne<CatalogProduct>(data, "product", "catalogProduct");
 }
 
-export async function deleteCatalogProduct(token: string, id: string): Promise<void> {
+export async function deleteCatalogProduct(
+  token: string,
+  id: string,
+  organizationId?: string | null,
+): Promise<CatalogDeleteResult> {
   const res = await apiFetch(`${API_BASE_URL}/catalog/products/${encodeURIComponent(id)}`, {
     method: "DELETE",
-    headers: authHeaders(token),
+    headers: catalogHeaders(token, organizationId),
   });
   if (!res.ok) throw await fromResponse(res);
+  return handle<CatalogDeleteResult>(res);
 }
 
 /* ---------------- Catalog product option groups & options ---------------- */

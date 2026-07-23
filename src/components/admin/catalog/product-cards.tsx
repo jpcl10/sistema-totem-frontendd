@@ -1,4 +1,4 @@
-import { MoreVertical, Pencil, Power } from "lucide-react";
+import { MoreVertical, Pencil, Power, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -47,12 +47,14 @@ function ProductActions({
   active,
   onEdit,
   onToggle,
+  onDelete,
   compact,
   productName,
 }: {
   active: boolean;
   onEdit: () => void;
   onToggle: () => void;
+  onDelete: () => void;
   compact?: boolean;
   productName: string;
 }) {
@@ -85,6 +87,10 @@ function ProductActions({
             <Power className="mr-2 h-4 w-4" />
             {active ? "Desativar" : "Ativar"}
           </DropdownMenuItem>
+          <DropdownMenuItem onClick={onDelete} className="text-destructive focus:text-destructive">
+            <Trash2 className="mr-2 h-4 w-4" />
+            Excluir
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
@@ -98,6 +104,7 @@ export function ProductCard({
   counts,
   onEdit,
   onToggle,
+  onDelete,
 }: {
   product: CatalogProduct;
   categoryName: string;
@@ -105,6 +112,7 @@ export function ProductCard({
   counts: ProductCounts;
   onEdit: () => void;
   onToggle: () => void;
+  onDelete: () => void;
 }) {
   const img = resolveAssetUrl(product.imageUrl);
 
@@ -131,6 +139,7 @@ export function ProductCard({
             active={active}
             onEdit={onEdit}
             onToggle={onToggle}
+            onDelete={onDelete}
             productName={product.name}
             compact
           />
@@ -147,6 +156,7 @@ export function ProductRow({
   counts,
   onEdit,
   onToggle,
+  onDelete,
 }: {
   product: CatalogProduct;
   categoryName: string;
@@ -154,6 +164,7 @@ export function ProductRow({
   counts: ProductCounts;
   onEdit: () => void;
   onToggle: () => void;
+  onDelete: () => void;
 }) {
   const img = resolveAssetUrl(product.imageUrl);
   return (
@@ -179,6 +190,7 @@ export function ProductRow({
         active={active}
         onEdit={onEdit}
         onToggle={onToggle}
+        onDelete={onDelete}
         productName={product.name}
         compact
       />

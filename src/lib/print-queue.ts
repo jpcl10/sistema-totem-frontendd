@@ -346,6 +346,21 @@ export async function listEventPrintJobs(token: string, eventId: string, params?
   return finalJobs;
 }
 
+export async function createTestPrintJobRequest(
+  token: string,
+  eventId: string,
+  input: { deviceId: string; printerId?: string | null; sector: "GENERAL" | "BAR" | "KITCHEN" },
+): Promise<PrintJob> {
+  const res = await apiFetch(`${API_BASE_URL}/events/${encodeURIComponent(eventId)}/print-jobs/test`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders(token) },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw await fromResponse(res);
+  const data = await res.json();
+  return (data.printJob || data) as PrintJob;
+}
+
 export async function cancelPrintJobRequest(token: string, id: string) {
   const res = await apiFetch(`${API_BASE_URL}/print-jobs/${encodeURIComponent(id)}/cancel`, {
     method: "PATCH",

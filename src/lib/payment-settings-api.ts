@@ -97,6 +97,18 @@ export interface PaymentTerminal {
   updatedAt: string;
 }
 
+export interface MercadoPagoStatus {
+  configured: boolean;
+  pixEnabled: boolean;
+  environment: PaymentEnvironment;
+  accountReference: string | null;
+  updatedAt: string | null;
+  webhookReady: boolean;
+  credentialReadable: boolean;
+  providerActive: boolean;
+  terminalEnabled: boolean;
+}
+
 export interface CreatePaymentTerminalInput {
   provider: PaymentProvider;
   externalTerminalId: string;
@@ -177,6 +189,13 @@ export async function getEffectivePaymentSettings(
     headers: authHeaders(token),
   });
   return unwrapPaymentSettings(await handle<unknown>(res));
+}
+
+export async function getMercadoPagoStatus(token: string): Promise<MercadoPagoStatus> {
+  const res = await apiFetch(`${API_BASE_URL}/payment-settings/mercado-pago/status`, {
+    headers: authHeaders(token),
+  });
+  return handle<MercadoPagoStatus>(res);
 }
 
 export async function updateEventPaymentSettings(

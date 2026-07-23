@@ -62,6 +62,41 @@ export interface ProductItem {
   [k: string]: unknown;
 }
 
+export interface TotemReadiness {
+  ready: boolean;
+  checks: Record<string, boolean>;
+  blockers: { code: string; message: string }[];
+  warnings: { code: string; message: string }[];
+  mercadoPago?: {
+    configured: boolean;
+    pixEnabled: boolean;
+    environment: string;
+    accountReference: string | null;
+    updatedAt: string | null;
+    webhookReady: boolean;
+    credentialReadable: boolean;
+  };
+  printing?: {
+    printMode: string;
+    paperSize: string;
+    defaultPrinterDeviceId: string | null;
+    kitchenPrinterDeviceId: string | null;
+    barPrinterDeviceId: string | null;
+    sources?: Record<string, unknown>;
+    sectors?: Record<string, unknown>;
+  };
+  devices?: Array<{
+    id: string;
+    name: string;
+    codePreview: string;
+    type: string;
+    status: string;
+    authStatus: string;
+    online: boolean;
+    lastHeartbeatAt: string | null;
+  }>;
+}
+
 async function handle<T>(res: Response): Promise<T> {
   if (!res.ok) throw await fromResponse(res);
   return res.json() as Promise<T>;
@@ -81,6 +116,13 @@ export async function listEvents(token: string): Promise<EventItem[]> {
   const res = await apiFetch(`${API_BASE_URL}/events`, { headers: authHeaders(token) });
   const data = await handle<unknown>(res);
   return unwrap<EventItem>(data, "events");
+}
+
+export async function getTotemReadiness(token: string, eventId: string): Promise<TotemReadiness> {
+  const res = await apiFetch(`${API_BASE_URL}/events/${encodeURIComponent(eventId)}/totem-readiness`, {
+    headers: authHeaders(token),
+  });
+  return handle<TotemReadiness>(res);
 }
 
 export async function getEvent(token: string, id: string): Promise<EventItem> {

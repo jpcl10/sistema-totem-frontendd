@@ -23,6 +23,7 @@ import {
   LayoutGrid,
   List as ListIcon,
   AlertTriangle,
+  Trash2,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -66,12 +67,15 @@ import { qk } from "@/lib/query-keys";
 import {
   createCatalogCategory,
   createCatalogProduct,
+  deleteCatalogCategory,
+  deleteCatalogProduct,
   listCatalogCategories,
   listCatalogProducts,
   listCatalogProductOptionGroups,
   updateCatalogCategory,
   updateCatalogProduct,
   type CatalogCategory,
+  type CatalogDeleteResult,
   type CatalogProduct,
   type CategorySector,
 } from "@/lib/catalog-api";
@@ -120,6 +124,9 @@ function CatalogPage() {
   const [prodOpen, setProdOpen] = useState(false);
   const [editingCat, setEditingCat] = useState<CatalogCategory | null>(null);
   const [editingProd, setEditingProd] = useState<CatalogProduct | null>(null);
+  const [deletingCat, setDeletingCat] = useState<CatalogCategory | null>(null);
+  const [deletingProd, setDeletingProd] = useState<CatalogProduct | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   // Filters
   const [search, setSearch] = useState("");
@@ -147,6 +154,8 @@ function CatalogPage() {
     setProdOpen(false);
     setEditingCat(null);
     setEditingProd(null);
+    setDeletingCat(null);
+    setDeletingProd(null);
     setSearch("");
     setCategoryFilter("ALL");
     setSectorFilter("ALL");
@@ -337,6 +346,61 @@ function CatalogPage() {
     }
   };
 
+  const invalidateCatalog = async (orgId: string) => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: qk.catalog.categories(orgId) }),
+      queryClient.invalidateQueries({ queryKey: qk.catalog.products(orgId) }),
+    ]);
+  };
+
+  const reloadCatalog = async () => {
+    if (!token || !organizationId) return;
+    await invalidateCatalog(organizationId);
+    await fetchAll(token, organizationId);
+  };
+
+  const onDeleteCategory = async () => {
+    if (!token || !organizationId || !deletingCat) return;
+    const productCount = (productsByCategory.get(deletingCat.id) ?? []).length;
+    setDeleteLoading(true);
+    try {
+      if (productCount > 0) {
+        await updateCatalogCategory(token, deletingCat.id, { active: false }, organizationId);
+        toast.success("Categoria inativada. Os produtos foram preservados.");
+      } else {
+        const result = await deleteCatalogCategory(token, deletingCat.id, organizationId);
+        toast.success(result.message || "Categoria excluída.");
+      }
+      setDeletingCat(null);
+      await reloadCatalog();
+    } catch (e) {
+      handleApiError(e, "Não foi possível excluir a categoria.");
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  const onDeleteProduct = async () => {
+    if (!token || !organizationId || !deletingProd) return;
+    setDeleteLoading(true);
+    try {
+      const result: CatalogDeleteResult = await deleteCatalogProduct(token, deletingProd.id, organizationId);
+      if (result.action === "DEACTIVATED" && result.product) {
+        setProducts((prev) => prev.map((x) => (x.id === result.product?.id ? { ...x, ...result.product } : x)));
+        toast.success(result.message || "Produto inativado.");
+      } else {
+        setProducts((prev) => prev.filter((x) => x.id !== deletingProd.id));
+        toast.success(result.message || "Produto excluído.");
+      }
+      setDeletingProd(null);
+      await reloadCatalog();
+    } catch (e) {
+      handleApiError(e, "Não foi possível excluir o produto.");
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
   const totalCategories = categories.length;
   const totalProducts = products.length;
   const activeProducts = products.filter((p) => isActive(p)).length;
@@ -496,6 +560,14 @@ function CatalogPage() {
                           <Power className="mr-2 h-4 w-4" />
                           {active ? "Desativar" : "Ativar"}
                         </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => setDeletingCat(c)}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Excluir
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
@@ -635,6 +707,7 @@ function CatalogPage() {
                   }
                   onEdit={() => setEditingProd(p)}
                   onToggle={() => onToggleProduct(p)}
+                  onDelete={() => setDeletingProd(p)}
                 />
               ))}
             </div>
@@ -651,6 +724,7 @@ function CatalogPage() {
                   }
                   onEdit={() => setEditingProd(p)}
                   onToggle={() => onToggleProduct(p)}
+                  onDelete={() => setDeletingProd(p)}
                 />
               ))}
             </div>
@@ -676,6 +750,78 @@ function CatalogPage() {
               setEditingCat(null);
             }}
           />
+        )}
+      </Dialog>
+
+      <Dialog open={!!deletingCat} onOpenChange={(o) => !o && !deleteLoading && setDeletingCat(null)}>
+        {deletingCat && (
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Excluir categoria</DialogTitle>
+              <DialogDescription>
+                {(() => {
+                  const count = (productsByCategory.get(deletingCat.id) ?? []).length;
+                  return count > 0
+                    ? `Esta categoria possui ${count} ${count === 1 ? "produto" : "produtos"}. Ela pode ser inativada, mas não excluída definitivamente enquanto houver produtos.`
+                    : "Esta categoria não possui produtos e pode ser excluída definitivamente.";
+                })()}
+              </DialogDescription>
+            </DialogHeader>
+            {(productsByCategory.get(deletingCat.id) ?? []).length > 0 && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                <div className="mb-2 flex items-center gap-2 font-medium">
+                  <AlertTriangle className="h-4 w-4" />
+                  Produtos preservados
+                </div>
+                <ul className="max-h-32 space-y-1 overflow-auto">
+                  {(productsByCategory.get(deletingCat.id) ?? []).slice(0, 6).map((product) => (
+                    <li key={product.id} className="truncate">• {product.name}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDeletingCat(null)} disabled={deleteLoading}>
+                Cancelar
+              </Button>
+              <Button
+                variant={(productsByCategory.get(deletingCat.id) ?? []).length > 0 ? "secondary" : "destructive"}
+                onClick={onDeleteCategory}
+                disabled={deleteLoading}
+              >
+                {deleteLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {(productsByCategory.get(deletingCat.id) ?? []).length > 0 ? "Inativar categoria" : "Excluir definitivamente"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        )}
+      </Dialog>
+
+      <Dialog open={!!deletingProd} onOpenChange={(o) => !o && !deleteLoading && setDeletingProd(null)}>
+        {deletingProd && (
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Excluir produto</DialogTitle>
+              <DialogDescription>
+                O backend vai excluir definitivamente apenas se não houver histórico ou vínculos operacionais. Se houver pedidos ou vínculos com evento, o produto será inativado para preservar o histórico.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="rounded-lg border p-3 text-sm">
+              <div className="font-medium">{deletingProd.name}</div>
+              <div className="text-muted-foreground">
+                {categories.find((c) => c.id === productCategoryId(deletingProd))?.name ?? "Sem categoria"}
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDeletingProd(null)} disabled={deleteLoading}>
+                Cancelar
+              </Button>
+              <Button variant="destructive" onClick={onDeleteProduct} disabled={deleteLoading}>
+                {deleteLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Excluir produto
+              </Button>
+            </DialogFooter>
+          </DialogContent>
         )}
       </Dialog>
 
