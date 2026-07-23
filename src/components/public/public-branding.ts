@@ -2,30 +2,19 @@ import type { CSSProperties } from "react";
 import { resolveAssetUrl } from "@/lib/auth";
 import type { PublicEvent } from "@/lib/public-api";
 
-/**
- * Objeto normalizado de branding público para canais de evento (Totem, cardápio).
- * Consome apenas campos que existem em `PublicEvent` — não inventa DTOs.
- */
 export interface PublicEventBranding {
-  /** Nome do evento/estabelecimento. */
   name: string;
-  /** Mensagem operacional/slogan configurada no backend. `null` se ausente. */
   welcomeMessage: string | null;
-  /** Logo já resolvido em URL absoluta. `null` se ausente ou oculto. */
   logoUrl: string | null;
-  /** Banner já resolvido em URL absoluta. `null` se ausente. */
   bannerUrl: string | null;
-  /** Deve mostrar o logo (respeita `totemShowLogo`). */
+  bannerMobileUrl: string | null;
+  defaultProductImageUrl: string | null;
+  version: string | null;
   showLogo: boolean;
-  /** Cor primária resolvida (hex configurada OU fallback via token do Design System). */
   primaryColor: string;
-  /** Cor secundária resolvida. */
   secondaryColor: string;
-  /** Cor de fundo do canal (do totem). Pode ser hex ou fallback via token. */
   backgroundColor: string;
-  /** Cor de texto legível sobre `backgroundColor`. */
   textColor: string;
-  /** CSS custom properties prontas para aplicar em `style`. */
   cssVars: CSSProperties;
 }
 
@@ -40,17 +29,31 @@ function isHex(v: unknown): v is string {
   return typeof v === "string" && HEX_RE.test(v.trim());
 }
 
+function firstString(...values: unknown[]): string | null {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim().length > 0) return value.trim();
+  }
+  return null;
+}
+
+function versionAssetUrl(url: string | null, version: string | null): string | null {
+  const resolved = resolveAssetUrl(url ?? undefined);
+  if (!resolved || !version) return resolved || null;
+  if (/([?&])v=/.test(resolved)) return resolved;
+  return `${resolved}${resolved.includes("?") ? "&" : "?"}v=${encodeURIComponent(version)}`;
+}
+
 function expandHex(hex: string): string {
   const h = hex.replace("#", "");
-  if (h.length === 3)
+  if (h.length === 3) {
     return h
       .split("")
       .map((c) => c + c)
       .join("");
+  }
   return h.slice(0, 6);
 }
 
-/** Preto/branco conforme luminância percebida do hex informado. */
 export function readableForeground(hex: string): string {
   if (!isHex(hex)) return TOKEN_FG;
   const full = expandHex(hex);
@@ -61,36 +64,38 @@ export function readableForeground(hex: string): string {
   return luminance > 0.6 ? "#0F172A" : "#FFFFFF";
 }
 
-/**
- * Hook puro (sem estado) que normaliza o branding de um `PublicEvent`.
- * Único lugar responsável por fallbacks, resolução de asset e contraste.
- */
 export function usePublicEventBranding(event: PublicEvent | null | undefined): PublicEventBranding {
   const name = event?.name?.trim() ?? "";
+  const branding = event?.branding;
+  const version = firstString(branding?.updatedAt, (event as Record<string, unknown> | undefined)?.updatedAt);
   const welcomeRaw = event?.totemWelcomeMessage;
   const welcomeMessage =
     typeof welcomeRaw === "string" && welcomeRaw.trim().length > 0 ? welcomeRaw.trim() : null;
 
   const showLogo = event?.totemShowLogo !== false;
-  const rawLogo = resolveAssetUrl(event?.logoUrl);
-  const logoUrl = showLogo && rawLogo ? rawLogo : null;
+  const logoUrl = showLogo
+    ? versionAssetUrl(firstString(event?.logoUrl, branding?.logoUrl), version)
+    : null;
+  const bannerUrl = versionAssetUrl(firstString(event?.bannerUrl, branding?.bannerUrl), version);
+  const bannerMobileUrl = versionAssetUrl(
+    firstString(event?.bannerMobileUrl, branding?.bannerMobileUrl),
+    version,
+  );
+  const defaultProductImageUrl = versionAssetUrl(
+    firstString(event?.defaultProductImageUrl, branding?.defaultProductImageUrl),
+    version,
+  );
 
-  const rawBanner = resolveAssetUrl(event?.bannerUrl);
-  const bannerUrl = rawBanner || null;
+  const primaryCandidate = firstString(event?.primaryColor, branding?.primaryColor);
+  const secondaryCandidate = firstString(event?.secondaryColor, branding?.secondaryColor);
+  const backgroundCandidate = firstString(event?.totemBackgroundColor, branding?.backgroundColor);
+  const primaryColor = isHex(primaryCandidate) ? primaryCandidate : TOKEN_PRIMARY;
+  const secondaryColor = isHex(secondaryCandidate) ? secondaryCandidate : TOKEN_SECONDARY;
+  const backgroundColor = isHex(backgroundCandidate) ? backgroundCandidate : TOKEN_BG;
 
-  const primaryColor = isHex(event?.primaryColor) ? (event!.primaryColor as string) : TOKEN_PRIMARY;
-  const secondaryColor = isHex(event?.secondaryColor)
-    ? (event!.secondaryColor as string)
-    : TOKEN_SECONDARY;
-  const backgroundColor = isHex(event?.totemBackgroundColor)
-    ? (event!.totemBackgroundColor as string)
-    : TOKEN_BG;
-
-  // Cor de texto: prioriza campo configurado; senão, calcula contraste quando
-  // o fundo for hex; senão, cai para o token de foreground.
   let textColor: string;
   if (isHex(event?.totemTextColor)) {
-    textColor = event!.totemTextColor as string;
+    textColor = event.totemTextColor;
   } else if (isHex(backgroundColor)) {
     textColor = readableForeground(backgroundColor);
   } else {
@@ -109,6 +114,9 @@ export function usePublicEventBranding(event: PublicEvent | null | undefined): P
     welcomeMessage,
     logoUrl,
     bannerUrl,
+    bannerMobileUrl,
+    defaultProductImageUrl,
+    version,
     showLogo: showLogo && !!logoUrl,
     primaryColor,
     secondaryColor,

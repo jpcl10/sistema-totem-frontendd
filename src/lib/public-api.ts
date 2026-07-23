@@ -32,8 +32,23 @@ export interface PublicEvent {
   slug: string;
   logoUrl?: string;
   bannerUrl?: string;
+  bannerMobileUrl?: string | null;
   primaryColor?: string;
   secondaryColor?: string;
+  defaultProductImageUrl?: string | null;
+  branding?: {
+    logoUrl?: string | null;
+    bannerUrl?: string | null;
+    bannerMobileUrl?: string | null;
+    faviconUrl?: string | null;
+    primaryColor?: string | null;
+    secondaryColor?: string | null;
+    backgroundColor?: string | null;
+    theme?: string | null;
+    defaultProductImageUrl?: string | null;
+    updatedAt?: string | null;
+    [k: string]: unknown;
+  };
   totemWelcomeMessage?: string;
   totemBackgroundColor?: string;
   totemTextColor?: string;
@@ -106,7 +121,7 @@ export interface PaymentTransaction {
   provider: string;
   method: string;
   amountInCents: number;
-  status: "PENDING" | "WAITING_PAYMENT" | "PAID" | "CANCELLED" | "ERROR";
+  status: "CREATED" | "PENDING" | "WAITING_PAYMENT" | "APPROVED" | "REJECTED" | "PAID" | "CANCELLED" | "EXPIRED" | "ERROR";
   pixCopyPaste?: string;
   qrCode?: string;
   qrCodeBase64?: string;
@@ -217,6 +232,10 @@ function encodeEventPath({
 
 function normalizePublicEvent(raw: unknown): PublicEvent {
   const obj = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const branding =
+    obj.branding && typeof obj.branding === "object"
+      ? (obj.branding as PublicEvent["branding"])
+      : undefined;
   return {
     ...obj,
     id: String(obj.id ?? ""),
@@ -234,6 +253,12 @@ function normalizePublicEvent(raw: unknown): PublicEvent {
         : typeof obj.banner_url === "string"
           ? (obj.banner_url as string)
           : undefined,
+    bannerMobileUrl:
+      typeof obj.bannerMobileUrl === "string"
+        ? obj.bannerMobileUrl
+        : typeof obj.banner_mobile_url === "string"
+          ? (obj.banner_mobile_url as string)
+          : branding?.bannerMobileUrl ?? null,
     primaryColor:
       typeof obj.primaryColor === "string"
         ? obj.primaryColor
@@ -246,6 +271,13 @@ function normalizePublicEvent(raw: unknown): PublicEvent {
         : typeof obj.secondary_color === "string"
           ? (obj.secondary_color as string)
           : undefined,
+    defaultProductImageUrl:
+      typeof obj.defaultProductImageUrl === "string"
+        ? obj.defaultProductImageUrl
+        : typeof obj.default_product_image_url === "string"
+          ? (obj.default_product_image_url as string)
+          : branding?.defaultProductImageUrl ?? null,
+    branding,
     totemWelcomeMessage:
       typeof obj.totemWelcomeMessage === "string"
         ? obj.totemWelcomeMessage
@@ -660,6 +692,33 @@ export async function checkoutPayment(
   // [redacted log]
 
   return data as CheckoutPaymentResponse;
+}
+
+export async function createTotemCardPaymentIntent({
+  organizationSlug,
+  eventSlug,
+  orderId,
+}: {
+  organizationSlug: string;
+  eventSlug: string;
+  orderId: string;
+}): Promise<{ paymentTransaction: PaymentTransaction }> {
+  const url =
+    `${API_BASE_URL}${encodeEventPath({ organizationSlug, eventSlug })}` +
+    `/orders/${encodeURIComponent(orderId)}/card-payment-intent`;
+  const res = await publicApiFetch(
+    url,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...API_HEADERS,
+      },
+      body: JSON.stringify({}),
+    },
+    { organizationSlug, eventSlug, payload: { orderId, context: "TOTEM", paymentMethod: "CARD" } },
+  );
+  return res.json() as Promise<{ paymentTransaction: PaymentTransaction }>;
 }
 
 /** Fallback status check while waiting for socket. Returns null if endpoint unavailable. */

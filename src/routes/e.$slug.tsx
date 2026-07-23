@@ -11,6 +11,7 @@ import {
   Copy,
   QrCode,
   Clock,
+  CreditCard,
   PartyPopper,
   AlertTriangle,
   ArrowRight,
@@ -53,6 +54,7 @@ import {
   resolveLegacyPublicEvent,
   createPublicOrder,
   createPublicOrderCanonical,
+  createTotemCardPaymentIntent,
   getCheckoutPaymentSettings,
   checkoutPayment,
   getPublicOrderStatus,
@@ -68,7 +70,6 @@ import {
   type PublicOrderResponse,
   type CheckoutPaymentResponse,
 } from "@/lib/public-api";
-import { enqueueJobsForOrder, type PrintSector } from "@/lib/print-queue";
 
 function logTotemPublicApiError(
   label: string,
@@ -120,7 +121,7 @@ function TotemWelcomeScreen({
   onStart: () => void;
 }) {
   const branding = usePublicEventBranding(event);
-  const { name, welcomeMessage, logoUrl, bannerUrl, primaryColor, secondaryColor } = branding;
+  const { name, welcomeMessage, logoUrl, bannerUrl, bannerMobileUrl, primaryColor, secondaryColor } = branding;
   const brandGradient = `linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%)`;
 
   return (
@@ -134,15 +135,18 @@ function TotemWelcomeScreen({
     >
       <header className="relative">
         <div className="relative h-[30dvh] min-h-56 max-h-[420px] w-full overflow-hidden sm:h-72">
-          {bannerUrl ? (
+          {bannerUrl || bannerMobileUrl ? (
             <>
-              <img
-                src={bannerUrl}
-                alt=""
-                aria-hidden
-                draggable={false}
-                className="h-full w-full select-none object-cover"
-              />
+              <picture className="block h-full w-full">
+                {bannerMobileUrl && <source srcSet={bannerMobileUrl} media="(orientation: portrait)" />}
+                <img
+                  src={bannerUrl ?? bannerMobileUrl ?? ""}
+                  alt=""
+                  aria-hidden
+                  draggable={false}
+                  className="h-full w-full select-none object-cover object-center"
+                />
+              </picture>
               <div className="absolute inset-0 bg-gradient-to-t from-background/95 via-background/35 to-transparent" />
             </>
           ) : (
@@ -381,7 +385,7 @@ export function PublicMenuPage({
   const [submitting, setSubmitting] = useState(false);
 
   const [paymentStep, setPaymentStep] = useState<
-    "loading" | "pix_automatic" | "pix_unavailable" | "operator" | "paid" | null
+    "loading" | "pix_automatic" | "pix_unavailable" | "card_waiting" | "card_declined" | "operator" | "paid" | null
   >(null);
   const [checkoutSettings, setCheckoutSettings] = useState<CheckoutPaymentSettings | null>(null);
   const [checkoutSettingsLoading, setCheckoutSettingsLoading] = useState(false);
@@ -442,7 +446,10 @@ export function PublicMenuPage({
   useEffect(() => {
     if (confirmation) {
       // If the order is already paid, we can reset after some time
-      if (paymentStep === "paid" || !confirmation.pix) {
+      if (
+        paymentStep === "paid" ||
+        (!confirmation.pix && paymentStep !== "card_waiting" && paymentStep !== "loading")
+      ) {
         const timeout = isKioskMode ? 10000 : 15000;
         const timer = setTimeout(() => {
           setConfirmation(null);
@@ -514,12 +521,17 @@ export function PublicMenuPage({
     });
 
     const isPaid = (status?: string) => status === "PAID" || status === "NOT_REQUIRED";
+    const isFailed = (status?: string) =>
+      status === "FAILED" || status === "CANCELLED" || status === "REFUNDED";
 
     socket.on("order-updated", (payload: any) => {
       const updatedOrder = payload?.order ?? payload;
       if (!updatedOrder || updatedOrder.id !== orderId) return;
       if (isPaid(updatedOrder?.paymentStatus)) {
         markPaid("order-updated");
+      } else if (paymentStep === "card_waiting" && isFailed(updatedOrder?.paymentStatus)) {
+        setPaymentStep("card_declined");
+        toast.error("Pagamento não aprovado. Tente novamente.");
       }
     });
 
@@ -530,6 +542,15 @@ export function PublicMenuPage({
       if (txOrderId && txOrderId !== orderId) return;
       if (isPaid(order?.paymentStatus)) {
         markPaid("payment-transaction-updated");
+      } else if (
+        paymentStep === "card_waiting" &&
+        (isFailed(order?.paymentStatus) ||
+          tx?.status === "REJECTED" ||
+          tx?.status === "CANCELLED" ||
+          tx?.status === "ERROR")
+      ) {
+        setPaymentStep("card_declined");
+        toast.error("Pagamento não aprovado. Tente novamente.");
       }
     });
 
@@ -548,6 +569,10 @@ export function PublicMenuPage({
       const res = await getPublicOrderStatus(orderId);
       if (!res) return;
       if (isPaid(res.paymentStatus)) markPaid("polling");
+      else if (paymentStep === "card_waiting" && isFailed(res.paymentStatus)) {
+        setPaymentStep("card_declined");
+        toast.error("Pagamento não aprovado. Tente novamente.");
+      }
     }, 3000);
 
     return () => {
@@ -632,11 +657,13 @@ export function PublicMenuPage({
     checkoutSettings?.mercadoPago?.terminalEnabled ??
     checkoutSettings?.mercadoPago?.cardEnabled ??
     false;
-  const primary = event?.primaryColor || "#0f172a";
-  const secondary = event?.secondaryColor || "#f59e0b";
   const branding = usePublicEventBranding(event);
+  const primary = branding.primaryColor;
+  const secondary = branding.secondaryColor;
   const banner = branding.bannerUrl;
+  const bannerMobile = branding.bannerMobileUrl;
   const logo = branding.logoUrl;
+  const defaultProductImageUrl = branding.defaultProductImageUrl;
   const eventName = branding.name || event?.name || "Cardápio";
   const brandGradient = `linear-gradient(135deg, ${branding.primaryColor} 0%, ${branding.secondaryColor} 100%)`;
 
@@ -981,43 +1008,57 @@ export function PublicMenuPage({
         );
       }
     } else {
-      // Card payments are handled by the configured terminal/operator flow.
-      setPaymentStep(null);
-
-      // Print tickets
-      if (menu) {
-        const categoryIndex = new Map<string, PrintSector>();
-        for (const cat of menu.categories ?? []) {
-          const rec = cat as unknown as { sector?: string };
-          const s = (rec.sector ?? "").toUpperCase();
-          if (s === "BAR") categoryIndex.set(cat.id, "BAR");
-          else if (s === "KITCHEN" || s === "COZINHA") categoryIndex.set(cat.id, "KITCHEN");
-        }
-        try {
-          enqueueJobsForOrder(
-            {
-              ...order,
-              items:
-                (order.items as unknown as Record<string, unknown>[]) ??
-                cart.map((c) => ({
-                  productId: c.product.id,
-                  name: c.product.name,
-                  quantity: c.quantity,
-                  priceInCents: getPrice(c.product),
-                  categoryId: c.product.categoryId,
-                })),
-            },
-            { eventName: event?.name ?? menu.event.name, eventId: event?.id, categoryIndex },
-          );
-        } catch (err) {
-          if (import.meta.env.DEV) console.warn("enqueue print jobs failed", err);
-          toast.error(
-            "Pedido confirmado, mas houve falha ao enviar para impressão. Chame o operador.",
-          );
-        }
+      if (!organizationSlug) {
+        setPaymentStep("operator");
+        setConfirmation((prev) =>
+          prev
+            ? {
+                ...prev,
+                error: "Link do totem inválido para pagamento com cartão.",
+              }
+            : null,
+        );
+        return;
       }
 
-      toast.success("Pedido recebido!");
+      try {
+        const { paymentTransaction } = await createTotemCardPaymentIntent({
+          organizationSlug,
+          eventSlug: slug,
+          orderId: order.id,
+        });
+
+        setPaymentStep("card_waiting");
+        setConfirmation((prev) =>
+          prev
+            ? {
+                ...prev,
+                pix: false,
+                transaction: paymentTransaction,
+                message: "Aproxime ou insira o cartão no terminal do totem.",
+                error: null,
+              }
+            : null,
+        );
+        toast.info("Aguardando pagamento no terminal.");
+      } catch (err) {
+        logTotemPublicApiError("Falha ao iniciar pagamento com cartão do totem", err, {
+          eventSlug: slug,
+          organizationSlug,
+          payload: { orderId: order.id, context: "TOTEM", paymentMethod: "CARD" },
+        });
+        setPaymentStep("operator");
+        setConfirmation((prev) =>
+          prev
+            ? {
+                ...prev,
+                error:
+                  "Não foi possível iniciar o pagamento com cartão. Chame o operador.",
+              }
+            : null,
+        );
+        toast.error("Não foi possível iniciar o pagamento com cartão.");
+      }
     }
 
     setCart([]);
@@ -1119,9 +1160,17 @@ export function PublicMenuPage({
     >
       <header className="relative">
         <div className="relative h-40 w-full overflow-hidden sm:h-56 md:h-60">
-          {banner ? (
+          {banner || bannerMobile ? (
             <>
-              <img src={banner} alt="" aria-hidden className="h-full w-full object-cover" />
+              <picture className="block h-full w-full">
+                {bannerMobile && <source srcSet={bannerMobile} media="(orientation: portrait)" />}
+                <img
+                  src={banner ?? bannerMobile ?? ""}
+                  alt=""
+                  aria-hidden
+                  className="h-full w-full object-cover object-center"
+                />
+              </picture>
               <div className="absolute inset-0 bg-gradient-to-t from-background/95 via-background/30 to-transparent" />
             </>
           ) : (
@@ -1224,6 +1273,7 @@ export function PublicMenuPage({
               inc={inc}
               dec={dec}
               isKioskMode={isKioskMode}
+              defaultProductImageUrl={defaultProductImageUrl}
             />
           ))
         )}
@@ -1277,6 +1327,7 @@ export function PublicMenuPage({
           {addingProduct && (
             <TotemProductModalBody
               product={addingProduct}
+              defaultProductImageUrl={defaultProductImageUrl}
               notes={productNotes}
               setNotes={setProductNotes}
               onAdd={(payload) => {
@@ -1314,6 +1365,7 @@ export function PublicMenuPage({
           cardAvailable={totemCardAvailable}
           paymentSettingsLoading={checkoutSettingsLoading}
           pixUnavailableReason={checkoutSettings?.totem?.unavailablePixReason ?? null}
+          defaultProductImageUrl={defaultProductImageUrl}
         />
       </Sheet>
 
@@ -1471,8 +1523,8 @@ export function PublicMenuPage({
               >
                 {paymentStep === "paid" ? (
                   <PartyPopper className={isKioskMode ? "size-16" : "size-12"} />
-                ) : !confirmation.pix ? (
-                  <CheckCircle2 className={isKioskMode ? "size-16" : "size-12"} />
+                ) : paymentStep === "card_waiting" || paymentStep === "card_declined" ? (
+                  <CreditCard className={isKioskMode ? "size-16" : "size-12"} />
                 ) : (
                   <Clock className={isKioskMode ? "size-16" : "size-12"} />
                 )}
@@ -1481,6 +1533,10 @@ export function PublicMenuPage({
               <h2 className="text-4xl font-black mb-4 leading-tight" style={{ color: primary }}>
                 {paymentStep === "pix_unavailable"
                   ? "PIX indisponível"
+                  : paymentStep === "card_waiting"
+                    ? "Aguardando cartão"
+                    : paymentStep === "card_declined"
+                      ? "Pagamento não aprovado"
                   : paymentStep === "operator"
                     ? "Pagamento pendente"
                     : paymentStep === "paid"
@@ -1491,6 +1547,10 @@ export function PublicMenuPage({
               <p className="text-xl text-muted-foreground max-w-sm mx-auto mb-8 font-medium">
                 {paymentStep === "loading"
                   ? "Iniciando pagamento..."
+                  : paymentStep === "card_waiting"
+                    ? "Aproxime ou insira o cartão no terminal do totem. O pedido só será concluído após aprovação."
+                    : paymentStep === "card_declined"
+                      ? "Não foi possível aprovar o pagamento. Tente novamente ou chame o operador."
                   : paymentStep === "paid"
                     ? "Seu pagamento foi confirmado. Seu pedido será preparado."
                     : confirmation.pix
@@ -1545,6 +1605,36 @@ export function PublicMenuPage({
                   </div>
                 </div>
               </div>
+
+              {!confirmation.pix && paymentStep !== "paid" && (
+                <div className="w-full max-w-md bg-white border-2 rounded-[2.5rem] p-8 mb-10 shadow-sm text-center">
+                  {paymentStep === "card_waiting" ? (
+                    <div className="space-y-4 py-4">
+                      <Loader2 className="mx-auto size-12 animate-spin text-muted-foreground" />
+                      <h3 className="text-xl font-black" style={{ color: primary }}>
+                        Processando no terminal
+                      </h3>
+                      <p className="text-muted-foreground font-medium">
+                        Aproxime ou insira o cartão e aguarde a confirmação automática.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4 py-4">
+                      <div className="size-16 rounded-full bg-destructive/10 text-destructive flex items-center justify-center mx-auto">
+                        <X className="size-8" />
+                      </div>
+                      {confirmation.error && (
+                        <div className="p-3 bg-destructive/10 text-destructive text-sm font-bold rounded-xl">
+                          {confirmation.error}
+                        </div>
+                      )}
+                      <p className="text-muted-foreground font-medium">
+                        O pedido não será enviado para produção enquanto o pagamento não for aprovado.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {confirmation.pix && paymentStep !== "paid" && (
                 <div className="w-full max-w-md bg-white border-2 rounded-[2.5rem] p-8 mb-10 shadow-sm text-left">
@@ -1637,7 +1727,7 @@ export function PublicMenuPage({
               )}
 
               <div className="flex flex-col sm:flex-row gap-4 w-full max-w-md">
-                {(!confirmation.pix || paymentStep === "paid") && (
+                {((!confirmation.pix && paymentStep !== "card_waiting") || paymentStep === "paid") && (
                   <Button
                     size="lg"
                     className={`flex-1 ${isKioskMode ? "h-20 text-xl" : "h-16 text-lg"} font-black rounded-3xl shadow-xl transition-all active:scale-95`}
@@ -1665,7 +1755,7 @@ export function PublicMenuPage({
                 </Button>
               </div>
 
-              {(!confirmation.pix || paymentStep === "paid") && (
+              {((!confirmation.pix && paymentStep !== "card_waiting") || paymentStep === "paid") && (
                 <p className="mt-8 text-xs text-muted-foreground opacity-50 font-medium italic">
                   Esta tela fechará automaticamente...
                 </p>
@@ -1679,11 +1769,13 @@ export function PublicMenuPage({
 
 function TotemProductModalBody({
   product,
+  defaultProductImageUrl,
   notes,
   setNotes,
   onAdd,
 }: {
   product: PublicProduct;
+  defaultProductImageUrl?: string | null;
   notes: string;
   setNotes: (value: string) => void;
   onAdd: (payload: {
@@ -1776,7 +1868,7 @@ function TotemProductModalBody({
       ? Math.max(primaryFullPriceInCents, secondFlavorFullPriceInCents)
       : primaryFullPriceInCents;
   const previewUnitPrice = flavorBasePrice + addonTotalInCents;
-  const img = resolveAssetUrl(product.imageUrl);
+  const img = resolveAssetUrl(product.imageUrl) || defaultProductImageUrl || null;
   const badges = productBadges(product);
   const original = pick<number>(
     product as unknown as Record<string, unknown>,
@@ -2022,6 +2114,7 @@ function CategorySection({
   inc,
   dec,
   isKioskMode,
+  defaultProductImageUrl,
 }: {
   category: PublicCategory;
   products: PublicProduct[];
@@ -2030,6 +2123,7 @@ function CategorySection({
   inc: (id: string) => void;
   dec: (id: string) => void;
   isKioskMode: boolean;
+  defaultProductImageUrl?: string | null;
 }) {
   if (products.length === 0) return null;
   return (
@@ -2050,7 +2144,7 @@ function CategorySection({
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {products.map((p) => {
           const item = cart.find((c) => c.product.id === p.id);
-          const img = resolveAssetUrl(p.imageUrl);
+          const img = resolveAssetUrl(p.imageUrl) || defaultProductImageUrl || null;
           const badges = productBadges(p);
           const original = pick<number>(
             p as unknown as Record<string, unknown>,
@@ -2190,6 +2284,7 @@ function CartSheet({
   cardAvailable,
   paymentSettingsLoading,
   pixUnavailableReason,
+  defaultProductImageUrl,
 }: {
   cart: CartItem[];
   totalCents: number;
@@ -2210,6 +2305,7 @@ function CartSheet({
   cardAvailable: boolean;
   paymentSettingsLoading: boolean;
   pixUnavailableReason?: string | null;
+  defaultProductImageUrl?: string | null;
 }) {
   const empty = cart.length === 0;
   const selectedMethodAvailable =
@@ -2253,7 +2349,7 @@ function CartSheet({
         ) : (
           <div className="space-y-4">
             {cart.map((c) => {
-              const img = resolveAssetUrl(c.product.imageUrl);
+              const img = resolveAssetUrl(c.product.imageUrl) || defaultProductImageUrl || null;
               return (
                 <div
                   key={c.key}
