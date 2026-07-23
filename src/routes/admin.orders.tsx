@@ -125,7 +125,7 @@ const playBeep = (
 
 function OrdersPage() {
   useRequireModule(["EVENTS", "ONLINE_ORDERS"]);
-  const { token, user, loading: authLoading } = useAuth();
+  const { token, loading: authLoading } = useAuth();
   const { organizationModules, loading: orgLoading } = useOrganization();
   const hasEventsModule = organizationModules.includes("EVENTS");
   const hasOnlineModule = organizationModules.includes("ONLINE_ORDERS");
@@ -529,9 +529,9 @@ function OrdersPage() {
       setConnected(true);
       toast.dismiss("ws-down");
       if (eventId) socket.emit("join-event-room", eventId);
-      if (user?.organizationId) {
-        socket.emit("join", { organizationId: user.organizationId });
-        socket.emit("subscribe", { organizationId: user.organizationId });
+      if (orgId) {
+        socket.emit("join", { organizationId: orgId });
+        socket.emit("subscribe", { organizationId: orgId });
       }
     };
     const onDisconnect = () => {
@@ -571,7 +571,7 @@ function OrdersPage() {
       socket.off("unified-order-updated", onUpdated);
       socketRef.current = null;
     };
-  }, [token, user?.organizationId, eventId]);
+  }, [token, orgId, eventId]);
 
   const filteredOrders = useMemo(() => {
     return orders.filter((o) => {
