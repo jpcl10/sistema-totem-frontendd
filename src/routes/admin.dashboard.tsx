@@ -1450,7 +1450,7 @@ function OnlineOrdersSection() {
   return (
     <div className="space-y-5">
       <SectionHeader
-        title="Pedidos Online"
+        title="Pedidos online"
         description="Indicadores da loja online na base carregada."
       />
 

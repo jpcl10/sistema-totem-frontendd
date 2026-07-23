@@ -119,13 +119,13 @@ export function CatalogHighlightsSection({ value, onChange }: Props) {
 
   const productsQ = useQuery({
     queryKey: ["catalog", organizationId, "products", "for-highlights"],
-    queryFn: () => listCatalogProducts(token!),
+    queryFn: () => listCatalogProducts(token!, organizationId),
     enabled: !!token && !!organizationId,
     staleTime: 60_000,
   });
   const categoriesQ = useQuery({
     queryKey: ["catalog", organizationId, "categories", "for-highlights"],
-    queryFn: () => listCatalogCategories(token!),
+    queryFn: () => listCatalogCategories(token!, organizationId),
     enabled: !!token && !!organizationId,
     staleTime: 60_000,
   });

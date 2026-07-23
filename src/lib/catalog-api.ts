@@ -117,10 +117,16 @@ function unwrapOne<T>(data: unknown, ...keys: string[]): T {
   return data as T;
 }
 
+function catalogHeaders(token: string, organizationId?: string | null) {
+  const headers: Record<string, string> = authHeaders(token);
+  if (organizationId) headers["x-organization-id"] = organizationId;
+  return headers;
+}
+
 /* ---------------- Global catalog ---------------- */
 
-export async function listCatalogCategories(token: string): Promise<CatalogCategory[]> {
-  const res = await apiFetch(`${API_BASE_URL}/catalog/categories`, { headers: authHeaders(token) });
+export async function listCatalogCategories(token: string, organizationId?: string | null): Promise<CatalogCategory[]> {
+  const res = await apiFetch(`${API_BASE_URL}/catalog/categories`, { headers: catalogHeaders(token, organizationId) });
   const data = await handle<unknown>(res);
   return unwrap<CatalogCategory>(data, "categories");
 }
@@ -128,18 +134,19 @@ export async function listCatalogCategories(token: string): Promise<CatalogCateg
 export async function createCatalogCategory(
   token: string,
   input: { name: string; slug: string; description?: string; sector?: CategorySector },
+  organizationId?: string | null,
 ): Promise<CatalogCategory> {
   const res = await apiFetch(`${API_BASE_URL}/catalog/categories`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders(token) },
+    headers: { "Content-Type": "application/json", ...catalogHeaders(token, organizationId) },
     body: JSON.stringify(input),
   });
   const data = await handle<unknown>(res);
   return unwrapOne<CatalogCategory>(data, "category", "catalogCategory");
 }
 
-export async function listCatalogProducts(token: string): Promise<CatalogProduct[]> {
-  const res = await apiFetch(`${API_BASE_URL}/catalog/products`, { headers: authHeaders(token) });
+export async function listCatalogProducts(token: string, organizationId?: string | null): Promise<CatalogProduct[]> {
+  const res = await apiFetch(`${API_BASE_URL}/catalog/products`, { headers: catalogHeaders(token, organizationId) });
   const data = await handle<unknown>(res);
   return unwrap<CatalogProduct>(data, "products");
 }
@@ -160,6 +167,7 @@ export async function createCatalogProduct(
     sortOrder?: number;
     active?: boolean;
   },
+  organizationId?: string | null,
 ): Promise<CatalogProduct> {
   // Backend V2 expects `categoryId` (not `catalogCategoryId`).
   const body: Record<string, unknown> = {
@@ -184,7 +192,7 @@ export async function createCatalogProduct(
   if (typeof input.active === "boolean") body.active = input.active;
   const res = await apiFetch(`${API_BASE_URL}/catalog/products`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders(token) },
+    headers: { "Content-Type": "application/json", ...catalogHeaders(token, organizationId) },
     body: JSON.stringify(body),
   });
   const data = await handle<unknown>(res);
@@ -348,10 +356,11 @@ export async function updateCatalogCategory(
   token: string,
   id: string,
   patch: Partial<{ name: string; slug: string; description: string; active: boolean; sector: CategorySector }>,
+  organizationId?: string | null,
 ): Promise<CatalogCategory> {
   const res = await apiFetch(`${API_BASE_URL}/catalog/categories/${encodeURIComponent(id)}`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json", ...authHeaders(token) },
+    headers: { "Content-Type": "application/json", ...catalogHeaders(token, organizationId) },
     body: JSON.stringify(patch),
   });
   const data = await handle<unknown>(res);
@@ -383,10 +392,11 @@ export async function updateCatalogProduct(
     halfAndHalfFlavorCategoryId: string | null;
     sortOrder: number;
   }>,
+  organizationId?: string | null,
 ): Promise<CatalogProduct> {
   const res = await apiFetch(`${API_BASE_URL}/catalog/products/${encodeURIComponent(id)}`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json", ...authHeaders(token) },
+    headers: { "Content-Type": "application/json", ...catalogHeaders(token, organizationId) },
     body: JSON.stringify(patch),
   });
   const data = await handle<unknown>(res);
@@ -474,10 +484,11 @@ export interface UpdateOptionInput {
 export async function listCatalogProductOptionGroups(
   token: string,
   productId: string,
+  organizationId?: string | null,
 ): Promise<CatalogProductOptionGroup[]> {
   const res = await apiFetch(
     `${API_BASE_URL}/catalog/products/${encodeURIComponent(productId)}/option-groups`,
-    { headers: authHeaders(token) },
+    { headers: catalogHeaders(token, organizationId) },
   );
   const data = await handle<unknown>(res);
   const list = unwrap<CatalogProductOptionGroup>(data, "optionGroups");
@@ -489,12 +500,13 @@ export async function createCatalogProductOptionGroup(
   token: string,
   productId: string,
   input: CreateOptionGroupInput,
+  organizationId?: string | null,
 ): Promise<CatalogProductOptionGroup> {
   const res = await apiFetch(
     `${API_BASE_URL}/catalog/products/${encodeURIComponent(productId)}/option-groups`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json", ...authHeaders(token) },
+      headers: { "Content-Type": "application/json", ...catalogHeaders(token, organizationId) },
       body: JSON.stringify(input),
     },
   );
@@ -506,12 +518,13 @@ export async function updateCatalogOptionGroup(
   token: string,
   groupId: string,
   patch: UpdateOptionGroupInput,
+  organizationId?: string | null,
 ): Promise<CatalogProductOptionGroup> {
   const res = await apiFetch(
     `${API_BASE_URL}/catalog/option-groups/${encodeURIComponent(groupId)}`,
     {
       method: "PUT",
-      headers: { "Content-Type": "application/json", ...authHeaders(token) },
+      headers: { "Content-Type": "application/json", ...catalogHeaders(token, organizationId) },
       body: JSON.stringify(patch),
     },
   );
@@ -523,12 +536,13 @@ export async function setCatalogOptionGroupStatus(
   token: string,
   groupId: string,
   active: boolean,
+  organizationId?: string | null,
 ): Promise<CatalogProductOptionGroup> {
   const res = await apiFetch(
     `${API_BASE_URL}/catalog/option-groups/${encodeURIComponent(groupId)}/status`,
     {
       method: "PATCH",
-      headers: { "Content-Type": "application/json", ...authHeaders(token) },
+      headers: { "Content-Type": "application/json", ...catalogHeaders(token, organizationId) },
       body: JSON.stringify({ active }),
     },
   );
@@ -540,12 +554,13 @@ export async function createCatalogOption(
   token: string,
   groupId: string,
   input: CreateOptionInput,
+  organizationId?: string | null,
 ): Promise<CatalogProductOption> {
   const res = await apiFetch(
     `${API_BASE_URL}/catalog/option-groups/${encodeURIComponent(groupId)}/options`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json", ...authHeaders(token) },
+      headers: { "Content-Type": "application/json", ...catalogHeaders(token, organizationId) },
       body: JSON.stringify(input),
     },
   );
@@ -557,12 +572,13 @@ export async function updateCatalogOption(
   token: string,
   optionId: string,
   patch: UpdateOptionInput,
+  organizationId?: string | null,
 ): Promise<CatalogProductOption> {
   const res = await apiFetch(
     `${API_BASE_URL}/catalog/options/${encodeURIComponent(optionId)}`,
     {
       method: "PUT",
-      headers: { "Content-Type": "application/json", ...authHeaders(token) },
+      headers: { "Content-Type": "application/json", ...catalogHeaders(token, organizationId) },
       body: JSON.stringify(patch),
     },
   );
@@ -574,12 +590,13 @@ export async function setCatalogOptionStatus(
   token: string,
   optionId: string,
   active: boolean,
+  organizationId?: string | null,
 ): Promise<CatalogProductOption> {
   const res = await apiFetch(
     `${API_BASE_URL}/catalog/options/${encodeURIComponent(optionId)}/status`,
     {
       method: "PATCH",
-      headers: { "Content-Type": "application/json", ...authHeaders(token) },
+      headers: { "Content-Type": "application/json", ...catalogHeaders(token, organizationId) },
       body: JSON.stringify({ active }),
     },
   );

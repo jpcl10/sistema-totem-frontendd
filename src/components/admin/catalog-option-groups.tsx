@@ -48,7 +48,7 @@ export function CatalogOptionGroupsManager({
   const q = useQuery({
     queryKey,
     enabled,
-    queryFn: () => listCatalogProductOptionGroups(token!, productId),
+    queryFn: () => listCatalogProductOptionGroups(token!, productId, organizationId),
     staleTime: 30_000,
   });
 
@@ -70,7 +70,7 @@ export function CatalogOptionGroupsManager({
   };
 
   const toggleGroupStatus = async (g: CatalogProductOptionGroup) => {
-    if (!token) return;
+    if (!token || !organizationId) return;
     const next = !(g.active !== false);
     if (!next) {
       const ok = window.confirm(
@@ -79,7 +79,7 @@ export function CatalogOptionGroupsManager({
       if (!ok) return;
     }
     try {
-      await setCatalogOptionGroupStatus(token, g.id, next);
+      await setCatalogOptionGroupStatus(token, g.id, next, organizationId);
       toast.success(next ? "Grupo ativado com sucesso." : "Grupo desativado com sucesso.");
       await invalidate();
     } catch (e) {
@@ -88,7 +88,7 @@ export function CatalogOptionGroupsManager({
   };
 
   const toggleOptionStatus = async (o: CatalogProductOption) => {
-    if (!token) return;
+    if (!token || !organizationId) return;
     const next = !(o.active !== false);
     if (!next) {
       const ok = window.confirm(
@@ -97,7 +97,7 @@ export function CatalogOptionGroupsManager({
       if (!ok) return;
     }
     try {
-      await setCatalogOptionStatus(token, o.id, next);
+      await setCatalogOptionStatus(token, o.id, next, organizationId);
       toast.success(next ? "Opção ativada com sucesso." : "Opção desativada com sucesso.");
       await invalidate();
     } catch (e) {
@@ -183,6 +183,7 @@ export function CatalogOptionGroupsManager({
                   token!,
                   productId,
                   values,
+                  organizationId,
                 );
                 toast.success("Grupo criado");
                 setOpenNewGroup(false);
@@ -207,6 +208,7 @@ export function CatalogOptionGroupsManager({
                   token!,
                   editingGroup.id,
                   values,
+                  organizationId,
                 );
                 toast.success("Grupo atualizado");
                 setEditingGroup(null);
@@ -228,7 +230,7 @@ export function CatalogOptionGroupsManager({
               catalogProducts={catalogProducts}
               onCancel={() => setNewOptionGroup(null)}
               onSubmit={async (values) => {
-                await createCatalogOption(token!, newOptionGroup.id, values);
+                await createCatalogOption(token!, newOptionGroup.id, values, organizationId);
                 toast.success("Opção criada");
                 setNewOptionGroup(null);
                 await invalidate();
@@ -253,6 +255,7 @@ export function CatalogOptionGroupsManager({
                   token!,
                   editingOption.option.id,
                   values,
+                  organizationId,
                 );
                 toast.success("Opção atualizada");
                 setEditingOption(null);

@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -29,11 +29,14 @@ import { describeError, slugify } from "@/lib/catalog-helpers";
 
 export function NewCategoryDialog({
   token,
+  organizationId,
   onCreated,
 }: {
   token: string | null;
+  organizationId: string | null;
   onCreated: (c: CatalogCategory) => void;
 }) {
+  const openedOrganizationId = useRef(organizationId);
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [slugDirty, setSlugDirty] = useState(false);
@@ -50,6 +53,10 @@ export function NewCategoryDialog({
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (!token) return;
+    if (!organizationId || openedOrganizationId.current !== organizationId) {
+      setErr("A organização mudou. Feche e abra o formulário novamente.");
+      return;
+    }
     const trimmed = name.trim();
     const finalSlug = slug.trim() || slugify(trimmed);
     if (!trimmed || !finalSlug) {
@@ -64,7 +71,7 @@ export function NewCategoryDialog({
         slug: finalSlug,
         sector,
         description: description.trim() || undefined,
-      });
+      }, organizationId);
       toast.success("Categoria criada com sucesso");
       onCreated(c);
       setName("");
@@ -169,13 +176,16 @@ export function NewCategoryDialog({
 
 export function EditCategoryDialog({
   token,
+  organizationId,
   category,
   onSaved,
 }: {
   token: string | null;
+  organizationId: string | null;
   category: CatalogCategory;
   onSaved: (c: CatalogCategory) => void;
 }) {
+  const openedOrganizationId = useRef(organizationId);
   const [name, setName] = useState(category.name);
   const [slug, setSlug] = useState(category.slug ?? "");
   const [description, setDescription] = useState(category.description ?? "");
@@ -187,6 +197,10 @@ export function EditCategoryDialog({
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (!token) return;
+    if (!organizationId || openedOrganizationId.current !== organizationId) {
+      setErr("A organização mudou. Feche e abra o formulário novamente.");
+      return;
+    }
     const trimmed = name.trim();
     const finalSlug = slug.trim() || slugify(trimmed);
     if (!trimmed || !finalSlug) {
@@ -202,7 +216,7 @@ export function EditCategoryDialog({
         sector,
         active,
         description: description.trim() || undefined,
-      });
+      }, organizationId);
       toast.success("Categoria atualizada");
       onSaved({ ...category, ...updated });
     } catch (e2) {

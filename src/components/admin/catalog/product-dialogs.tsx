@@ -28,7 +28,6 @@ import {
   type CatalogProduct,
 } from "@/lib/catalog-api";
 import { CatalogOptionGroupsManager } from "@/components/admin/catalog-option-groups";
-import { useOrganization } from "@/contexts/organization-context";
 import { parseCurrencyToCents } from "@/lib/utils";
 import { describeError, slugify } from "@/lib/catalog-helpers";
 import { ProductImageUploader } from "./product-image-uploader";
@@ -37,13 +36,16 @@ const showLegacyPricingRuleSelector = false;
 
 export function NewProductDialog({
   token,
+  organizationId,
   categories,
   onCreated,
 }: {
   token: string | null;
+  organizationId: string | null;
   categories: CatalogCategory[];
   onCreated: (p: CatalogProduct) => void;
 }) {
+  const openedOrganizationId = useRef(organizationId);
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [slugDirty, setSlugDirty] = useState(false);
@@ -72,6 +74,10 @@ export function NewProductDialog({
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (!token) return;
+    if (!organizationId || openedOrganizationId.current !== organizationId) {
+      setErr("A organização mudou. Feche e abra o formulário novamente.");
+      return;
+    }
     const trimmed = name.trim();
     const finalSlug = slug.trim() || slugify(trimmed);
     if (!trimmed || !catalogCategoryId || !finalSlug) {
@@ -103,7 +109,7 @@ export function NewProductDialog({
             : null,
         sortOrder:
           sortOrderNum != null && Number.isFinite(sortOrderNum) ? sortOrderNum : undefined,
-      });
+      }, organizationId);
       toast.success("Produto criado no catálogo");
       onCreated(p);
       setName("");
@@ -322,18 +328,20 @@ export function NewProductDialog({
 
 export function EditProductDialog({
   token,
+  organizationId,
   categories,
   product,
   products,
   onSaved,
 }: {
   token: string | null;
+  organizationId: string | null;
   categories: CatalogCategory[];
   product: CatalogProduct;
   products: CatalogProduct[];
   onSaved: (p: CatalogProduct) => void;
 }) {
-  const { organizationId } = useOrganization();
+  const openedOrganizationId = useRef(organizationId);
   const initialCat =
     product.catalogCategoryId ?? product.categoryId ?? product.category?.id ?? categories[0]?.id ?? "";
   const [name, setName] = useState(product.name);
@@ -396,6 +404,10 @@ export function EditProductDialog({
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (!token) return;
+    if (!organizationId || openedOrganizationId.current !== organizationId) {
+      setErr("A organização mudou. Feche e abra o formulário novamente.");
+      return;
+    }
     const trimmed = name.trim();
     const finalSlug = slug.trim() || slugify(trimmed);
     if (!trimmed || !categoryId || !finalSlug) {
@@ -429,7 +441,7 @@ export function EditProductDialog({
         ...(sortOrderNum != null && Number.isFinite(sortOrderNum)
           ? { sortOrder: sortOrderNum }
           : {}),
-      });
+      }, organizationId);
       toast.success("Produto atualizado");
       onSaved({ ...product, ...updated });
     } catch (e2) {

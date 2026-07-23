@@ -158,7 +158,7 @@ function CatalogPage() {
     const entries = await Promise.all(
       prods.map(async (p) => {
         try {
-          const groups = await listCatalogProductOptionGroups(t, p.id);
+          const groups = await listCatalogProductOptionGroups(t, p.id, orgId);
           const options = groups.reduce(
             (acc, g) => acc + (Array.isArray(g.options) ? g.options.length : 0),
             0,
@@ -186,12 +186,12 @@ function CatalogPage() {
       const [cats, prods] = await Promise.all([
         queryClient.fetchQuery({
           queryKey: qk.catalog.categories(orgId),
-          queryFn: () => listCatalogCategories(t),
+          queryFn: () => listCatalogCategories(t, orgId),
           staleTime: 0,
         }),
         queryClient.fetchQuery({
           queryKey: qk.catalog.products(orgId),
-          queryFn: () => listCatalogProducts(t),
+          queryFn: () => listCatalogProducts(t, orgId),
           staleTime: 0,
         }),
       ]);
@@ -295,17 +295,17 @@ function CatalogPage() {
 
 
   const onToggleCategory = async (c: CatalogCategory) => {
-    if (!token) return;
+    if (!token || !organizationId) return;
     const next = !isActive(c);
     try {
-      await updateCatalogCategory(token, c.id, { active: next });
+      await updateCatalogCategory(token, c.id, { active: next }, organizationId);
       const cats = organizationId
         ? await queryClient.fetchQuery({
             queryKey: qk.catalog.categories(organizationId),
-            queryFn: () => listCatalogCategories(token),
+            queryFn: () => listCatalogCategories(token, organizationId),
             staleTime: 0,
           }).catch(() => null)
-        : await listCatalogCategories(token).catch(() => null);
+        : await listCatalogCategories(token, organizationId).catch(() => null);
       if (cats) setCategories(cats);
       else setCategories((prev) => prev.map((x) => (x.id === c.id ? { ...x, active: next } : x)));
       toast.success(next ? "Categoria ativada" : "Categoria desativada");
@@ -315,17 +315,17 @@ function CatalogPage() {
   };
 
   const onToggleProduct = async (p: CatalogProduct) => {
-    if (!token) return;
+    if (!token || !organizationId) return;
     const next = !isActive(p);
     try {
-      await updateCatalogProduct(token, p.id, { active: next });
+      await updateCatalogProduct(token, p.id, { active: next }, organizationId);
       const prods = organizationId
         ? await queryClient.fetchQuery({
             queryKey: qk.catalog.products(organizationId),
-            queryFn: () => listCatalogProducts(token),
+            queryFn: () => listCatalogProducts(token, organizationId),
             staleTime: 0,
           }).catch(() => null)
-        : await listCatalogProducts(token).catch(() => null);
+        : await listCatalogProducts(token, organizationId).catch(() => null);
       if (prods) {
         setProducts(prods);
         if (organizationId) void fetchProductCounts(token, organizationId, prods);
@@ -421,8 +421,9 @@ function CatalogPage() {
                     </Button>
                   </DialogTrigger>
                   <NewCategoryDialog
-                  token={token}
-                  onCreated={(c) => {
+                    token={token}
+                    organizationId={organizationId}
+                    onCreated={(c) => {
                     setCategories((prev) => [...prev, c]);
                     if (organizationId) {
                       void queryClient.invalidateQueries({ queryKey: qk.catalog.categories(organizationId) });
@@ -524,6 +525,7 @@ function CatalogPage() {
                 </DialogTrigger>
                 <NewProductDialog
                   token={token}
+                  organizationId={organizationId}
                   categories={categories}
                   onCreated={(p) => {
                     setProducts((prev) => [p, ...prev]);
@@ -664,6 +666,7 @@ function CatalogPage() {
         {editingCat && (
           <EditCategoryDialog
             token={token}
+            organizationId={organizationId}
             category={editingCat}
             onSaved={(updated) => {
               setCategories((prev) => prev.map((x) => (x.id === updated.id ? { ...x, ...updated } : x)));
@@ -688,6 +691,7 @@ function CatalogPage() {
         {editingProd && (
           <EditProductDialog
             token={token}
+            organizationId={organizationId}
             categories={categories}
             product={editingProd}
             products={products}
