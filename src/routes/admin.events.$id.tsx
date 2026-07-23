@@ -283,6 +283,10 @@ function EventDetailPage() {
           </Button>
           <Button size="sm" style={{ background: "var(--gradient-primary)" }} onClick={() => {
             const url = getTotemUrl(event.slug, organizationSlug);
+            if (!url) {
+              toast.error("Slug da organização não carregado. Não foi possível abrir o totem.");
+              return;
+            }
             openPublicUrl(url);
           }}>
             <Monitor className="mr-2 h-4 w-4" />
@@ -389,6 +393,10 @@ function EventDetailPage() {
               <CardContent className="space-y-3">
                 <QuickActionButton icon={Monitor} label="Abrir autoatendimento" onClick={() => {
                   const url = getTotemUrl(event.slug, organizationSlug);
+                  if (!url) {
+                    toast.error("Slug da organização não carregado. Não foi possível abrir o totem.");
+                    return;
+                  }
                   openPublicUrl(url);
                 }} />
                 <QuickActionButton icon={Tv} label="Painel de Chamada" onClick={() => {

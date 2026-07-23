@@ -617,11 +617,12 @@ export async function createPublicOrderCanonical(
 export async function getCheckoutPaymentSettings(
   eventId: string,
   context: "TOTEM" | "PUBLIC_CHECKOUT" = "PUBLIC_CHECKOUT",
+  diagnostics: { organizationSlug?: string | null; eventSlug?: string | null } = {},
 ): Promise<CheckoutPaymentSettings> {
   const res = await publicApiFetch(
     `${API_BASE_URL}/public/events/${encodeURIComponent(eventId)}/checkout-payment-settings?context=${encodeURIComponent(context)}`,
     { headers: { ...API_HEADERS } },
-    { payload: { eventId, context } },
+    { ...diagnostics, payload: { eventId, context } },
   );
   const data = await res.json() as CheckoutPaymentSettings | { checkoutPaymentSettings: CheckoutPaymentSettings };
   return "checkoutPaymentSettings" in (data as object)
@@ -641,6 +642,7 @@ export async function createPixAutomaticPayment(orderId: string): Promise<Paymen
 export async function checkoutPayment(
   orderId: string,
   input: { context?: "TOTEM" | "PUBLIC_CHECKOUT"; paymentMethod?: "PIX" | "CARD" } = {},
+  diagnostics: { organizationSlug?: string | null; eventSlug?: string | null } = {},
 ): Promise<CheckoutPaymentResponse> {
   const url = `${API_BASE_URL}/public/orders/${encodeURIComponent(orderId)}/checkout-payment`;
   // [redacted log]
@@ -651,7 +653,7 @@ export async function checkoutPayment(
       ...API_HEADERS
     },
     body: JSON.stringify(input),
-  }, { eventSlug: null, payload: { orderId, ...input } });
+  }, { ...diagnostics, payload: { orderId, ...input } });
   
   // [redacted log]
   const data = await res.json();

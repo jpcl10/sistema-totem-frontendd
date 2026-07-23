@@ -111,8 +111,13 @@ function isLegacyPixEnabled(event?: PublicEvent | null): boolean {
 }
 
 export const Route = createFileRoute("/e/$slug")({
-  component: PublicMenuPage,
+  component: LegacyPublicMenuRoute,
 });
+
+function LegacyPublicMenuRoute() {
+  const { slug } = Route.useParams();
+  return <PublicMenuPage eventSlug={slug} />;
+}
 
 function TotemWelcomeScreen({
   event,
@@ -499,9 +504,9 @@ export function PublicMenuPage({
   organizationSlug?: string;
   eventSlug?: string;
 } = {}) {
-  const params = Route.useParams();
-  const slug = eventSlugProp ?? params.slug;
+  const slug = eventSlugProp ?? "";
   const organizationSlug = organizationSlugProp ?? null;
+  const invalidTotemLink = !slug || (organizationSlugProp !== undefined && !organizationSlug);
   const [menu, setMenu] = useState<PublicMenu | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -825,6 +830,17 @@ export function PublicMenuPage({
   useEffect(() => {
     let alive = true;
     setLoading(true);
+    if (invalidTotemLink) {
+      logTotemPublicApiError("Link do totem invalido", new Error("Missing totem route params"), {
+        eventSlug: slug,
+        organizationSlug,
+      });
+      setError("Link do totem inválido.");
+      setLoading(false);
+      return () => {
+        alive = false;
+      };
+    }
     if (!organizationSlug) {
       resolveLegacyPublicEvent(slug)
         .then((result) => {
@@ -874,7 +890,7 @@ export function PublicMenuPage({
     return () => {
       alive = false;
     };
-  }, [slug, organizationSlug]);
+  }, [slug, organizationSlug, invalidTotemLink]);
 
   const event = menu?.event;
   const totemPixAvailable =
@@ -904,7 +920,7 @@ export function PublicMenuPage({
     }
     let alive = true;
     setCheckoutSettingsLoading(true);
-    getCheckoutPaymentSettings(event.id, "TOTEM")
+    getCheckoutPaymentSettings(event.id, "TOTEM", { organizationSlug, eventSlug: slug })
       .then((settings) => {
         if (!alive) return;
         setCheckoutSettings(settings);
@@ -1181,7 +1197,11 @@ export function PublicMenuPage({
     if (awaitingPayment) {
       try {
         const checkoutResponse = await Promise.race([
-          checkoutPayment(order.id, { context: "TOTEM", paymentMethod: "PIX" }),
+          checkoutPayment(
+            order.id,
+            { context: "TOTEM", paymentMethod: "PIX" },
+            { organizationSlug, eventSlug: slug },
+          ),
           new Promise<never>((_, reject) =>
             setTimeout(() => reject(new Error("CHECKOUT_TIMEOUT")), 20000),
           ),
@@ -1334,10 +1354,10 @@ export function PublicMenuPage({
     return <PublicChannelLoading />;
   }
 
-  if (error || !menu) {
+  if (invalidTotemLink || error || !menu) {
     return (
       <PublicChannelError
-        message={error ?? "Evento não encontrado"}
+        message={invalidTotemLink ? "Link do totem inválido." : error ?? "Evento não encontrado"}
         onRetry={() => window.location.reload()}
       />
     );

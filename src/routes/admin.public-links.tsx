@@ -366,14 +366,14 @@ function PublicLinksPage() {
             >
               {filteredEvents.map((ev) => {
                 const finished = isFinished(ev.status);
-                const totemUrl = absoluteUrl(
-                  organizationSlug
-                    ? buildPublicEventUrl({
+                const totemUrl = organizationSlug
+                  ? absoluteUrl(
+                      buildPublicEventUrl({
                         organizationSlug,
                         eventSlug: ev.slug,
-                      })
-                    : `/e/${ev.slug}`,
-                );
+                      }),
+                    )
+                  : null;
                 const chamadaUrl = absoluteUrl(getCallScreenUrl(ev.slug, organizationSlug ?? undefined));
                 return (
                   <AccordionItem
@@ -411,15 +411,21 @@ function PublicLinksPage() {
                       </div>
                     </AccordionTrigger>
                     <AccordionContent className="space-y-2 pb-4 pt-2">
-                      <LinkRow
-                        resource={{
-                          title: "Totem de Autoatendimento",
-                          description: "Link para os totens de venda no local",
-                          url: totemUrl,
-                          icon: Monitor,
-                        }}
-                        onQr={setQrTarget}
-                      />
+                      {totemUrl ? (
+                        <LinkRow
+                          resource={{
+                            title: "Totem de Autoatendimento",
+                            description: "Link para os totens de venda no local",
+                            url: totemUrl,
+                            icon: Monitor,
+                          }}
+                          onQr={setQrTarget}
+                        />
+                      ) : (
+                        <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+                          Link do totem indisponível: slug da organização não carregado.
+                        </div>
+                      )}
                       <LinkRow
                         resource={{
                           title: "Painel de Chamada (TV)",

@@ -446,6 +446,10 @@ function EventCard({
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => {
                     const url = getTotemUrl(event.slug, organizationSlug);
+                    if (!url) {
+                      toast.error("Slug da organização não carregado. Não foi possível abrir o totem.");
+                      return;
+                    }
                     openPublicUrl(url);
                   }}>
                     <Monitor className="h-4 w-4" /> Abrir autoatendimento

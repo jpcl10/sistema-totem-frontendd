@@ -14,7 +14,7 @@ export function buildPublicEventUrl({
 
 export function getTotemUrl(eventSlug: string, organizationSlug?: string | null) {
   if (!organizationSlug) {
-    return `/e/${encodeURIComponent(eventSlug)}`;
+    return null;
   }
 
   return buildPublicEventUrl({ organizationSlug, eventSlug });
