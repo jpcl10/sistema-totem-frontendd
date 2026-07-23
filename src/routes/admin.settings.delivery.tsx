@@ -34,7 +34,7 @@ function DeliverySettingsPage() {
   const scope = useSelectedStore(urlStoreId || null);
 
   return (
-    <AdminLayout title="Delivery" subtitle="Regras gerais de entrega e retirada.">
+    <AdminLayout title="Entrega" subtitle="Regras gerais de entrega e retirada.">
       <SettingsLayout>
         <StoreScope scope={scope}>
           {(storeId) => <DeliveryInner storeId={storeId} />}
@@ -125,10 +125,10 @@ function DeliveryInner({ storeId }: { storeId: string }) {
     };
     try {
       await m.mutateAsync(body);
-      toast.success("Configurações de delivery salvas.");
+      toast.success("Configurações de entrega salvas com sucesso.");
       setInitial(state);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Falha ao salvar.");
+    } catch {
+      toast.error("Não foi possível salvar as configurações de entrega.");
     }
   };
 
@@ -140,13 +140,13 @@ function DeliveryInner({ storeId }: { storeId: string }) {
       >
         <ToggleRow
           label="Entrega"
-          description="Habilita fluxo de delivery no cardápio digital."
+          description="Habilita o fluxo de entrega no cardápio digital."
           checked={state.deliveryEnabled}
           onChange={(v) => setState({ ...state, deliveryEnabled: v })}
         />
         <ToggleRow
           label="Retirada"
-          description="Cliente retira no balcão."
+          description="O cliente retira o pedido no balcão."
           checked={state.pickupEnabled}
           onChange={(v) => setState({ ...state, pickupEnabled: v })}
         />
@@ -158,7 +158,7 @@ function DeliveryInner({ storeId }: { storeId: string }) {
         />
         <ToggleRow
           label="Consumo no local"
-          description="Habilita fluxo de mesas / dine-in."
+          description="Habilita o fluxo para consumo no local."
           checked={state.dineInEnabled}
           onChange={(v) => setState({ ...state, dineInEnabled: v })}
         />
@@ -197,7 +197,7 @@ function DeliveryInner({ storeId }: { storeId: string }) {
         </div>
         <ToggleRow
           label="Exigir endereço de entrega"
-          description="Obriga o cliente a informar o endereço no checkout de delivery."
+          description="Obriga o cliente a informar o endereço no checkout de entrega."
           checked={state.requireDeliveryAddress}
           onChange={(v) => setState({ ...state, requireDeliveryAddress: v })}
         />
@@ -205,14 +205,14 @@ function DeliveryInner({ storeId }: { storeId: string }) {
 
       <SettingsSection
         title="Regras de taxa (bairros / fixas)"
-        description="CRUD dedicado para tarifação por bairro ou regra fixa."
+        description="Gerencie a cobrança por bairro ou por regra fixa."
       >
         <div className="flex items-center gap-3 rounded-lg border border-dashed border-border bg-muted/30 px-4 py-6">
           <MapPin className="h-5 w-5 text-muted-foreground" />
           <div className="flex-1">
             <p className="text-sm font-medium">Regras de taxa</p>
             <p className="text-xs text-muted-foreground">
-              Gerencie regras (FLAT / NEIGHBORHOOD) em tela dedicada.
+              Configure taxas fixas ou por bairro em uma tela dedicada.
             </p>
           </div>
           <Button asChild variant="outline" size="sm">

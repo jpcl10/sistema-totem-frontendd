@@ -82,10 +82,10 @@ const WEEKDAYS = [
 const CHANNELS: { value: BusinessHourChannel; label: string }[] = [
   { value: "ALL", label: "Todos os canais" },
   { value: "DIGITAL_MENU", label: "Cardápio digital" },
-  { value: "DELIVERY", label: "Delivery" },
+  { value: "DELIVERY", label: "Entrega" },
   { value: "PICKUP", label: "Retirada" },
   { value: "TOTEM", label: "Totem" },
-  { value: "COUNTER", label: "BalcÃ£o" },
+  { value: "COUNTER", label: "Balcão" },
 ];
 
 const CONTEXTS: { value: BusinessHourContext; label: string }[] = [
@@ -309,13 +309,13 @@ function BusinessHoursPage() {
     mutationFn: (mode: StoreManualOverrideMode) => {
       if (
         mode === "FORCE_OPEN" &&
-        !window.confirm("Abrir o estabelecimento fora do horÃ¡rio programado?")
+        !window.confirm("Abrir o estabelecimento fora do horário programado?")
       ) {
         throw new Error("cancelled");
       }
       if (
         mode === "FORCE_CLOSED" &&
-        !window.confirm("Fechar o estabelecimento agora? Pedidos novos serÃ£o bloqueados.")
+        !window.confirm("Fechar o estabelecimento agora? Pedidos novos serão bloqueados.")
       ) {
         throw new Error("cancelled");
       }
@@ -337,7 +337,7 @@ function BusinessHoursPage() {
     },
     onError: (err) => {
       if (err instanceof Error && err.message === "cancelled") return;
-      handleApiError(err, "NÃ£o foi possÃ­vel alterar o status");
+      handleApiError(err, "Não foi possível alterar o status");
     },
   });
 
@@ -573,7 +573,7 @@ function BusinessHoursPage() {
           {context === "ONLINE_STORE" && contextId && (
             <SettingsSection
               title="Status atual do estabelecimento"
-              description="Status efetivo usado pela loja pÃºblica e pelo bloqueio de novos pedidos."
+              description="Status efetivo usado pela loja pública e pelo bloqueio de novos pedidos."
               actions={
                 <div className="flex flex-wrap gap-2">
                   <Button
@@ -583,7 +583,7 @@ function BusinessHoursPage() {
                     onClick={() => availabilityMutation.mutate("AUTO")}
                   >
                     <RotateCcw className="mr-2 h-4 w-4" />
-                    AutomÃ¡tico
+                    Automático
                   </Button>
                   <Button
                     size="sm"
@@ -609,7 +609,7 @@ function BusinessHoursPage() {
               {availabilityQuery.isPending ? (
                 <div className="h-16 animate-pulse rounded-lg bg-muted/40" />
               ) : availabilityQuery.isError || !availability ? (
-                <PageError message="NÃ£o foi possÃ­vel carregar o status da loja." onRetry={() => availabilityQuery.refetch()} />
+                <PageError message="Não foi possível carregar o status da loja." onRetry={() => availabilityQuery.refetch()} />
               ) : (
                 <div className="grid gap-3 text-sm md:grid-cols-4">
                   <div className="rounded-lg border border-border p-3">
@@ -622,20 +622,20 @@ function BusinessHoursPage() {
                     <p className="text-xs text-muted-foreground">Fonte</p>
                     <p className="mt-1 font-semibold">
                       {availability.manualOverride === "AUTO"
-                        ? "HorÃ¡rio programado"
+                        ? "Horário programado"
                         : availability.manualOverride === "FORCE_OPEN"
                           ? "Aberto manualmente"
                           : "Fechado manualmente"}
                     </p>
                   </div>
                   <div className="rounded-lg border border-border p-3">
-                    <p className="text-xs text-muted-foreground">PrÃ³xima mudanÃ§a</p>
+                    <p className="text-xs text-muted-foreground">Próxima mudança</p>
                     <p className="mt-1 font-semibold">
-                      {formatDateTime(availability.nextClosingAt ?? availability.nextOpeningAt) ?? "Sem previsÃ£o"}
+                      {formatDateTime(availability.nextClosingAt ?? availability.nextOpeningAt) ?? "Sem previsão"}
                     </p>
                   </div>
                   <div className="rounded-lg border border-border p-3">
-                    <p className="text-xs text-muted-foreground">Timezone</p>
+                    <p className="text-xs text-muted-foreground">Fuso horário</p>
                     <p className="mt-1 font-semibold">{availability.timezone}</p>
                   </div>
                   {availability.reason && (

@@ -136,7 +136,7 @@ export function EventOperationSettings({ eventId, onChanged }: Props) {
       setForm(fromEvent(ev, eventId));
       setDirty(false);
     } catch (err) {
-      handleApiError(err, "Falha ao carregar configurações do evento");
+      handleApiError(err, "Não foi possível carregar as configurações do evento.");
     } finally {
       setLoading(false);
     }

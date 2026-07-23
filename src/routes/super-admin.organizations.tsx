@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { API_BASE_URL, authHeaders } from "@/lib/auth";
-import { apiFetch, fromResponse } from "@/lib/api-error";
+import { apiFetch, fromResponse, toFriendlyMessage } from "@/lib/api-error";
 import { useAuth } from "@/lib/auth-context";
 import { useOrganization } from "@/contexts/organization-context";
 import { PLATFORM_MODULES, type PlatformModule } from "@/lib/super-admin-store";
@@ -130,7 +130,7 @@ function OrganizationsPage() {
         : data.organizations ?? data.data ?? data.items ?? [];
       setOrgs(list);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro ao carregar organizações.");
+      toast.error(toFriendlyMessage(err, "Não foi possível carregar as organizações."));
       setOrgs([]);
     } finally {
       setLoading(false);
@@ -197,7 +197,7 @@ function OrganizationsPage() {
   const submit = async () => {
     if (!token) return;
     if (!form.name.trim() || !form.slug.trim()) {
-      toast.error("Nome e slug são obrigatórios");
+      toast.error("Preencha o nome e o slug.");
       return;
     }
     setSaving(true);
@@ -238,7 +238,7 @@ function OrganizationsPage() {
       await load();
       await invalidateOrgCaches(savedOrgId);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro ao salvar.");
+      toast.error(toFriendlyMessage(err, "Não foi possível salvar a organização."));
     } finally {
       setSaving(false);
     }
@@ -271,7 +271,7 @@ function OrganizationsPage() {
       await load();
       await invalidateOrgCaches(form.id);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro ao atualizar módulos.");
+      toast.error(toFriendlyMessage(err, "Não foi possível atualizar os módulos."));
     } finally {
       setSaving(false);
     }

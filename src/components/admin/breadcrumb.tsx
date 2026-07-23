@@ -19,7 +19,7 @@ export function OrgBreadcrumb({ pageTitle: _pageTitle }: { pageTitle: string }) 
       {isImpersonating && (
         <>
           <Link to="/super-admin" className="hover:text-foreground">
-            Super Admin
+            Superadministrador
           </Link>
           <ChevronRight className="h-3 w-3" />
         </>

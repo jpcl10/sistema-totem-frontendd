@@ -178,7 +178,7 @@ function CustomersPage() {
     try {
       setInterests(await listInterests(token, { limit: 100 }));
     } catch (e) {
-      toast.error(handleApiError(e));
+      handleApiError(e);
     }
   };
 
@@ -489,7 +489,7 @@ function CustomerFormDialog({
       }
       onSaved();
     } catch (err) {
-      toast.error(handleApiError(err));
+      handleApiError(err);
     } finally {
       setSaving(false);
     }
@@ -628,7 +628,7 @@ function InterestsDialog({
       setEditingId(null);
       onChanged();
     } catch (err) {
-      toast.error(handleApiError(err));
+      handleApiError(err);
     } finally {
       setSaving(false);
     }
@@ -640,7 +640,7 @@ function InterestsDialog({
       await setInterestStatus(token, i.id, !i.active);
       onChanged();
     } catch (err) {
-      toast.error(handleApiError(err));
+      handleApiError(err);
     }
   };
 

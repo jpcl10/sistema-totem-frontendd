@@ -217,7 +217,7 @@ export function StoreManualSaleDrawer({
         setCategories((d.categories ?? []).filter((c) => c.active !== false));
       })
       .catch((e) =>
-        toast.error(handleApiError(e, "Falha ao carregar catálogo da loja.")),
+        handleApiError(e, "Não foi possível carregar o catálogo da loja."),
       )
       .finally(() => setLoading(false));
   }, [open, storeId, token]);
@@ -442,8 +442,8 @@ export function StoreManualSaleDrawer({
         fulfillmentType: fulfillment,
       });
 
-      toast.success("Pedido criado", {
-        description: "Aguarde alguns segundos para aparecer na central.",
+      toast.success("Pedido criado com sucesso.", {
+        description: "O pedido aparecerá na central em instantes.",
       });
       // Invalidate unified orders — realtime socket will refresh anyway,
       // this is the polling-safe fallback.
@@ -453,7 +453,7 @@ export function StoreManualSaleDrawer({
       onOpenChange(false);
       onCreated?.();
     } catch (e) {
-      toast.error(handleApiError(e, "Não foi possível criar o pedido."));
+      handleApiError(e, "Não foi possível criar o pedido.");
     } finally {
       setSubmitting(false);
     }

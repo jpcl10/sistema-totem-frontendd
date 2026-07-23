@@ -94,7 +94,7 @@ function DeliveryRulesInner({ storeId }: { storeId: string }) {
             sortOrder: values.sortOrder,
           },
         });
-        toast.success("Regra atualizada.");
+        toast.success("Regra atualizada com sucesso.");
       } else {
         await createM.mutateAsync({
           name: values.name.trim(),
@@ -107,11 +107,11 @@ function DeliveryRulesInner({ storeId }: { storeId: string }) {
           active: values.active,
           sortOrder: values.sortOrder,
         });
-        toast.success("Regra criada.");
+        toast.success("Regra criada com sucesso.");
       }
       setDialogOpen(false);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Falha ao salvar regra.");
+    } catch {
+      toast.error("Não foi possível salvar a regra.");
     }
   };
 
@@ -119,9 +119,9 @@ function DeliveryRulesInner({ storeId }: { storeId: string }) {
     setPendingDelete(rule);
     try {
       await deleteM.mutateAsync(rule.id);
-      toast.success("Regra removida.");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Falha ao remover regra.");
+      toast.success("Regra removida com sucesso.");
+    } catch {
+      toast.error("Não foi possível remover a regra.");
     } finally {
       setPendingDelete(null);
     }
@@ -145,7 +145,7 @@ function DeliveryRulesInner({ storeId }: { storeId: string }) {
 
       <SettingsSection
         title="Regras de taxa"
-        description="Cada linha é uma DeliveryFeeRule. Bairros têm precedência sobre regras fixas."
+        description="Bairros têm precedência sobre regras fixas."
       >
         <DeliveryRulesTable
           rules={rulesQ.data?.rules ?? []}

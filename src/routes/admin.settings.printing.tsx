@@ -136,9 +136,9 @@ function PrintingInner() {
       const res = await m.mutateAsync(body);
       // Reset com resposta completa — nunca com o patch parcial.
       form.reset(hydratePrintingForm({ settings: res.settings, effective: res.effective }));
-      toast.success("Configurações de impressão salvas.");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Falha ao salvar.");
+      toast.success("Configurações de impressão salvas com sucesso.");
+    } catch {
+      toast.error("Não foi possível salvar as configurações de impressão.");
     }
   };
 

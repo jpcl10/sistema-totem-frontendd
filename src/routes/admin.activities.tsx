@@ -723,7 +723,7 @@ function ActivitiesPage() {
                 </Section>
               )}
 
-              <Section title="Metadata">
+              <Section title="Metadados">
                 <pre className="max-h-80 overflow-auto rounded-lg border border-border bg-muted/40 p-3 text-xs leading-relaxed">
                   {JSON.stringify(maskSensitive(selected.metadata ?? {}), null, 2)}
                 </pre>

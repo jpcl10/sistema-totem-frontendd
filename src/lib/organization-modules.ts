@@ -40,7 +40,7 @@ export interface NavItem {
 
 // Base items every admin sees.
 export const BASE_ITEMS: NavItem[] = [
-  { label: "Dashboard", icon: LayoutDashboard, to: "/admin/dashboard" },
+  { label: "Visão geral", icon: LayoutDashboard, to: "/admin/dashboard" },
   { label: "Clientes", icon: Users, to: "/admin/customers" },
 ];
 
@@ -72,7 +72,7 @@ export const MENU_BY_MODULE: Record<ModuleKey, NavItem[]> = {
 };
 
 export const TAIL_ITEMS: NavItem[] = [
-  { label: "Links Públicos", icon: Link2, to: "/admin/public-links" },
+  { label: "Links públicos", icon: Link2, to: "/admin/public-links" },
   { label: "Configurações", icon: Settings, to: "/admin/settings" },
 ];
 
@@ -82,8 +82,8 @@ const EVENTS_TAIL: NavItem[] = [
 ];
 
 const MODULE_LABELS: Record<ModuleKey, string> = {
-  ONLINE_ORDERS: "Pedidos Online",
-  DELIVERY: "Delivery",
+  ONLINE_ORDERS: "Pedidos online",
+  DELIVERY: "Entrega",
   EVENTS: "Eventos",
   TOTEM: "Dispositivos",
   PAYMENTS: "Pagamentos",
@@ -91,7 +91,7 @@ const MODULE_LABELS: Record<ModuleKey, string> = {
   PRINTING: "Impressão",
   WHATSAPP: "WhatsApp",
   DEVICES: "Dispositivos",
-  NFC_CASHLESS: "NFC Cashless",
+  NFC_CASHLESS: "Saldo NFC",
   REPORTS: "Relatórios",
   LOYALTY: "Fidelidade",
 };

@@ -113,11 +113,11 @@ function CatalogOnlineInner({ storeId }: { storeId: string }) {
   const onSave = async () => {
     try {
       const res = await m.mutateAsync(state);
-      toast.success("Configurações do catálogo salvas.");
+      toast.success("Configurações do catálogo salvas com sucesso.");
       setInitial(res.settings);
       setState(res.settings);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Falha ao salvar.");
+    } catch {
+      toast.error("Não foi possível salvar as configurações do catálogo.");
     }
   };
 

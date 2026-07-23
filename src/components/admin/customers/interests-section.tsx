@@ -45,7 +45,7 @@ export function InterestsSection({
       setAdding("");
       onChanged();
     } catch (e) {
-      toast.error(handleApiError(e));
+      handleApiError(e);
     } finally {
       setBusy(false);
     }
@@ -57,7 +57,7 @@ export function InterestsSection({
       await detachCustomerInterest(token, customerId, interestId);
       onChanged();
     } catch (e) {
-      toast.error(handleApiError(e));
+      handleApiError(e);
     }
   };
 

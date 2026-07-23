@@ -71,7 +71,7 @@ export function AdminLayout({ title, subtitle, actions, children }: AdminLayoutP
               className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-primary/10"
             >
               <ShieldCheck className="h-4 w-4" />
-              Super Admin
+              Superadministrador
             </Link>
           </div>
         )}

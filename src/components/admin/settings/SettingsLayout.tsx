@@ -49,9 +49,9 @@ const GROUPS: Group[] = [
   {
     label: "Vendas",
     items: [
-      { to: "/admin/settings/online-orders", label: "Loja Online", icon: Store, capability: "hasOnlineOrders" },
-      { to: "/admin/settings/delivery", label: "Delivery", icon: Bike, capability: "hasOnlineOrders" },
-      { to: "/admin/settings/catalog-online", label: "Catálogo Online", icon: BookOpen, capability: "hasOnlineOrders" },
+      { to: "/admin/settings/online-orders", label: "Loja online", icon: Store, capability: "hasOnlineOrders" },
+      { to: "/admin/settings/delivery", label: "Entrega", icon: Bike, capability: "hasOnlineOrders" },
+      { to: "/admin/settings/catalog-online", label: "Catálogo online", icon: BookOpen, capability: "hasOnlineOrders" },
       { to: "/admin/settings/checkout", label: "Checkout", icon: ShoppingCart, capability: "hasOnlineOrders" },
     ],
   },
@@ -77,7 +77,7 @@ const GROUPS: Group[] = [
   {
     label: "Integrações",
     items: [
-      { to: "/admin/public-links", label: "Links Públicos", icon: Link2 },
+      { to: "/admin/public-links", label: "Links públicos", icon: Link2 },
     ],
   },
   {

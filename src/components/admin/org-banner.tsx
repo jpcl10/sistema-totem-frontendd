@@ -41,7 +41,7 @@ export function OrgBanner() {
         </div>
 
         <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
-          <ShieldCheck className="h-3 w-3" /> Super Admin
+          <ShieldCheck className="h-3 w-3" /> Superadministrador
         </span>
 
         <span className="truncate text-sm font-semibold text-foreground">

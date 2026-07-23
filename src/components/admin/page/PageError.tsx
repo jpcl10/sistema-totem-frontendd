@@ -1,5 +1,6 @@
 import { AlertTriangle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { toFriendlyMessage } from "@/lib/api-error";
 
 interface PageErrorProps {
   title?: string;
@@ -11,8 +12,8 @@ interface PageErrorProps {
 
 function extractMessage(error: unknown, fallback: string): string {
   if (!error) return fallback;
-  if (error instanceof Error) return error.message || fallback;
-  if (typeof error === "string") return error;
+  if (error instanceof Error) return toFriendlyMessage(error, fallback);
+  if (typeof error === "string") return toFriendlyMessage(new Error(error), fallback);
   return fallback;
 }
 

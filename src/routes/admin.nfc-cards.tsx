@@ -303,7 +303,7 @@ function NfcCardsPage() {
     if (!eventId) setCards([]);
   }, [cardsData, eventId]);
   const loading = !!token && !!eventId ? cardsLoading : false;
-  const error = cardsError ? handleApiError(cardsError, "Erro ao carregar cartões") : null;
+  const error = cardsError ? handleApiError(cardsError, "Não foi possível carregar os cartões.") : null;
   const refetchCards = () => {
     if (eventId) refetchCardsQuery();
   };

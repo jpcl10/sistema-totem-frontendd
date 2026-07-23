@@ -58,7 +58,7 @@ export function SuperAdminLayout({ title, subtitle, actions, children }: Props) 
             <ShieldCheck className="h-5 w-5" />
           </div>
           <div className="min-w-0">
-            <span className="block truncate text-sm font-semibold text-foreground">Super Admin</span>
+            <span className="block truncate text-sm font-semibold text-foreground">Superadministrador</span>
             <span className="block truncate text-[10px] uppercase tracking-wider text-muted-foreground">
               Defumar Platform
             </span>

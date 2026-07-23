@@ -163,7 +163,7 @@ export function NfcCashlessDrawer({
       list.sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
       setTxs(list);
     } catch (e) {
-      setErrorTx(handleApiError(e, "Erro ao carregar histórico", { silent: true }));
+      setErrorTx(handleApiError(e, "Não foi possível carregar o histórico.", { silent: true }));
     } finally {
       setLoadingTx(false);
     }

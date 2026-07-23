@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { API_BASE_URL, authHeaders } from "@/lib/auth";
-import { apiFetch, fromResponse } from "@/lib/api-error";
+import { apiFetch, fromResponse, toFriendlyMessage } from "@/lib/api-error";
 import { useAuth } from "@/lib/auth-context";
 
 export const Route = createFileRoute("/super-admin/users")({
@@ -89,14 +89,14 @@ function UsersPage() {
         apiFetch(`${API_BASE_URL}/super-admin/organizations`, { headers: authHeaders(token) }),
         apiFetch(`${API_BASE_URL}/super-admin/users`, { headers: authHeaders(token) }),
       ]);
-      if (!oRes.ok) throw await fromResponse(oRes, "Erro ao carregar organizações.");
-      if (!uRes.ok) throw await fromResponse(uRes, "Erro ao carregar usuários.");
+      if (!oRes.ok) throw await fromResponse(oRes, "Não foi possível carregar as organizações.");
+      if (!uRes.ok) throw await fromResponse(uRes, "Não foi possível carregar os usuários.");
       const oData = await oRes.json();
       const uData = await uRes.json();
       setOrgs(Array.isArray(oData) ? oData : oData.organizations ?? oData.data ?? []);
       setUsers(Array.isArray(uData) ? uData : uData.users ?? uData.data ?? []);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro ao carregar dados.");
+      toast.error(toFriendlyMessage(err, "Não foi possível carregar os dados."));
     } finally {
       setLoading(false);
     }
@@ -156,15 +156,15 @@ function UsersPage() {
   const submit = async () => {
     if (!token) return;
     if (!form.name.trim() || !form.email.trim()) {
-      toast.error("Nome e email são obrigatórios");
+      toast.error("Preencha o nome e o e-mail.");
       return;
     }
     if (!form.organizationId) {
-      toast.error("Selecione uma organização");
+      toast.error("Selecione uma organização.");
       return;
     }
     if (!form.id && !form.password) {
-      toast.error("Senha é obrigatória");
+      toast.error("Preencha a senha.");
       return;
     }
     setSaving(true);
@@ -190,7 +190,7 @@ function UsersPage() {
       setOpen(false);
       await load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro ao salvar.");
+      toast.error(toFriendlyMessage(err, "Não foi possível salvar o usuário."));
     } finally {
       setSaving(false);
     }
@@ -208,7 +208,7 @@ function UsersPage() {
       toast.success("Usuário removido");
       await load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro ao remover.");
+      toast.error(toFriendlyMessage(err, "Não foi possível remover o usuário."));
     }
   };
 

@@ -74,13 +74,13 @@ export function CatalogOptionGroupsManager({
     const next = !(g.active !== false);
     if (!next) {
       const ok = window.confirm(
-        "Desativar este grupo de opções?\n\nEle deixará de aparecer em novos pedidos, mas pedidos antigos manterão seus snapshots.",
+        "Tem certeza de que deseja desativar este grupo de opções?\n\nEle deixará de aparecer em novos pedidos, mas pedidos antigos manterão seus registros.",
       );
       if (!ok) return;
     }
     try {
       await setCatalogOptionGroupStatus(token, g.id, next);
-      toast.success(next ? "Grupo ativado" : "Grupo desativado");
+      toast.success(next ? "Grupo ativado com sucesso." : "Grupo desativado com sucesso.");
       await invalidate();
     } catch (e) {
       handleApiError(e, "Não foi possível alterar o status do grupo.");
@@ -92,13 +92,13 @@ export function CatalogOptionGroupsManager({
     const next = !(o.active !== false);
     if (!next) {
       const ok = window.confirm(
-        "Desativar esta opção?\n\nEla deixará de aparecer em novos pedidos.",
+        "Tem certeza de que deseja desativar esta opção?\n\nEla deixará de aparecer em novos pedidos.",
       );
       if (!ok) return;
     }
     try {
       await setCatalogOptionStatus(token, o.id, next);
-      toast.success(next ? "Opção ativada" : "Opção desativada");
+      toast.success(next ? "Opção ativada com sucesso." : "Opção desativada com sucesso.");
       await invalidate();
     } catch (e) {
       handleApiError(e, "Não foi possível alterar o status da opção.");
@@ -141,7 +141,7 @@ export function CatalogOptionGroupsManager({
         ) : q.error ? (
           <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
             <AlertCircle className="mt-0.5 h-4 w-4" />
-            <span>{(q.error as Error).message}</span>
+            <span>{handleApiError(q.error, "Não foi possível carregar os grupos de opções.", { silent: true })}</span>
           </div>
         ) : groups.length === 0 ? (
           <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">

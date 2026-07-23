@@ -20,11 +20,11 @@ export function CheckoutFlowSection({ value, onChange }: Props) {
       description="Modalidades de atendimento disponíveis no checkout."
     >
       <SettingsGroup columns={2}>
-        <ToggleRow label="Permitir Delivery" checked={value.allowDelivery} onChange={toggle("allowDelivery")} />
-        <ToggleRow label="Permitir Retirada" checked={value.allowPickup} onChange={toggle("allowPickup")} />
-        <ToggleRow label="Permitir Balcão" checked={value.allowCounter} onChange={toggle("allowCounter")} />
-        <ToggleRow label="Permitir Consumo Local" checked={value.allowDineIn} onChange={toggle("allowDineIn")} />
-        <ToggleRow label="Permitir Agendamento" checked={value.allowScheduling} onChange={toggle("allowScheduling")} />
+        <ToggleRow label="Permitir entrega" checked={value.allowDelivery} onChange={toggle("allowDelivery")} />
+        <ToggleRow label="Permitir retirada" checked={value.allowPickup} onChange={toggle("allowPickup")} />
+        <ToggleRow label="Permitir balcão" checked={value.allowCounter} onChange={toggle("allowCounter")} />
+        <ToggleRow label="Permitir consumo no local" checked={value.allowDineIn} onChange={toggle("allowDineIn")} />
+        <ToggleRow label="Permitir agendamento" checked={value.allowScheduling} onChange={toggle("allowScheduling")} />
       </SettingsGroup>
     </SettingsSection>
   );

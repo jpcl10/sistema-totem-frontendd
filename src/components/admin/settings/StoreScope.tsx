@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import type { UseSelectedStoreResult } from "@/hooks/use-selected-store";
+import { toFriendlyMessage } from "@/lib/api-error";
 
 interface StoreScopeProps {
   scope: UseSelectedStoreResult;
@@ -36,7 +37,7 @@ export function StoreScope({ scope, children, showSelector = true }: StoreScopeP
     return (
       <PageError
         title="Não foi possível carregar as lojas"
-        message={error instanceof Error ? error.message : undefined}
+        message={toFriendlyMessage(error, "Não foi possível carregar as lojas.")}
       />
     );
   if (status === "empty") {
@@ -44,8 +45,8 @@ export function StoreScope({ scope, children, showSelector = true }: StoreScopeP
       <PageEmpty
         icon={Store}
         title="Nenhuma loja cadastrada"
-        description="Crie uma loja online antes de configurar Loja Online ou Delivery."
-        action={{ label: "Ir para Loja Online", href: "/admin/online-menu" }}
+        description="Crie uma loja online antes de configurar loja online ou entrega."
+        action={{ label: "Ir para loja online", href: "/admin/online-menu" }}
       />
     );
   }

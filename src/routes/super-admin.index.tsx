@@ -73,7 +73,7 @@ function OverviewPage() {
           apiFetch(`${API_BASE_URL}/super-admin/organizations`, { headers: authHeaders(token) }),
           apiFetch(`${API_BASE_URL}/super-admin/users`, { headers: authHeaders(token) }),
         ]);
-        if (!orgsRes.ok) throw await fromResponse(orgsRes, "Erro ao carregar organizações.");
+        if (!orgsRes.ok) throw await fromResponse(orgsRes, "Não foi possível carregar as organizações.");
         const orgsData = await orgsRes.json();
         const orgs: Array<{ active?: boolean; modules?: unknown }> = Array.isArray(orgsData)
           ? orgsData

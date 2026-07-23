@@ -159,7 +159,7 @@ export async function getOnlineStoreAvailability(
     `${API_BASE_URL}/online-stores/${encodeURIComponent(storeId)}/availability`,
     { headers: authHeaders(token) },
   );
-  return handle<OnlineStoreAvailabilityResponse>(res, "NÃ£o foi possÃ­vel carregar o status da loja.");
+  return handle<OnlineStoreAvailabilityResponse>(res, "Não foi possível carregar o status da loja.");
 }
 
 export async function updateOnlineStoreAvailability(
@@ -175,7 +175,7 @@ export async function updateOnlineStoreAvailability(
       body: JSON.stringify(body),
     },
   );
-  return handle<OnlineStoreAvailabilityResponse>(res, "NÃ£o foi possÃ­vel alterar o status da loja.");
+  return handle<OnlineStoreAvailabilityResponse>(res, "Não foi possível alterar o status da loja.");
 }
 
 

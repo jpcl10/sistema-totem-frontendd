@@ -570,7 +570,7 @@ function PublicStorePage() {
         // Reopen the checkout sheet — cart is preserved.
         setCheckoutOpen(true);
       } else {
-        toast.error(handleApiError(err, "Não foi possível enviar o pedido."));
+        handleApiError(err, "Não foi possível enviar o pedido.");
       }
     } finally {
       setSubmitting(false);

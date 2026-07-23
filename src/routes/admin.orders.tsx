@@ -729,7 +729,7 @@ function OrdersPage() {
             ) : (
               <WifiOff className="h-3 w-3" />
             )}
-            {connected ? "Realtime" : "Offline"}
+            {connected ? "Tempo real" : "Offline"}
           </span>
 
           {/* Desktop secondary actions */}

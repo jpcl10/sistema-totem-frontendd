@@ -655,7 +655,7 @@ function DashboardPage() {
 
   return (
     <AdminLayout
-      title="Dashboard"
+      title="Visão geral"
       subtitle={onlyOnlineOrders ? "Operação da loja online" : noModules ? undefined : "Operação em tempo real"}
     >
       {organizationError ? (

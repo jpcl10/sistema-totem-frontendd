@@ -24,7 +24,7 @@ export interface CatalogProduct {
   categoryId?: string;
   category?: CatalogCategory;
   catalogCategory?: CatalogCategory;
-  /** PreÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§o-base do catÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡logo em centavos. */
+  /** Preço-base do catálogo em centavos. */
   pricingRule?: CatalogProductPricingRule;
   supportsHalfAndHalf?: boolean;
   canBeUsedAsFlavor?: boolean;
@@ -59,13 +59,13 @@ export interface EventCatalogProduct {
   id: string; // EventProduct id (used as order item id)
   eventId: string;
   catalogProductId?: string;
-  /** PreÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§o efetivo (priceInCents) ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â decidido pelo backend. */
+  /** Preço efetivo (priceInCents), decidido pelo backend. */
   priceInCents: number;
-  /** PreÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§o-base do catÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡logo em centavos (informativo). */
+  /** Preço-base do catálogo em centavos (informativo). */
   catalogPriceInCents?: number;
-  /** PreÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§o especÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­fico do evento em centavos; null quando herda catÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡logo. */
+  /** Preço específico do evento em centavos; null quando herda o catálogo. */
   eventPriceInCents?: number | null;
-  /** Origem do preÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§o efetivo. */
+  /** Origem do preço efetivo. */
   priceSource?: PriceSource;
   active?: boolean;
   status?: string;
@@ -79,12 +79,12 @@ export interface EventCatalogProduct {
   stockQuantity?: number;
   soldOut?: boolean;
   sortOrder?: number;
-  /** Grupos de opÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âµes herdados do CatalogProduct. */
+  /** Grupos de opções herdados do CatalogProduct. */
   optionGroups?: CatalogOptionGroup[];
   [k: string]: unknown;
 }
 
-/** Produto do catÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡logo com marcaÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o de vÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­nculo jÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡ existente ao evento. */
+/** Produto do catálogo com marcação de vínculo já existente ao evento. */
 export interface AvailableCatalogProduct extends CatalogProduct {
   alreadyLinked?: boolean;
   optionGroups?: CatalogOptionGroup[];
@@ -286,7 +286,7 @@ export async function addEventCatalogProduct(
   eventId: string,
   input: {
     catalogProductId: string;
-    /** null = usar preÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§o do catÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡logo; nÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âºmero (centavos) = preÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§o especÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­fico do evento */
+    /** null = usar preço do catálogo; número em centavos = preço específico do evento */
     priceInCents: number | null;
     active?: boolean;
     trackStock?: boolean;
@@ -310,7 +310,7 @@ export async function updateEventCatalogProduct(
   eventId: string,
   eventProductId: string,
   patch: Partial<{
-    /** null = usar preÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§o do catÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡logo; nÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âºmero (centavos) = preÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§o especÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­fico do evento */
+    /** null = usar preço do catálogo; número em centavos = preço específico do evento */
     priceInCents: number | null;
     active: boolean;
     trackStock: boolean;

@@ -173,7 +173,7 @@ function CustomerDetailPage() {
       toast.success(c.active ? "Cliente inativado" : "Cliente reativado");
       void load();
     } catch (e) {
-      toast.error(handleApiError(e));
+      handleApiError(e);
     }
   };
 
@@ -228,7 +228,7 @@ function CustomerDetailPage() {
           <TabsTrigger value="orders">Pedidos</TabsTrigger>
           <TabsTrigger value="interests">Interesses ({c.interests.length})</TabsTrigger>
           <TabsTrigger value="communication">Comunicação</TabsTrigger>
-          <TabsTrigger value="timeline">Timeline</TabsTrigger>
+          <TabsTrigger value="timeline">Histórico</TabsTrigger>
         </TabsList>
 
 
@@ -336,7 +336,7 @@ function CustomerDetailPage() {
                             await setCustomerAddressStatus(token, c.id, a.id, !a.active);
                             void load();
                           } catch (e) {
-                            toast.error(handleApiError(e));
+                            handleApiError(e);
                           }
                         }}
                       >
@@ -494,4 +494,3 @@ function CustomerDetailPage() {
     </AdminLayout>
   );
 }
-

@@ -95,7 +95,7 @@ export function AddressDialog({
       }
       onSaved();
     } catch (e2) {
-      toast.error(handleApiError(e2));
+      handleApiError(e2);
     } finally {
       setSaving(false);
     }

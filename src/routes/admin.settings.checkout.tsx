@@ -136,10 +136,10 @@ function CheckoutInner({ storeId }: { storeId: string }) {
   const onSave = async () => {
     try {
       await m.mutateAsync(state);
-      toast.success("Configurações do checkout salvas.");
+      toast.success("Configurações do checkout salvas com sucesso.");
       setInitial(state);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Falha ao salvar.");
+    } catch {
+      toast.error("Não foi possível salvar as configurações do checkout.");
     }
   };
 

@@ -8,6 +8,7 @@ import { CallScreenLoading } from "./CallScreenLoading";
 import { useCallScreen } from "@/hooks/use-call-screen";
 import type { CallScreenContextType } from "@/lib/call-screen-api";
 import { audioManager } from "@/lib/audio-manager";
+import { toFriendlyMessage } from "@/lib/api-error";
 
 type CallScreenScreenProps = {
   type: CallScreenContextType;
@@ -15,9 +16,9 @@ type CallScreenScreenProps = {
 };
 
 function formatError(error: unknown) {
-  if (!error) return "Não foi possível carregar a tela pública de chamada.";
-  if (error instanceof Error && error.message.trim()) return error.message;
-  return "Não foi possível carregar a tela pública de chamada.";
+  const fallback = "Não foi possível carregar a tela pública de chamada.";
+  if (!error) return fallback;
+  return toFriendlyMessage(error, fallback);
 }
 
 export function CallScreenScreen({ type, slug }: CallScreenScreenProps) {

@@ -177,7 +177,7 @@ function FechamentoTab({ eventId, token, userRole }: { eventId: string; token: s
         setClosing(null);
       }
     } catch (err) {
-      toast.error(handleApiError(err, "Erro ao carregar dados de fechamento."));
+      handleApiError(err, "Não foi possível carregar os dados de fechamento.");
     } finally {
       setLoading(false);
     }
@@ -195,11 +195,11 @@ function FechamentoTab({ eventId, token, userRole }: { eventId: string; token: s
         allowPendingOrders: acceptedPendingOrders,
         allowPrintErrors: acceptedPrintErrors,
       });
-      toast.success("Evento finalizado com sucesso!");
+      toast.success("Evento finalizado com sucesso.");
       setIsConfirmOpen(false);
       fetchData();
     } catch (err) {
-      toast.error(handleApiError(err, "Erro ao finalizar evento."));
+      handleApiError(err, "Não foi possível finalizar o evento.");
     } finally {
       setSubmitting(false);
     }
@@ -209,11 +209,11 @@ function FechamentoTab({ eventId, token, userRole }: { eventId: string; token: s
     setSubmitting(true);
     try {
       const response = await reopenEvent(token, eventId);
-      toast.success("Evento reaberto com sucesso!");
+      toast.success("Evento reaberto com sucesso.");
       setIsReopenOpen(false);
       fetchData();
     } catch (err) {
-      toast.error(handleApiError(err, "Erro ao reabrir evento."));
+      handleApiError(err, "Não foi possível reabrir o evento.");
     } finally {
       setSubmitting(false);
     }

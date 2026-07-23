@@ -34,7 +34,7 @@ function OnlineOrdersSettingsPage() {
 
   return (
     <AdminLayout
-      title="Loja Online"
+      title="Loja online"
       subtitle="Aceitação de pedidos, mensagens e requisitos do checkout."
     >
       <SettingsLayout>
@@ -138,10 +138,10 @@ function OnlineOrdersInner({ storeId }: { storeId: string }) {
     };
     try {
       await m.mutateAsync(body);
-      toast.success("Configurações da loja online salvas.");
+      toast.success("Configurações da loja online salvas com sucesso.");
       setInitial(state);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Falha ao salvar.");
+    } catch {
+      toast.error("Não foi possível salvar as configurações da loja online.");
     }
   };
 

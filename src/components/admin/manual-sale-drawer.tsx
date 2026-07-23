@@ -76,7 +76,7 @@ const PAYMENT_METHODS: {
   { key: "CASH", label: "Dinheiro", icon: Banknote },
   { key: "CREDIT_CARD", label: "Crédito", icon: CreditCard },
   { key: "DEBIT_CARD", label: "Débito", icon: CreditCard },
-  { key: "PIX_MANUAL", label: "PIX Manual", icon: QrCode, hint: "Pedido fica pendente até confirmação" },
+  { key: "PIX_MANUAL", label: "PIX manual", icon: QrCode, hint: "Pedido fica pendente até confirmação" },
   { key: "COURTESY", label: "Cortesia", icon: Gift },
   { key: "NFC_BALANCE", label: "NFC / Cashless", icon: Wallet },
   { key: "OTHER", label: "Outro", icon: MoreHorizontal },
@@ -119,7 +119,7 @@ export function ManualSaleDrawer({ open, onOpenChange, eventId, token, onCreated
         setProducts(normalized);
         setCategories(cats.map((c: CatalogCategory) => ({ id: c.id, name: c.name })));
       })
-      .catch((e) => toast.error(handleApiError(e, "Falha ao carregar catálogo do evento.")))
+      .catch((e) => handleApiError(e, "Não foi possível carregar o catálogo do evento."))
       .finally(() => setLoadingCatalog(false));
   }, [open, eventId, token]);
 
@@ -189,7 +189,7 @@ export function ManualSaleDrawer({ open, onOpenChange, eventId, token, onCreated
       onOpenChange(false);
       onCreated?.();
     } catch (e) {
-      toast.error(handleApiError(e, "Não foi possível criar a venda."));
+      handleApiError(e, "Não foi possível criar a venda.");
     } finally {
       setSubmitting(false);
     }
@@ -207,7 +207,7 @@ export function ManualSaleDrawer({ open, onOpenChange, eventId, token, onCreated
               <SheetTitle className="flex items-center gap-2 text-lg">
                 <ShoppingCart className="h-5 w-5" /> Nova venda
               </SheetTitle>
-              <SheetDescription>Lançamento manual de pedido (balcão / operador).</SheetDescription>
+              <SheetDescription>Lançamento manual de pedido no balcão.</SheetDescription>
             </div>
           </div>
         </SheetHeader>
@@ -221,7 +221,7 @@ export function ManualSaleDrawer({ open, onOpenChange, eventId, token, onCreated
                 <Input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Buscar produto..."
+                  placeholder="Buscar produto"
                   className="h-10 pl-9"
                 />
               </div>
@@ -302,7 +302,7 @@ export function ManualSaleDrawer({ open, onOpenChange, eventId, token, onCreated
               <Input
                 value={customerName}
                 onChange={(e) => setCustomerName(e.target.value)}
-                placeholder="Cliente Balcão"
+                placeholder="Cliente de balcão"
                 className="mt-1 h-9"
               />
             </div>
@@ -408,7 +408,7 @@ export function ManualSaleDrawer({ open, onOpenChange, eventId, token, onCreated
                   onClick={() => onOpenChange(false)}
                   disabled={submitting}
                 >
-                  <X className="mr-1 h-4 w-4" /> Cancelar
+                  <X className="mr-1 h-4 w-4" /> Cancelar venda
                 </Button>
                 <Button
                   className="flex-[2]"
@@ -417,7 +417,7 @@ export function ManualSaleDrawer({ open, onOpenChange, eventId, token, onCreated
                 >
                   {submitting ? (
                     <>
-                      <Loader2 className="mr-1 h-4 w-4 animate-spin" /> Criando...
+                      <Loader2 className="mr-1 h-4 w-4 animate-spin" /> Criando venda...
                     </>
                   ) : (
                     <>Criar venda • {brl(totalCents)}</>

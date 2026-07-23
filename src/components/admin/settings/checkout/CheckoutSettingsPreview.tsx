@@ -15,7 +15,7 @@ export function CheckoutSettingsPreview({ settings }: Props) {
   const { flow, customer, order, payment, change, summary, confirmation } = settings;
 
   const modes: { key: keyof typeof flow; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-    { key: "allowDelivery", label: "Delivery", icon: Bike },
+    { key: "allowDelivery", label: "Entrega", icon: Bike },
     { key: "allowPickup", label: "Retirada", icon: ShoppingBag },
     { key: "allowCounter", label: "Balcão", icon: Store },
     { key: "allowDineIn", label: "No local", icon: Utensils },

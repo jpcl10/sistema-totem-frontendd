@@ -18,19 +18,22 @@ import {
   ShieldAlert,
   CreditCard,
   ArrowRight,
+  UtensilsCrossed,
+  Flame,
+  Sparkles,
+  Tag,
 } from "lucide-react";
-import defumarFlame from "@/assets/defumar-d-flame.svg";
 import { io, Socket } from "socket.io-client";
 import { API_BASE_URL, API_HEADERS, SOCKET_URL } from "../lib/auth";
 import { toast } from "sonner";
 import { QRCodeSVG } from "qrcode.react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePublicEventBranding } from "@/components/public/public-branding";
 import { PublicChannelLoading } from "@/components/public/PublicChannelLoading";
 import { PublicChannelError } from "@/components/public/PublicChannelError";
-import { PublicChannelHeader } from "@/components/public/PublicChannelHeader";
 import {
   Sheet,
   SheetContent,
@@ -64,6 +67,8 @@ import {
   payWithNfcBalanceCanonical,
   type PublicMenu,
   type PublicProduct,
+  type PublicProductOptionGroup,
+  type PublicProductOption,
   type PublicCategory,
   type PublicEvent,
   type CheckoutPaymentSettings,
@@ -94,251 +99,224 @@ function TotemWelcomeScreen({
   onStart: () => void;
 }) {
   const branding = usePublicEventBranding(event);
-  const { name, welcomeMessage, logoUrl, bannerUrl, primaryColor, textColor } = branding;
+  const { name, welcomeMessage, logoUrl, bannerUrl, primaryColor, secondaryColor } = branding;
+  const brandGradient = `linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%)`;
 
   return (
     <div
-      className="fixed inset-0 z-40 flex flex-col overflow-hidden animate-in fade-in duration-500"
+      className="fixed inset-0 z-40 flex flex-col overflow-y-auto bg-background animate-in fade-in duration-500"
       style={{
         ...branding.cssVars,
-        background: "var(--brand-bg)",
-        color: "var(--brand-fg)",
+        ["--primary" as string]: primaryColor,
+        ["--primary-glow" as string]: secondaryColor,
       }}
     >
-      {/* Hero banner (opcional) */}
-      {bannerUrl && (
-        <div className="relative h-56 w-full shrink-0 sm:h-72">
-          <img
-            src={bannerUrl}
-            alt=""
-            aria-hidden
-            draggable={false}
-            className="absolute inset-0 h-full w-full select-none object-cover"
-          />
-          <div
-            aria-hidden
-            className="absolute inset-0"
-            style={{
-              background: "linear-gradient(180deg, rgba(0,0,0,0.15) 0%, var(--brand-bg) 95%)",
-            }}
-          />
+      <header className="relative shrink-0">
+        <div className="relative h-[34vh] min-h-[260px] w-full overflow-hidden">
+          {bannerUrl ? (
+            <>
+              <img
+                src={bannerUrl}
+                alt=""
+                aria-hidden
+                draggable={false}
+                className="h-full w-full select-none object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-background/95 via-background/35 to-transparent" />
+            </>
+          ) : (
+            <>
+              <div className="h-full w-full" style={{ background: brandGradient }} />
+              <div className="absolute inset-0 bg-gradient-to-t from-background via-background/55 to-transparent" />
+            </>
+          )}
         </div>
-      )}
 
-      <div className="relative z-10 flex flex-1 flex-col items-center justify-center gap-8 px-6 pb-10 pt-8 text-center">
-        {/* Identidade: logo OU nome (nÃ£o duplicar) */}
-        {logoUrl ? (
-          <>
-            <img
-              src={logoUrl}
-              alt={name}
-              draggable={false}
-              className="h-32 w-32 select-none object-contain sm:h-40 sm:w-40 animate-in zoom-in-95 duration-700"
-              onError={(e) => {
-                (e.currentTarget as HTMLImageElement).style.display = "none";
-              }}
-            />
-            {name && (
-              <h1 className="text-3xl font-black leading-tight tracking-tight sm:text-4xl">
-                {name}
-              </h1>
+        <div className="mx-auto -mt-20 flex w-full max-w-6xl items-end gap-6 px-8">
+          <div className="relative shrink-0">
+            {logoUrl ? (
+              <img
+                src={logoUrl}
+                alt={name}
+                draggable={false}
+                className="h-36 w-36 rounded-2xl border-4 border-background bg-card object-cover shadow-2xl ring-1 ring-border/40"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).style.display = "none";
+                }}
+              />
+            ) : (
+              <div
+                className="flex h-36 w-36 items-center justify-center rounded-2xl border-4 border-background bg-gradient-to-br from-primary to-primary-glow text-5xl font-black text-primary-foreground shadow-2xl ring-1 ring-border/40"
+                style={{ color: primaryColor }}
+              >
+                {name.charAt(0).toUpperCase()}
+              </div>
             )}
-          </>
-        ) : (
-          name && (
-            <h1 className="text-4xl font-black leading-[1.05] tracking-tight sm:text-6xl">
+          </div>
+          <div className="min-w-0 flex-1 pb-4">
+            <h1 className="line-clamp-2 text-5xl font-black leading-tight tracking-tight text-foreground">
               {name}
             </h1>
-          )
-        )}
+            {welcomeMessage && (
+              <p className="mt-3 max-w-3xl text-xl font-medium leading-relaxed text-muted-foreground">
+                {welcomeMessage}
+              </p>
+            )}
+          </div>
+        </div>
+      </header>
 
-        {welcomeMessage && (
-          <p className="max-w-xl text-base sm:text-lg" style={{ opacity: 0.8 }}>
-            {welcomeMessage}
-          </p>
-        )}
-
-        {/* CTA primÃ¡rio */}
+      <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center px-8 py-10">
         <button
           type="button"
           onClick={onStart}
-          className="group mt-2 flex w-full max-w-md items-center justify-center gap-3 rounded-2xl px-6 py-6 text-lg font-bold uppercase tracking-wider transition-all duration-300 hover:scale-[1.02] active:scale-[0.99]"
-          style={{
-            background: primaryColor,
-            color: textColor === "hsl(var(--foreground))" ? "#FFFFFF" : textColor,
-            boxShadow: "0 10px 40px -10px rgba(0,0,0,0.35)",
-          }}
+          className="group flex w-full items-center justify-between gap-8 rounded-2xl bg-gradient-to-r from-primary to-primary-glow px-10 py-8 text-left text-primary-foreground shadow-2xl shadow-primary/40 ring-1 ring-primary/30 transition active:scale-[0.99]"
         >
-          <span>ComeÃ§ar pedido</span>
-          <ArrowRight className="h-6 w-6 transition-transform duration-300 group-hover:translate-x-1" />
+          <span>
+            <span className="block text-sm font-black uppercase tracking-widest opacity-80">
+              Autoatendimento
+            </span>
+            <span className="mt-1 block text-4xl font-black tracking-tight">
+              Começar pedido
+            </span>
+          </span>
+          <span className="flex h-20 w-20 items-center justify-center rounded-full bg-background text-primary shadow-xl transition group-active:scale-95">
+            <ArrowRight className="h-10 w-10" strokeWidth={3} />
+          </span>
         </button>
 
-        {/* CartÃ£o NFC informativo â€” comportamento existente preservado */}
-        <div className="w-full max-w-md rounded-2xl border border-border/40 bg-white/5 p-5 backdrop-blur-sm">
-          <div className="flex items-center gap-4">
-            <div
-              className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl"
-              style={{ background: primaryColor, color: "#FFFFFF" }}
-            >
-              <Nfc className="h-7 w-7" aria-hidden />
-            </div>
-            <div className="text-left">
-              <p className="text-sm font-bold uppercase tracking-wide">
-                Aproxime sua pulseira ou cartÃ£o
-              </p>
-              <p className="mt-1 text-xs" style={{ opacity: 0.7 }}>
-                IdentificaÃ§Ã£o rÃ¡pida e segura.
-              </p>
-            </div>
+        <button
+          type="button"
+          onClick={onStart}
+          className="mt-5 flex w-full items-center gap-5 rounded-2xl border border-border/70 bg-card p-6 text-left shadow-sm transition hover:border-primary/40 active:scale-[0.99]"
+        >
+          <div
+            className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl"
+            style={{ background: `${primaryColor}22`, color: primaryColor }}
+          >
+            <Nfc className="h-8 w-8" aria-hidden />
           </div>
-        </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xl font-black leading-tight text-foreground">
+              Aproxime sua pulseira ou cartão
+            </p>
+            <p className="mt-1 text-base text-muted-foreground">
+              Identificação rápida e segura durante o pedido.
+            </p>
+          </div>
+        </button>
       </div>
     </div>
   );
 }
 
-function categoryEmoji(name: string): string {
-  const n = name.toLowerCase();
-  if (/(drink|coquetel|cocktail|caipi)/.test(n)) return "ðŸ¹";
-  if (/(cerveja|beer|chopp)/.test(n)) return "ðŸº";
-  if (/(vinho|wine)/.test(n)) return "ðŸ·";
-  if (/(bebida|refri|suco|Ã¡gua|agua|water)/.test(n)) return "ðŸ¥¤";
-  if (/(cafÃ©|cafe|coffee)/.test(n)) return "â˜•";
-  if (/(burg|hamb|sandu|sandwich)/.test(n)) return "ðŸ”";
-  if (/(pizza)/.test(n)) return "ðŸ•";
-  if (/(porÃ§|porc|fritas|petisco|snack)/.test(n)) return "ðŸŸ";
-  if (/(sobremesa|doce|dessert|sorvete|ice)/.test(n)) return "ðŸ°";
-  if (/(churras|carne|bbq|grill|defum)/.test(n)) return "ðŸ”¥";
-  if (/(salada|veg|salad)/.test(n)) return "ðŸ¥—";
-  if (/(massa|pasta|macar)/.test(n)) return "ðŸ";
-  if (/(combo|kit|promo)/.test(n)) return "â­";
-  return "ðŸ½ï¸";
-}
-
 function TotemCategoryPicker({
-  eventName,
+  event,
   categories,
   hasNfcIdentified,
   onPickCategory,
   onOpenNfc,
 }: {
-  eventName: string;
+  event: PublicEvent | null | undefined;
   categories: { cat: PublicCategory; count: number }[];
   hasNfcIdentified: boolean;
   onPickCategory: (id: string) => void;
   onOpenNfc: () => void;
 }) {
-  const cols = categories.length <= 4 ? "sm:grid-cols-2" : "sm:grid-cols-2 lg:grid-cols-3";
+  const branding = usePublicEventBranding(event);
+  const { name, logoUrl, bannerUrl, primaryColor, secondaryColor } = branding;
   return (
     <div
-      className="fixed inset-0 z-40 flex flex-col overflow-y-auto text-white animate-in fade-in duration-500"
+      className="fixed inset-0 z-40 flex flex-col overflow-y-auto bg-background text-foreground animate-in fade-in duration-500"
       style={{
-        background: "radial-gradient(ellipse at 50% 0%, #0F2C5C 0%, #0A1830 45%, #061126 100%)",
+        ...branding.cssVars,
+        ["--primary" as string]: primaryColor,
+        ["--primary-glow" as string]: secondaryColor,
       }}
     >
-      <div className="pointer-events-none absolute -top-40 left-1/2 h-[520px] w-[520px] -translate-x-1/2 rounded-full bg-[#0D6EFD]/25 blur-[140px]" />
-      <div className="pointer-events-none absolute bottom-[-180px] left-1/2 h-[460px] w-[460px] -translate-x-1/2 rounded-full bg-[#0D6EFD]/15 blur-[160px]" />
-
-      {/* Header */}
-      <div className="relative z-10 flex flex-col items-center px-6 pt-10 text-center">
-        <div className="relative mb-5">
-          <div className="absolute inset-0 -z-10 mx-auto h-28 w-28 rounded-full bg-[#0D6EFD]/30 blur-[60px]" />
-          <img
-            src={defumarFlame}
-            alt="Defumar"
-            draggable={false}
-            className="h-20 w-20 select-none object-contain drop-shadow-[0_8px_30px_rgba(13,110,253,0.45)]"
-          />
+      <header className="relative shrink-0">
+        <div className="relative h-56 w-full overflow-hidden">
+          {bannerUrl ? (
+            <>
+              <img src={bannerUrl} alt="" aria-hidden className="h-full w-full object-cover" />
+              <div className="absolute inset-0 bg-gradient-to-t from-background/95 via-background/30 to-transparent" />
+            </>
+          ) : (
+            <>
+              <div
+                className="h-full w-full"
+                style={{
+                  background: `linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%)`,
+                }}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
+            </>
+          )}
         </div>
-        {eventName && (
-          <p className="mb-2 text-xs font-medium uppercase tracking-[0.35em] text-[#7CC4FF]/80">
-            {eventName}
-          </p>
-        )}
-        <h1 className="text-3xl font-black leading-tight tracking-tight sm:text-4xl">
-          O que vocÃª deseja{" "}
-          <span className="bg-gradient-to-r from-[#60A5FA] via-[#3B82F6] to-[#7CC4FF] bg-clip-text text-transparent">
-            hoje?
-          </span>
-        </h1>
-        <p className="mt-3 max-w-md text-sm text-white/65 sm:text-base">
-          Selecione uma categoria para visualizar os produtos disponÃ­veis.
-        </p>
-      </div>
 
-      {/* NFC hint */}
-      <div className="relative z-10 mx-auto mt-8 w-full max-w-3xl px-6">
+        <div className="mx-auto -mt-14 flex w-full max-w-6xl items-end gap-5 px-8">
+          {logoUrl ? (
+            <img
+              src={logoUrl}
+              alt={name}
+              className="h-28 w-28 rounded-2xl border-4 border-background bg-card object-cover shadow-xl ring-1 ring-border/40"
+            />
+          ) : (
+            <div className="flex h-28 w-28 items-center justify-center rounded-2xl border-4 border-background bg-gradient-to-br from-primary to-primary-glow text-3xl font-black text-primary-foreground shadow-xl">
+              {name.charAt(0).toUpperCase()}
+            </div>
+          )}
+          <div className="min-w-0 flex-1 pb-2">
+            <h1 className="line-clamp-1 text-4xl font-black leading-tight tracking-tight text-foreground">
+              {name}
+            </h1>
+            <p className="mt-1 text-lg font-medium text-muted-foreground">
+              Escolha uma categoria
+            </p>
+          </div>
+        </div>
+      </header>
+
+      <div className="mx-auto mt-8 w-full max-w-6xl px-8">
         <button
           type="button"
           onClick={onOpenNfc}
-          className="group relative w-full overflow-hidden rounded-2xl border border-[#3B82F6]/25 bg-white/[0.04] p-4 text-left backdrop-blur-xl transition-all hover:border-[#3B82F6]/50 hover:bg-white/[0.06] active:scale-[0.99]"
+          className="group flex w-full items-center gap-5 rounded-2xl border border-border/70 bg-card p-5 text-left shadow-sm transition hover:border-primary/40 active:scale-[0.99]"
         >
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[#0D6EFD]/15 to-transparent" />
-          <div className="relative flex items-center gap-4">
-            <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#0D6EFD] to-[#1E40AF] shadow-[0_10px_30px_rgba(13,110,253,0.5)]">
-              <Nfc className="h-7 w-7 text-white" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-bold uppercase tracking-wide text-white">
-                {hasNfcIdentified ? "CartÃ£o identificado" : "Aproxime sua pulseira ou cartÃ£o"}
-              </p>
-              <p className="mt-0.5 text-xs text-white/60">IdentificaÃ§Ã£o rÃ¡pida e segura.</p>
-            </div>
-            <ArrowRight className="h-5 w-5 text-white/40 transition-transform group-hover:translate-x-1" />
+          <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary">
+            <Nfc className="h-8 w-8" />
           </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xl font-black leading-tight text-foreground">
+              {hasNfcIdentified ? "Cartão identificado" : "Aproxime sua pulseira ou cartão"}
+            </p>
+            <p className="mt-1 text-base text-muted-foreground">Identificação rápida e segura.</p>
+          </div>
+          <ArrowRight className="h-7 w-7 text-muted-foreground transition-transform group-hover:translate-x-1" />
         </button>
       </div>
 
-      {/* Category grid */}
-      <div className="relative z-10 mx-auto mt-8 w-full max-w-5xl flex-1 px-6 pb-8">
-        <div className={`grid grid-cols-1 gap-4 ${cols}`}>
+      <div className="mx-auto mt-8 w-full max-w-6xl flex-1 px-8 pb-10">
+        <div className="flex flex-wrap gap-3">
           {categories.map(({ cat, count }) => (
             <button
               key={cat.id}
               type="button"
               onClick={() => onPickCategory(cat.id)}
-              className="group relative flex min-h-[220px] flex-col items-start justify-between overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04] p-6 text-left backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-[#3B82F6]/60 hover:bg-white/[0.07] hover:shadow-[0_20px_60px_rgba(13,110,253,0.45)] active:scale-[0.98]"
+              className="group inline-flex min-h-20 flex-1 basis-[30%] items-center justify-between gap-4 rounded-full bg-card px-7 py-5 text-left text-muted-foreground shadow-sm ring-1 ring-border/60 transition hover:text-foreground active:scale-[0.98]"
             >
-              <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[#0D6EFD]/10 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-              <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-[#0D6EFD]/20 blur-3xl opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-
-              <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[#0D6EFD]/30 to-[#1E40AF]/20 text-4xl shadow-inner ring-1 ring-white/10">
-                <span aria-hidden>{categoryEmoji(cat.name)}</span>
-              </div>
-
-              <div className="relative mt-6 w-full">
-                <h3 className="text-2xl font-black leading-tight tracking-tight text-white">
+              <span className="min-w-0">
+                <span className="line-clamp-1 text-2xl font-black leading-tight text-foreground">
                   {cat.name}
-                </h3>
-                <div className="mt-2 flex items-center justify-between">
-                  <p className="text-xs font-semibold uppercase tracking-widest text-white/50">
-                    {count} {count === 1 ? "produto" : "produtos"}
-                  </p>
-                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#0D6EFD] text-white shadow-[0_6px_20px_rgba(13,110,253,0.6)] transition-transform group-hover:translate-x-1">
-                    <ArrowRight className="h-4 w-4" />
-                  </span>
-                </div>
-              </div>
+                </span>
+                <span className="mt-1 block text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                  {count} {count === 1 ? "item" : "itens"}
+                </span>
+              </span>
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 transition-transform group-hover:translate-x-1">
+                <ArrowRight className="h-6 w-6" />
+              </span>
             </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Footer */}
-      <div className="relative z-10 mx-auto w-full max-w-3xl px-6 pb-8">
-        <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 rounded-2xl border border-white/10 bg-white/[0.03] px-6 py-4 text-center backdrop-blur-xl">
-          {[
-            { icon: QrCode, label: "PIX", sub: "Atendimento rÃ¡pido" },
-            { icon: Nfc, label: "NFC", sub: "Pagamento seguro" },
-            { icon: CreditCard, label: "CartÃ£o", sub: "Tempo real" },
-          ].map(({ icon: Icon, label, sub }) => (
-            <div key={label} className="flex items-center gap-3">
-              <Icon className="h-5 w-5 text-[#7CC4FF]" />
-              <div className="text-left">
-                <p className="text-xs font-bold tracking-widest text-white/85">{label}</p>
-                <p className="text-[11px] leading-tight text-white/45">{sub}</p>
-              </div>
-            </div>
           ))}
         </div>
       </div>
@@ -347,8 +325,69 @@ function TotemCategoryPicker({
 }
 
 interface CartItem {
+  key: string;
   product: PublicProduct;
   quantity: number;
+  notes?: string;
+  selectedOptions?: {
+    optionGroupId: string;
+    optionIds: string[];
+    displayOptions: {
+      groupName: string;
+      optionName: string;
+      priceDeltaInCents: number;
+    }[];
+  }[];
+  selectedFlavorProductIds?: string[];
+  displayFlavors?: {
+    id: string;
+    name: string;
+    priceInCents: number;
+  }[];
+  unitPriceInCents: number;
+}
+
+const SIZE_GROUP_RE = /(tamanho|size)/i;
+
+function isSizeGroup(g: { name?: string; key?: string }): boolean {
+  return SIZE_GROUP_RE.test(g.name ?? "") || SIZE_GROUP_RE.test(g.key ?? "");
+}
+
+function sortedGroups(g?: PublicProductOptionGroup[]): PublicProductOptionGroup[] {
+  return [...(g ?? [])].sort((a, b) => {
+    const sa = isSizeGroup(a) ? 0 : 1;
+    const sb = isSizeGroup(b) ? 0 : 1;
+    if (sa !== sb) return sa - sb;
+    return (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name);
+  });
+}
+
+function sortedOptions(o?: PublicProductOption[]): PublicProductOption[] {
+  return [...(o ?? [])].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name));
+}
+
+function getProductOptionGroups(product: PublicProduct): PublicProductOptionGroup[] {
+  return Array.isArray(product.optionGroups)
+    ? (product.optionGroups as PublicProductOptionGroup[])
+    : [];
+}
+
+function getHalfAndHalfFlavors(product: PublicProduct): PublicProduct[] {
+  const raw = product as Record<string, unknown>;
+  const flavors = raw.halfAndHalfFlavors ?? raw.halfAndHalfFlavorProducts;
+  return Array.isArray(flavors) ? (flavors as PublicProduct[]) : [];
+}
+
+function resolveFlavorFullPrice(
+  product: PublicProduct,
+  selectedSizeOptionKey: string | null,
+): number {
+  const sizeGroup = getProductOptionGroups(product).find((group) => isSizeGroup(group));
+  if (!sizeGroup || !selectedSizeOptionKey) {
+    return getPrice(product);
+  }
+  const sizeOption = sizeGroup.options.find((option) => option.key === selectedSizeOptionKey);
+  return getPrice(product) + (sizeOption?.priceDeltaInCents ?? 0);
 }
 
 function getPrice(p: PublicProduct): number {
@@ -359,6 +398,60 @@ function getPrice(p: PublicProduct): number {
 
 function formatBRL(cents: number): string {
   return (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function pick<T = unknown>(obj: Record<string, unknown> | undefined | null, ...keys: string[]): T | undefined {
+  if (!obj) return undefined;
+  for (const key of keys) {
+    const value = obj[key];
+    if (value !== undefined && value !== null && value !== "") return value as T;
+  }
+  return undefined;
+}
+
+function productBadges(product: PublicProduct): { label: string; tone: "hot" | "promo" | "new" }[] {
+  const raw = product as unknown as Record<string, unknown>;
+  const out: { label: string; tone: "hot" | "promo" | "new" }[] = [];
+  if (pick<boolean>(raw, "bestSeller", "isBestSeller", "isPopular", "popular")) {
+    out.push({ label: "Mais vendido", tone: "hot" });
+  }
+  const original = pick<number>(raw, "originalPriceInCents", "oldPriceInCents", "compareAtPriceInCents");
+  if (
+    pick<boolean>(raw, "isPromo", "onSale", "promo") ||
+    (typeof original === "number" && original > getPrice(product))
+  ) {
+    out.push({ label: "Promoção", tone: "promo" });
+  }
+  if (pick<boolean>(raw, "isNew", "novo")) {
+    out.push({ label: "Novo", tone: "new" });
+  }
+  const extra = pick<string>(raw, "badge", "tag");
+  if (typeof extra === "string" && !out.find((badge) => badge.label === extra)) {
+    out.push({ label: extra, tone: "new" });
+  }
+  return out;
+}
+
+function Badge({ children, tone }: { children: string; tone: "hot" | "promo" | "new" }) {
+  const map = {
+    hot: "bg-orange-500/15 text-orange-600 ring-orange-500/30",
+    promo: "bg-rose-500/15 text-rose-600 ring-rose-500/30",
+    new: "bg-primary/15 text-primary ring-primary/30",
+  } as const;
+  const icon =
+    tone === "hot" ? (
+      <Flame className="h-3 w-3" />
+    ) : tone === "promo" ? (
+      <Tag className="h-3 w-3" />
+    ) : (
+      <Sparkles className="h-3 w-3" />
+    );
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ring-1 ${map[tone]}`}>
+      {icon}
+      {children}
+    </span>
+  );
 }
 
 function isAvailable(p: PublicProduct): boolean {
@@ -391,6 +484,8 @@ export function PublicMenuPage({
   const [error, setError] = useState<string | null>(null);
   const [activeCat, setActiveCat] = useState<string | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [addingProduct, setAddingProduct] = useState<PublicProduct | null>(null);
+  const [productNotes, setProductNotes] = useState("");
   const [cartOpen, setCartOpen] = useState(false);
   const [customerName, setCustomerName] = useState("");
   const [nameError, setNameError] = useState<string | null>(null);
@@ -464,6 +559,8 @@ export function PublicMenuPage({
     setPixExpired(false);
     setRemainingSeconds(null);
     setCart([]);
+    setAddingProduct(null);
+    setProductNotes("");
     setCustomerName("");
     setCartOpen(false);
     setPixOpen(false);
@@ -496,7 +593,7 @@ export function PublicMenuPage({
   const runNfcIdentify = async (uidInput: string, opts: { auto?: boolean } = {}) => {
     const raw = uidInput.replace(/[^0-9A-Fa-f]/g, "").toUpperCase();
     if (raw.length < 8) {
-      if (!opts.auto) setNfcError("Informe um UID vÃ¡lido (mÃ­n. 8 caracteres hex).");
+      if (!opts.auto) setNfcError("Informe um UID válido (mín. 8 caracteres hex).");
       return;
     }
     // Dismiss virtual keyboard / blur active element
@@ -567,7 +664,7 @@ export function PublicMenuPage({
     return () => clearTimeout(t);
   }, [nfcNotFound, nfcBlocked]);
 
-  // Listen to SK210 native NFC bridge â€” fully automatic identification
+  // Listen to SK210 native NFC bridge ? fully automatic identification
   useEffect(() => {
     const onSk210 = (ev: Event) => {
       const detail = (ev as CustomEvent<{ uid?: string }>).detail;
@@ -608,7 +705,7 @@ export function PublicMenuPage({
         return () => clearTimeout(timer);
       }
       // If it's PIX PENDING, we NEVER auto-reset.
-      // The user must click "Novo pedido" or "Voltar ao inÃ­cio".
+      // The user must click "Novo pedido" or "Voltar ao início".
     }
   }, [confirmation, paymentStep, isKioskMode]);
 
@@ -763,9 +860,14 @@ export function PublicMenuPage({
   const event = menu?.event;
   const primary = event?.primaryColor || "#0f172a";
   const secondary = event?.secondaryColor || "#f59e0b";
+  const branding = usePublicEventBranding(event);
+  const banner = branding.bannerUrl;
+  const logo = branding.logoUrl;
+  const eventName = branding.name || event?.name || "Cardápio";
+  const brandGradient = `linear-gradient(135deg, ${branding.primaryColor} 0%, ${branding.secondaryColor} 100%)`;
 
   const totalItems = cart.reduce((s, c) => s + c.quantity, 0);
-  const totalCents = cart.reduce((s, c) => s + getPrice(c.product) * c.quantity, 0);
+  const totalCents = cart.reduce((s, c) => s + c.unitPriceInCents * c.quantity, 0);
 
   const productsByCat = useMemo(() => {
     const map: Record<string, PublicProduct[]> = {};
@@ -799,7 +901,7 @@ export function PublicMenuPage({
       });
 
       if (filtered.length !== prev.length) {
-        toast.info("Alguns itens do seu carrinho nÃ£o estÃ£o mais disponÃ­veis e foram removidos.");
+        toast.info("Alguns itens do seu carrinho não estão mais disponíveis e foram removidos.");
       }
       return filtered;
     });
@@ -807,45 +909,84 @@ export function PublicMenuPage({
 
   const addToCart = (product: PublicProduct) => {
     if (product.soldOut === true) {
-      toast.error("Este produto nÃ£o estÃ¡ mais disponÃ­vel.");
+      toast.error("Este produto não está mais disponível.");
       return;
     }
     if (!isAvailable(product)) {
-      toast.error("Este produto nÃ£o estÃ¡ mais disponÃ­vel.");
+      toast.error("Este produto não está mais disponível.");
       return;
     }
+    setProductNotes("");
+    setAddingProduct(product);
+  };
+
+  const addConfiguredToCart = ({
+    product,
+    quantity,
+    unitPriceInCents,
+    notes,
+    selectedOptions,
+    selectedFlavorProductIds,
+    displayFlavors,
+  }: {
+    product: PublicProduct;
+    quantity: number;
+    unitPriceInCents: number;
+    notes?: string;
+    selectedOptions: NonNullable<CartItem["selectedOptions"]>;
+    selectedFlavorProductIds: string[];
+    displayFlavors: NonNullable<CartItem["displayFlavors"]>;
+  }) => {
     const max = maxQty(product);
     setCart((prev) => {
-      const i = prev.findIndex((c) => c.product.id === product.id);
+      const optionKey = selectedOptions
+        .map((group) => `${group.optionGroupId}:${group.optionIds.join(",")}`)
+        .join("|");
+      const flavorKey = selectedFlavorProductIds.join(",");
+      const normalizedNotes = notes?.trim() ?? "";
+      const key = `${product.id}::${optionKey}::${flavorKey}::${normalizedNotes}`;
+      const i = prev.findIndex((c) => c.key === key);
       if (i >= 0) {
-        if (prev[i].quantity + 1 > max) {
+        if (prev[i].quantity + quantity > max) {
           toast.error(`Restam apenas ${max} ${max === 1 ? "unidade" : "unidades"} deste produto.`);
           return prev;
         }
         const copy = [...prev];
-        copy[i] = { ...copy[i], quantity: copy[i].quantity + 1, product };
+        copy[i] = { ...copy[i], quantity: copy[i].quantity + quantity, product };
         return copy;
       }
-      if (1 > max) {
-        toast.error("Este produto nÃ£o estÃ¡ mais disponÃ­vel.");
+      if (quantity > max) {
+        toast.error("Este produto não está mais disponível.");
         return prev;
       }
-      return [...prev, { product, quantity: 1 }];
+      return [
+        ...prev,
+        {
+          key,
+          product,
+          quantity,
+          notes: normalizedNotes || undefined,
+          selectedOptions,
+          selectedFlavorProductIds,
+          displayFlavors,
+          unitPriceInCents,
+        },
+      ];
     });
   };
 
-  const dec = (id: string) => {
+  const dec = (key: string) => {
     setCart((prev) =>
       prev.flatMap((c) =>
-        c.product.id === id ? (c.quantity > 1 ? [{ ...c, quantity: c.quantity - 1 }] : []) : [c],
+        c.key === key ? (c.quantity > 1 ? [{ ...c, quantity: c.quantity - 1 }] : []) : [c],
       ),
     );
   };
 
-  const inc = (id: string) => {
+  const inc = (key: string) => {
     setCart((prev) =>
       prev.map((c) => {
-        if (c.product.id !== id) return c;
+        if (c.key !== key) return c;
         const max = maxQty(c.product);
         if (c.quantity + 1 > max) {
           toast.error(`Restam apenas ${max} ${max === 1 ? "unidade" : "unidades"} deste produto.`);
@@ -856,8 +997,8 @@ export function PublicMenuPage({
     );
   };
 
-  const remove = (id: string) => {
-    setCart((prev) => prev.filter((c) => c.product.id !== id));
+  const remove = (key: string) => {
+    setCart((prev) => prev.filter((c) => c.key !== key));
   };
 
   const validateName = (raw: string): string | null => {
@@ -899,13 +1040,13 @@ export function PublicMenuPage({
       for (const item of cart) {
         const fp = freshProducts.get(item.product.id);
         if (!fp || fp.active === false || fp.soldOut === true) {
-          toast.error(`Este produto nÃ£o estÃ¡ mais disponÃ­vel: ${item.product.name}`);
+          toast.error(`Este produto não está mais disponível: ${item.product.name}`);
           return false;
         }
         if (fp.trackStock === true) {
           const stock = fp.stockQuantity ?? 0;
           if (stock <= 0) {
-            toast.error(`Este produto nÃ£o estÃ¡ mais disponÃ­vel: ${item.product.name}`);
+            toast.error(`Este produto não está mais disponível: ${item.product.name}`);
             return false;
           }
           if (item.quantity > stock) {
@@ -918,7 +1059,7 @@ export function PublicMenuPage({
       }
       return true;
     } catch (e) {
-      handleApiError(e, "NÃ£o foi possÃ­vel validar seu pedido. Tente novamente.");
+      handleApiError(e, "Não foi possível validar seu pedido. Tente novamente.");
       return false;
     }
   };
@@ -926,7 +1067,16 @@ export function PublicMenuPage({
   const buildOrderPayload = (pix: boolean): Parameters<typeof createPublicOrder>[1] => {
     const payload: Parameters<typeof createPublicOrder>[1] = {
       customerName: customerName.trim(),
-      items: cart.map((c) => ({ productId: c.product.id, quantity: c.quantity })),
+      items: cart.map((c) => ({
+        productId: c.product.id,
+        quantity: c.quantity,
+        notes: c.notes,
+        selectedOptions: c.selectedOptions?.map((group) => ({
+          optionGroupId: group.optionGroupId,
+          optionIds: group.optionIds,
+        })),
+        selectedFlavorProductIds: c.selectedFlavorProductIds,
+      })),
     };
     if (pix) {
       payload.paymentMethod = "PIX";
@@ -988,15 +1138,15 @@ export function PublicMenuPage({
             ? {
                 ...prev,
                 error: isTimeout
-                  ? "NÃ£o foi possÃ­vel iniciar o pagamento agora. Tente novamente ou chame o operador."
-                  : "NÃ£o foi possÃ­vel carregar as opÃ§Ãµes de pagamento.",
+                  ? "Não foi possível iniciar o pagamento agora. Tente novamente ou chame o operador."
+                  : "Não foi possível carregar as opções de pagamento.",
               }
             : null,
         );
         toast.error(
           isTimeout
             ? "Tempo esgotado ao iniciar o pagamento. Tente novamente."
-            : "Falha ao iniciar o pagamento.",
+            : "Não foi possível iniciar o pagamento.",
         );
       }
     } else {
@@ -1031,7 +1181,7 @@ export function PublicMenuPage({
         } catch (err) {
           if (import.meta.env.DEV) console.warn("enqueue print jobs failed", err);
           toast.error(
-            "Pedido confirmado, mas houve falha ao enviar para impressÃ£o. Chame o operador.",
+            "Pedido confirmado, mas houve falha ao enviar para impressão. Chame o operador.",
           );
         }
       }
@@ -1063,7 +1213,7 @@ export function PublicMenuPage({
       ) {
         toast.error("Estoque insuficiente para este produto.");
       } else {
-        handleApiError(e, "NÃ£o foi possÃ­vel finalizar seu pedido. Tente novamente.");
+        handleApiError(e, "Não foi possível finalizar seu pedido. Tente novamente.");
       }
     } finally {
       setSubmitting(false);
@@ -1078,11 +1228,11 @@ export function PublicMenuPage({
       // Validate balance before opening confirmation
       const balance = identifiedCustomer?.balanceInCents ?? 0;
       if (!identifiedCustomer) {
-        toast.error("Aproxime seu cartÃ£o NFC para usar saldo.");
+        toast.error("Aproxime seu cartão NFC para usar saldo.");
         return;
       }
       if (balance < totalCents) {
-        toast.error(`Saldo insuficiente. DisponÃ­vel: ${formatBRL(balance)}`);
+        toast.error(`Saldo insuficiente. Disponível: ${formatBRL(balance)}`);
         return;
       }
       setNfcConfirmOpen(true);
@@ -1107,14 +1257,32 @@ export function PublicMenuPage({
       const order = organizationSlug
         ? await createPublicOrderCanonical(organizationSlug, slug, {
             customerName: customerName.trim(),
-            items: cart.map((c) => ({ productId: c.product.id, quantity: c.quantity })),
+            items: cart.map((c) => ({
+              productId: c.product.id,
+              quantity: c.quantity,
+              notes: c.notes,
+              selectedOptions: c.selectedOptions?.map((group) => ({
+                optionGroupId: group.optionGroupId,
+                optionIds: group.optionIds,
+              })),
+              selectedFlavorProductIds: c.selectedFlavorProductIds,
+            })),
             paymentMethod: "NFC_BALANCE",
             paymentStatus: "PENDING",
             status: "PENDING",
           })
         : await createPublicOrder(slug, {
             customerName: customerName.trim(),
-            items: cart.map((c) => ({ productId: c.product.id, quantity: c.quantity })),
+          items: cart.map((c) => ({
+            productId: c.product.id,
+            quantity: c.quantity,
+            notes: c.notes,
+            selectedOptions: c.selectedOptions?.map((group) => ({
+              optionGroupId: group.optionGroupId,
+              optionIds: group.optionIds,
+            })),
+            selectedFlavorProductIds: c.selectedFlavorProductIds,
+          })),
             paymentMethod: "NFC_BALANCE",
             paymentStatus: "PENDING",
             status: "PENDING",
@@ -1151,14 +1319,14 @@ export function PublicMenuPage({
       setNfcConfirmOpen(false);
     } catch (e) {
       const msg = String((e as { message?: string })?.message ?? "").toLowerCase();
-      let friendly = "NÃ£o foi possÃ­vel concluir o pagamento com saldo NFC.";
+      let friendly = "Não foi possível concluir o pagamento com saldo NFC.";
       if (msg.includes("insuf") || msg.includes("balance"))
-        friendly = "Saldo insuficiente no cartÃ£o.";
-      else if (msg.includes("block")) friendly = "CartÃ£o bloqueado. Procure um operador.";
+        friendly = "Saldo insuficiente no cartão.";
+      else if (msg.includes("block")) friendly = "Cartão bloqueado. Procure um operador.";
       else if (msg.includes("not found") || msg.includes("404"))
-        friendly = "CartÃ£o nÃ£o encontrado.";
+        friendly = "Cartão não encontrado.";
       else if (msg.includes("already") || msg.includes("paid"))
-        friendly = "Este pedido jÃ¡ foi pago.";
+        friendly = "Este pedido já foi pago.";
       toast.error(friendly);
       setPaymentStep("operator");
       setConfirmation((prev) => (prev ? { ...prev, error: friendly } : prev));
@@ -1175,7 +1343,7 @@ export function PublicMenuPage({
   if (error || !menu) {
     return (
       <PublicChannelError
-        message={error ?? "Evento nÃ£o encontrado"}
+        message={error ?? "Evento não encontrado"}
         onRetry={() => window.location.reload()}
       />
     );
@@ -1201,7 +1369,7 @@ export function PublicMenuPage({
       .filter((c) => c.count > 0);
     return (
       <TotemCategoryPicker
-        eventName={event?.name ?? ""}
+        event={event}
         categories={visibleCategories}
         hasNfcIdentified={!!identifiedCustomer}
         onPickCategory={(id) => {
@@ -1229,49 +1397,91 @@ export function PublicMenuPage({
       style={{
         ["--brand-primary" as string]: primary,
         ["--brand-secondary" as string]: secondary,
+        ["--primary" as string]: primary,
+        ["--primary-glow" as string]: secondary,
         overscrollBehavior: "none",
       }}
     >
-      {/* Header padronizado (canal pÃºblico) */}
-      <PublicChannelHeader event={event}>
-        {menu.categories.length > 0 && (
-          <nav className="border-t border-border/40 backdrop-blur-sm">
-            <div className="max-w-6xl mx-auto overflow-x-auto no-scrollbar touch-pan-x">
-              <div className="flex gap-2 py-2.5 px-4">
-                {menu.categories.map((c) => {
-                  const hasProds = (productsByCat[c.id]?.length ?? 0) > 0;
-                  if (!hasProds) return null;
-                  const isActive = activeCat === c.id;
-                  return (
-                    <button
-                      key={c.id}
-                      onClick={() => {
-                        setActiveCat(c.id);
-                        const el = document.getElementById(`cat-${c.id}`);
-                        if (el) {
-                          const offset = 160;
-                          const bodyRect = document.body.getBoundingClientRect().top;
-                          const elementRect = el.getBoundingClientRect().top;
-                          const elementPosition = elementRect - bodyRect;
-                          window.scrollTo({ top: elementPosition - offset, behavior: "smooth" });
-                        }
-                      }}
-                      className="whitespace-nowrap px-5 py-2.5 rounded-full text-sm sm:text-base font-bold transition-all active:scale-95 flex-shrink-0"
-                      style={
-                        isActive
-                          ? { background: "var(--brand-primary)", color: "#FFFFFF" }
-                          : { background: "rgba(127,127,127,0.15)", color: "var(--brand-fg)" }
-                      }
-                    >
-                      {c.name}
-                    </button>
-                  );
-                })}
-              </div>
+      <header className="relative">
+        <div className="relative h-60 w-full overflow-hidden">
+          {banner ? (
+            <>
+              <img src={banner} alt="" aria-hidden className="h-full w-full object-cover" />
+              <div className="absolute inset-0 bg-gradient-to-t from-background/95 via-background/30 to-transparent" />
+            </>
+          ) : (
+            <>
+              <div className="h-full w-full" style={{ backgroundImage: brandGradient }} />
+              <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
+            </>
+          )}
+        </div>
+
+        <div className="mx-auto -mt-14 max-w-6xl px-8">
+          <div className="flex items-end gap-5">
+            <div className="relative shrink-0">
+              {logo ? (
+                <img
+                  src={logo}
+                  alt={eventName}
+                  className="h-28 w-28 rounded-2xl border-4 border-background bg-card object-cover shadow-xl ring-1 ring-border/40"
+                />
+              ) : (
+                <div className="flex h-28 w-28 items-center justify-center rounded-2xl border-4 border-background bg-gradient-to-br from-primary to-primary-glow text-3xl font-black text-primary-foreground shadow-xl">
+                  {eventName.charAt(0).toUpperCase()}
+                </div>
+              )}
             </div>
-          </nav>
-        )}
-      </PublicChannelHeader>
+            <div className="min-w-0 flex-1 pb-2">
+              <h1 className="line-clamp-2 break-words text-4xl font-black leading-tight tracking-tight text-foreground">
+                {eventName}
+              </h1>
+              {event?.totemWelcomeMessage && (
+                <p className="mt-2 line-clamp-1 text-lg font-medium text-muted-foreground">
+                  {event.totemWelcomeMessage}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {menu.categories.length > 0 && (
+        <nav className="sticky top-0 z-30 mt-5 border-b border-border/60 bg-background/90 backdrop-blur-xl">
+          <div className="mx-auto max-w-6xl overflow-x-auto no-scrollbar touch-pan-x px-4">
+            <div className="flex gap-2.5 py-3">
+              {menu.categories.map((c) => {
+                const hasProds = (productsByCat[c.id]?.length ?? 0) > 0;
+                if (!hasProds) return null;
+                const isActive = activeCat === c.id;
+                return (
+                  <button
+                    key={c.id}
+                    onClick={() => {
+                      setActiveCat(c.id);
+                      const el = document.getElementById(`cat-${c.id}`);
+                      if (el) {
+                        const offset = 150;
+                        const bodyRect = document.body.getBoundingClientRect().top;
+                        const elementRect = el.getBoundingClientRect().top;
+                        const elementPosition = elementRect - bodyRect;
+                        window.scrollTo({ top: elementPosition - offset, behavior: "smooth" });
+                      }
+                    }}
+                    className={`shrink-0 rounded-full px-5 py-2.5 text-base font-bold transition-all active:scale-95 ${
+                      isActive
+                        ? "bg-primary text-primary-foreground shadow-md shadow-primary/30"
+                        : "bg-card text-muted-foreground ring-1 ring-border/60 hover:text-foreground"
+                    }`}
+                  >
+                    {c.name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </nav>
+      )}
 
       {/* Menu Content */}
       <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-4 pb-40">
@@ -1279,49 +1489,41 @@ export function PublicMenuPage({
         {!identifiedCustomer ? (
           <button
             onClick={openNfcModal}
-            className="w-full mb-6 rounded-3xl p-5 flex items-center gap-4 text-left shadow-lg transition-all active:scale-[0.99] hover:shadow-xl animate-in fade-in slide-in-from-top-2 duration-500 border border-white/10"
-            style={{
-              background: `linear-gradient(135deg, ${primary} 0%, ${secondary} 100%)`,
-              color: "#fff",
-            }}
+            className="w-full mb-6 rounded-2xl border border-border/70 bg-card p-5 flex items-center gap-4 text-left shadow-sm transition-all active:scale-[0.99] hover:border-primary/40 hover:shadow-md animate-in fade-in slide-in-from-top-2 duration-500"
           >
-            <div className="size-16 rounded-2xl bg-white/15 backdrop-blur flex items-center justify-center flex-shrink-0 shadow-inner">
+            <div className="size-16 rounded-xl bg-primary/15 text-primary flex items-center justify-center flex-shrink-0">
               <Nfc className="size-8" />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-0.5">
-                IdentificaÃ§Ã£o NFC
+              <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-0.5">
+                Identificação NFC
               </div>
-              <div className="text-lg font-black leading-tight">Aproxime seu cartÃ£o</div>
-              <div className="text-xs font-medium opacity-85 mt-0.5">
-                IdentificaÃ§Ã£o rÃ¡pida e segura
+              <div className="text-lg font-black leading-tight text-foreground">Aproxime seu cartão</div>
+              <div className="text-xs font-medium text-muted-foreground mt-0.5">
+                Identificação rápida e segura
               </div>
             </div>
-            <div
-              className="px-4 py-2.5 rounded-full bg-white/95 text-xs font-black uppercase tracking-wider whitespace-nowrap"
-              style={{ color: primary }}
-            >
+            <div className="px-4 py-2.5 rounded-full bg-primary text-primary-foreground text-xs font-black uppercase tracking-wider whitespace-nowrap shadow-md shadow-primary/30">
               Identificar
             </div>
           </button>
         ) : (
           <div
-            className="w-full mb-6 rounded-3xl p-5 flex items-center gap-4 shadow-lg animate-in fade-in zoom-in-95 duration-300 border border-emerald-200"
-            style={{ background: "linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)" }}
+            className="w-full mb-6 rounded-2xl border border-primary/20 bg-primary/10 p-5 flex items-center gap-4 shadow-sm animate-in fade-in zoom-in-95 duration-300"
           >
-            <div className="size-16 rounded-2xl bg-emerald-500 flex items-center justify-center flex-shrink-0 shadow-md">
-              <BadgeCheck className="size-8 text-white" />
+            <div className="size-16 rounded-xl bg-primary text-primary-foreground flex items-center justify-center flex-shrink-0 shadow-md shadow-primary/30">
+              <BadgeCheck className="size-8" />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-[10px] font-black uppercase tracking-widest text-emerald-700 mb-0.5">
+              <div className="text-[10px] font-black uppercase tracking-widest text-primary mb-0.5">
                 Cliente identificado
               </div>
-              <div className="text-lg font-black leading-tight text-emerald-950 truncate">
+              <div className="text-lg font-black leading-tight text-foreground truncate">
                 {identifiedCustomer.name}
               </div>
-              <div className="text-xs font-bold text-emerald-800 mt-0.5 flex items-center gap-2">
+              <div className="text-xs font-bold text-muted-foreground mt-0.5 flex items-center gap-2">
                 <span>{identifiedCustomer.code}</span>
-                <span className="opacity-40">â€¢</span>
+                <span className="opacity-40">?</span>
                 <span className="inline-flex items-center gap-1">
                   <Nfc className="size-3" /> NFC
                 </span>
@@ -1329,8 +1531,8 @@ export function PublicMenuPage({
             </div>
             <button
               onClick={clearIdentifiedCustomer}
-              className="size-10 rounded-full bg-white/70 hover:bg-white flex items-center justify-center text-emerald-800 transition-colors"
-              aria-label="Remover identificaÃ§Ã£o"
+              className="size-10 rounded-full bg-background hover:bg-muted flex items-center justify-center text-muted-foreground transition-colors"
+              aria-label="Remover identificação"
             >
               <X className="size-5" />
             </button>
@@ -1339,13 +1541,13 @@ export function PublicMenuPage({
 
         {!hasAnyProducts ? (
           <div className="text-center py-20 px-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="bg-muted size-24 rounded-full flex items-center justify-center mx-auto mb-6">
-              <ShoppingCart className="size-10 text-muted-foreground opacity-50" />
+            <div className="mx-auto max-w-xl rounded-2xl border border-dashed border-border bg-card p-10 text-center">
+              <UtensilsCrossed className="mx-auto mb-3 h-12 w-12 text-muted-foreground/60" />
+              <h2 className="text-xl font-medium text-foreground">Cardápio em preparação</h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Volte em instantes para conferir as novidades.
+              </p>
             </div>
-            <h2 className="text-2xl font-bold mb-3">Nenhum produto disponÃ­vel</h2>
-            <p className="text-muted-foreground max-w-xs mx-auto">
-              No momento nÃ£o hÃ¡ itens disponÃ­veis para compra. Por favor, verifique mais tarde.
-            </p>
           </div>
         ) : (
           menu.categories.map((cat) => (
@@ -1357,8 +1559,6 @@ export function PublicMenuPage({
               cart={cart}
               inc={inc}
               dec={dec}
-              primary={primary}
-              secondary={secondary}
               isKioskMode={isKioskMode}
             />
           ))
@@ -1366,14 +1566,13 @@ export function PublicMenuPage({
       </main>
 
       {/* Always-visible bottom cart bar - Refined for Totem Vertical */}
-      <div className="fixed bottom-0 inset-x-0 z-40 border-t shadow-[0_-8px_30px_rgba(0,0,0,0.12)] bg-white pb-safe">
+      <div className="fixed bottom-0 inset-x-0 z-40 border-t border-border/60 bg-background/95 shadow-[0_-8px_30px_rgba(0,0,0,0.12)] backdrop-blur-xl pb-safe">
         <div
           className={`max-w-6xl mx-auto px-4 ${isKioskMode ? "py-6" : "py-4"} flex items-center gap-3`}
         >
           <button
             onClick={() => setCartOpen(true)}
-            className={`flex items-center gap-3 px-4 ${isKioskMode ? "py-5" : "py-4"} rounded-2xl font-semibold text-left transition-all active:scale-95 bg-gray-50 hover:bg-gray-100`}
-            style={{ color: primary }}
+            className={`flex items-center gap-3 px-4 ${isKioskMode ? "py-5" : "py-4"} rounded-2xl bg-card font-semibold text-left text-primary ring-1 ring-border/60 transition-all hover:bg-muted/50 active:scale-95`}
             aria-label="Ver carrinho"
           >
             <div className="relative">
@@ -1381,7 +1580,7 @@ export function PublicMenuPage({
               {cartHasItems && (
                 <span
                   className={`absolute -top-2 -right-2 text-[10px] font-black rounded-full ${isKioskMode ? "size-6" : "size-5"} flex items-center justify-center shadow-sm`}
-                  style={{ background: secondary, color: primary }}
+                  style={{ background: primary, color: "#fff" }}
                 >
                   {totalItems}
                 </span>
@@ -1406,13 +1605,38 @@ export function PublicMenuPage({
               setCartOpen(true);
             }}
             disabled={!cartHasItems}
-            className={`flex-1 ${isKioskMode ? "h-20 text-2xl" : "h-16 text-xl"} font-black rounded-2xl shadow-lg transition-all active:scale-[0.98] active:shadow-md`}
-            style={{ background: secondary, color: primary }}
+            className={`flex-1 ${isKioskMode ? "h-20 text-2xl" : "h-16 text-xl"} rounded-2xl bg-gradient-to-r from-primary to-primary-glow font-black text-primary-foreground shadow-lg shadow-primary/30 transition-all active:scale-[0.98] active:shadow-md disabled:opacity-50`}
           >
             Finalizar
           </Button>
         </div>
       </div>
+
+      {/* Product modal */}
+      <Dialog
+        open={!!addingProduct}
+        onOpenChange={(open) => {
+          if (!open) {
+            setAddingProduct(null);
+            setProductNotes("");
+          }
+        }}
+      >
+        <DialogContent className="w-[min(94vw,760px)] gap-0 overflow-hidden rounded-3xl p-0">
+          {addingProduct && (
+            <TotemProductModalBody
+              product={addingProduct}
+              notes={productNotes}
+              setNotes={setProductNotes}
+              onAdd={(payload) => {
+                addConfiguredToCart(payload);
+                setAddingProduct(null);
+                setProductNotes("");
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Cart sheet */}
       <Sheet open={cartOpen} onOpenChange={setCartOpen}>
@@ -1462,9 +1686,9 @@ export function PublicMenuPage({
                 <Nfc className="size-12 animate-pulse" />
               </div>
             </div>
-            <DialogTitle className="text-white text-2xl font-black">Lendo cartÃ£oâ€¦</DialogTitle>
+            <DialogTitle className="text-white text-2xl font-black">Lendo cartão...</DialogTitle>
             <DialogDescription className="text-white/85 text-sm font-medium mt-1">
-              Mantenha o cartÃ£o prÃ³ximo ao leitor
+              Mantenha o cartão próximo ao leitor
             </DialogDescription>
           </div>
         </DialogContent>
@@ -1482,7 +1706,7 @@ export function PublicMenuPage({
             <div className="size-20 rounded-full bg-white/20 backdrop-blur flex items-center justify-center mx-auto mb-4 shadow-inner animate-in zoom-in duration-300">
               <ShieldAlert className="size-12" />
             </div>
-            <DialogTitle className="text-white text-2xl font-black">CartÃ£o bloqueado</DialogTitle>
+            <DialogTitle className="text-white text-2xl font-black">Cartão bloqueado</DialogTitle>
             <DialogDescription className="text-white/85 text-sm font-medium mt-1">
               Procure a equipe do evento.
             </DialogDescription>
@@ -1502,7 +1726,7 @@ export function PublicMenuPage({
               <AlertTriangle className="size-12" />
             </div>
             <DialogTitle className="text-white text-2xl font-black">
-              CartÃ£o nÃ£o cadastrado
+              Cartão não cadastrado
             </DialogTitle>
             <DialogDescription className="text-white/85 text-sm font-medium mt-1">
               Verifique com a equipe do evento.
@@ -1540,7 +1764,7 @@ export function PublicMenuPage({
                 Identificar Cliente
               </DialogTitle>
               <DialogDescription className="text-white/85 text-sm font-medium">
-                Aproxime o cartÃ£o do leitor ou informe o UID manualmente.
+                Aproxime o cartão do leitor ou informe o UID manualmente.
               </DialogDescription>
             </DialogHeader>
           </div>
@@ -1550,9 +1774,9 @@ export function PublicMenuPage({
               <div className="rounded-2xl border-2 border-red-200 bg-red-50 p-5 flex items-start gap-3 animate-in fade-in zoom-in-95 duration-200">
                 <ShieldAlert className="size-6 text-red-600 flex-shrink-0 mt-0.5" />
                 <div>
-                  <div className="font-black text-red-900">CartÃ£o bloqueado</div>
+                  <div className="font-black text-red-900">Cartão bloqueado</div>
                   <div className="text-sm text-red-800 font-medium mt-1">
-                    Procure a equipe do evento para liberar este cartÃ£o.
+                    Procure a equipe do evento para liberar este cartão.
                   </div>
                 </div>
               </div>
@@ -1561,7 +1785,7 @@ export function PublicMenuPage({
                 <div className="rounded-2xl border-2 border-amber-200 bg-amber-50 p-5 flex items-start gap-3">
                   <AlertTriangle className="size-6 text-amber-600 flex-shrink-0 mt-0.5" />
                   <div>
-                    <div className="font-black text-amber-900">CartÃ£o nÃ£o cadastrado</div>
+                    <div className="font-black text-amber-900">Cartão não cadastrado</div>
                     <div className="text-sm text-amber-800 font-medium mt-1">
                       Verifique o UID ou procure a equipe do evento.
                     </div>
@@ -1572,14 +1796,14 @@ export function PublicMenuPage({
                   onClick={() => setNfcOpen(false)}
                   className="w-full h-12 rounded-2xl font-bold"
                 >
-                  Continuar sem identificaÃ§Ã£o
+                  Continuar sem identificação
                 </Button>
               </div>
             ) : null}
 
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">
-                UID do cartÃ£o
+                UID do cartão
               </label>
               <Input
                 value={nfcUid}
@@ -1589,7 +1813,7 @@ export function PublicMenuPage({
                   setNfcNotFound(false);
                   setNfcBlocked(false);
                 }}
-                placeholder="Aproxime o cartÃ£o ou digite o UID"
+                placeholder="Aproxime o cartão ou digite o UID"
                 inputMode="text"
                 className="h-14 text-lg font-bold rounded-xl border-2 focus-visible:ring-primary/20 font-mono tracking-wider"
                 onKeyDown={(e) => {
@@ -1611,7 +1835,7 @@ export function PublicMenuPage({
             >
               {nfcLoading ? (
                 <>
-                  <Loader2 className="size-5 animate-spin mr-2" /> Identificandoâ€¦
+                  <Loader2 className="size-5 animate-spin mr-2" /> Identificando...
                 </>
               ) : (
                 <>
@@ -1634,10 +1858,10 @@ export function PublicMenuPage({
               <CheckCircle2 className="size-3" /> Identificado
             </div>
             <DialogTitle className="text-white text-3xl font-black">
-              OlÃ¡, {identifiedCustomer?.name?.split(" ")[0] ?? "Cliente"} ðŸ‘‹
+              Olá, {identifiedCustomer?.name?.split(" ")[0] ?? "Cliente"} 
             </DialogTitle>
             <DialogDescription className="text-white/85 text-sm font-medium mt-1">
-              CartÃ£o reconhecido com sucesso.
+              Cartão reconhecido com sucesso.
             </DialogDescription>
           </div>
 
@@ -1645,7 +1869,7 @@ export function PublicMenuPage({
             <div className="grid grid-cols-2 gap-3">
               <div className="rounded-2xl bg-muted/40 p-4">
                 <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">
-                  CartÃ£o
+                  Cartão
                 </div>
                 <div className="font-black text-lg font-mono">{identifiedCustomer?.code}</div>
               </div>
@@ -1656,7 +1880,7 @@ export function PublicMenuPage({
                 <div className="font-black text-lg capitalize">
                   {identifiedCustomer?.type === "CUSTOMER"
                     ? "Cliente"
-                    : (identifiedCustomer?.type ?? "â€”").toLowerCase()}
+                    : (identifiedCustomer?.type ?? "?").toLowerCase()}
                 </div>
               </div>
             </div>
@@ -1702,7 +1926,12 @@ export function PublicMenuPage({
         }}
       >
         <DialogContent className="w-[min(92vw,440px)] sm:max-w-[440px] rounded-[28px] p-0 border-none shadow-2xl overflow-hidden">
-          <div className="p-6 bg-gradient-to-br from-purple-600 to-purple-700 text-white">
+          <div
+            className="p-6 text-white"
+            style={{
+              background: `linear-gradient(135deg, ${primary} 0%, ${secondary} 100%)`,
+            }}
+          >
             <div className="size-14 rounded-full bg-white/20 backdrop-blur flex items-center justify-center mb-3">
               <CreditCard className="size-7" />
             </div>
@@ -1710,7 +1939,7 @@ export function PublicMenuPage({
               Confirmar pagamento
             </DialogTitle>
             <DialogDescription className="text-white/85 text-sm font-medium">
-              Pagamento com saldo do cartÃ£o NFC.
+              Pagamento com saldo do cartão NFC.
             </DialogDescription>
           </div>
 
@@ -1720,7 +1949,7 @@ export function PublicMenuPage({
                 <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">
                   Cliente
                 </div>
-                <div className="font-bold text-sm truncate">{identifiedCustomer?.name ?? "â€”"}</div>
+                <div className="font-bold text-sm truncate">{identifiedCustomer?.name ?? "?"}</div>
               </div>
               <div className="rounded-2xl bg-muted/40 p-4">
                 <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">
@@ -1738,7 +1967,7 @@ export function PublicMenuPage({
               </div>
               <div className="rounded-2xl bg-emerald-50 p-4 border border-emerald-200">
                 <div className="text-[10px] font-black uppercase tracking-widest text-emerald-700 mb-1">
-                  Saldo apÃ³s
+                  Saldo após
                 </div>
                 <div className="font-black text-base text-emerald-700">
                   {formatBRL(Math.max(0, (identifiedCustomer?.balanceInCents ?? 0) - totalCents))}
@@ -1753,7 +1982,7 @@ export function PublicMenuPage({
                 onClick={() => setNfcConfirmOpen(false)}
                 className="flex-1 h-14 font-black rounded-2xl"
               >
-                Cancelar
+                Cancelar pagamento
               </Button>
               <Button
                 disabled={nfcPaying}
@@ -1763,10 +1992,10 @@ export function PublicMenuPage({
               >
                 {nfcPaying ? (
                   <>
-                    <Loader2 className="size-5 animate-spin mr-2" /> Pagandoâ€¦
+                    <Loader2 className="size-5 animate-spin mr-2" /> Processando pagamento...
                   </>
                 ) : (
-                  "Confirmar"
+                   "Confirmar pagamento"
                 )}
               </Button>
             </div>
@@ -1797,7 +2026,7 @@ export function PublicMenuPage({
             Novo Pedido
           </Button>
           <p className="mt-4 text-xs text-muted-foreground">
-            Retornando ao inÃ­cio em alguns segundos...
+            Retornando ao início em alguns segundos...
           </p>
         </div>
       )}
@@ -1817,7 +2046,7 @@ export function PublicMenuPage({
                 Pague com PIX
               </h2>
               <p className="text-base sm:text-lg font-bold mt-1" style={{ color: primary }}>
-                Pedido #{confirmation.number} â€” {formatBRL(confirmation.totalInCents || 0)}
+                Pedido #{confirmation.number} ? {formatBRL(confirmation.totalInCents || 0)}
               </p>
               {confirmation.customerName && (
                 <p className="text-sm text-muted-foreground font-medium mt-0.5">
@@ -1831,7 +2060,7 @@ export function PublicMenuPage({
                     className={`text-xs font-bold uppercase tracking-widest ${remainingSeconds < 30 ? "text-red-600" : remainingSeconds < 60 ? "text-amber-600" : "text-muted-foreground"}`}
                   >
                     {remainingSeconds < 60
-                      ? "âš  Menos de 1 minuto restante"
+                      ? "Aten??o: Menos de 1 minuto restante"
                       : "Tempo restante para pagamento"}
                   </div>
                   <div
@@ -1869,20 +2098,20 @@ export function PublicMenuPage({
                   onClick={() => {
                     const code = confirmation.transaction?.pixCopyPaste;
                     if (!code) {
-                      toast.error("CÃ³digo PIX indisponÃ­vel. Tente novamente ou chame o operador.");
+                      toast.error("Código PIX indisponível. Tente novamente ou chame o operador.");
                       return;
                     }
                     navigator.clipboard.writeText(code);
-                    toast.success("CÃ³digo PIX copiado!");
+                    toast.success("Código PIX copiado.");
                   }}
                 >
                   <Copy className="size-4" />
-                  Copiar cÃ³digo PIX
+                  Copiar código PIX
                 </Button>
               )}
 
               <p className="mt-3 text-sm text-muted-foreground font-medium">
-                ApÃ³s pagar, aguarde a confirmaÃ§Ã£o automÃ¡tica.
+                Após pagar, aguarde a confirmação automática.
               </p>
 
               <Button
@@ -1918,7 +2147,7 @@ export function PublicMenuPage({
 
               <h2 className="text-4xl font-black mb-4 leading-tight" style={{ color: primary }}>
                 {paymentStep === "pix_manual"
-                  ? "Pague com PIX Manual"
+                  ? "Pague com PIX manual"
                   : paymentStep === "operator"
                     ? "Pagamento pendente"
                     : paymentStep === "paid"
@@ -1928,19 +2157,19 @@ export function PublicMenuPage({
 
               <p className="text-xl text-muted-foreground max-w-sm mx-auto mb-8 font-medium">
                 {paymentStep === "loading"
-                  ? "Preparando pagamento..."
+                  ? "Iniciando pagamento..."
                   : paymentStep === "paid"
-                    ? "Seu pagamento foi confirmado. Seu pedido serÃ¡ preparado."
+                    ? "Seu pagamento foi confirmado. Seu pedido será preparado."
                     : confirmation.pix
-                      ? "Seu pedido foi registrado e estÃ¡ aguardando confirmaÃ§Ã£o do pagamento."
-                      : "Seu pedido foi recebido e serÃ¡ processado."}
+                      ? "Seu pedido foi registrado e está aguardando confirmação do pagamento."
+                      : "Seu pedido foi recebido e será processado."}
               </p>
 
               <div className="bg-muted/30 w-full max-w-md py-8 px-6 rounded-[2.5rem] border-2 border-dashed mb-8">
                 <div className="grid grid-cols-2 gap-4 text-left">
                   <div>
                     <div className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-black mb-1">
-                      NÃºmero
+                      Número
                     </div>
                     <div
                       className="text-4xl font-black tracking-tighter"
@@ -1990,7 +2219,7 @@ export function PublicMenuPage({
                   {paymentStep === "paid" && nfcPaidBalance !== null && (
                     <div className="col-span-2">
                       <div className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-black mb-1">
-                        Saldo restante no cartÃ£o
+                        Saldo restante no cartão
                       </div>
                       <div className="text-2xl font-black text-purple-700">
                         {formatBRL(nfcPaidBalance)}
@@ -2019,7 +2248,7 @@ export function PublicMenuPage({
                         Pague com PIX
                       </h3>
                       <p className="text-sm font-medium text-muted-foreground mb-4">
-                        Escaneie o QR Code ou copie o cÃ³digo PIX abaixo.
+                        Escaneie o QR Code ou copie o código PIX abaixo.
                       </p>
 
                       <div className="flex flex-col items-center gap-4">
@@ -2043,16 +2272,16 @@ export function PublicMenuPage({
                               const code = confirmation.transaction?.pixCopyPaste;
                               if (!code) {
                                 toast.error(
-                                  "CÃ³digo PIX indisponÃ­vel. Tente novamente ou chame o operador.",
+                                  "Código PIX indisponível. Tente novamente ou chame o operador.",
                                 );
                                 return;
                               }
                               navigator.clipboard.writeText(code);
-                              toast.success("CÃ³digo PIX copiado!");
+                              toast.success("Código PIX copiado.");
                             }}
                           >
                             <Copy className="size-5" />
-                            Copiar cÃ³digo PIX
+                            Copiar código PIX
                           </Button>
                         )}
                       </div>
@@ -2060,8 +2289,8 @@ export function PublicMenuPage({
                       <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100 text-blue-800 text-sm font-bold flex gap-3 animate-pulse">
                         <Clock className="size-5 flex-shrink-0" />
                         <p>
-                          ApÃ³s o pagamento, aguarde a confirmaÃ§Ã£o automÃ¡tica. NÃ£o feche esta tela
-                          atÃ© concluir o pagamento.
+                          Após o pagamento, aguarde a confirmação automática. Não feche esta tela
+                          até concluir o pagamento.
                         </p>
                       </div>
                     </div>
@@ -2074,11 +2303,11 @@ export function PublicMenuPage({
                         style={{ color: primary }}
                       >
                         <QrCode className="size-6" />
-                        Pague com PIX Manual
+                        Pague com PIX manual
                       </h3>
 
                       <div className="p-3 bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold rounded-xl mb-4">
-                        PIX automÃ¡tico indisponÃ­vel no momento. Use o PIX manual abaixo.
+                        PIX automático indisponível no momento. Use o PIX manual abaixo.
                       </div>
 
                       <div className="space-y-4">
@@ -2142,8 +2371,8 @@ export function PublicMenuPage({
                       <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100 text-amber-800 text-sm font-bold flex gap-3">
                         <Clock className="size-5 flex-shrink-0" />
                         <p>
-                          ApÃ³s pagar, apresente o comprovante ao operador. Seu pedido serÃ¡ preparado
-                          apÃ³s a confirmaÃ§Ã£o.
+                          Após pagar, apresente o comprovante ao operador. Seu pedido será preparado
+                          após a confirmação.
                         </p>
                       </div>
                     </div>
@@ -2195,18 +2424,355 @@ export function PublicMenuPage({
                 >
                   {confirmation.pix && paymentStep !== "paid"
                     ? "Cancelar pedido"
-                    : "Voltar ao inÃ­cio"}
+                    : "Voltar ao início"}
                 </Button>
               </div>
 
               {(!confirmation.pix || paymentStep === "paid") && (
                 <p className="mt-8 text-xs text-muted-foreground opacity-50 font-medium italic">
-                  Esta tela fecharÃ¡ automaticamente...
+                  Esta tela fechará automaticamente...
                 </p>
               )}
             </div>
           </div>
         )}
+    </div>
+  );
+}
+
+function TotemProductModalBody({
+  product,
+  notes,
+  setNotes,
+  onAdd,
+}: {
+  product: PublicProduct;
+  notes: string;
+  setNotes: (value: string) => void;
+  onAdd: (payload: {
+    product: PublicProduct;
+    quantity: number;
+    unitPriceInCents: number;
+    notes?: string;
+    selectedOptions: NonNullable<CartItem["selectedOptions"]>;
+    selectedFlavorProductIds: string[];
+    displayFlavors: NonNullable<CartItem["displayFlavors"]>;
+  }) => void;
+}) {
+  const [qty, setQty] = useState(1);
+  const groups = useMemo(() => sortedGroups(getProductOptionGroups(product)), [product]);
+  const flavorProducts = useMemo(
+    () => getHalfAndHalfFlavors(product).sort((a, b) => a.name.localeCompare(b.name)),
+    [product],
+  );
+  const acceptsHalfAndHalf =
+    product.supportsHalfAndHalf === true ||
+    product.acceptsHalfAndHalf === true ||
+    product.pricingRule === "MAX_SELECTED_FLAVOR";
+  const [pizzaMode, setPizzaMode] = useState<"WHOLE" | "HALF_AND_HALF">("WHOLE");
+  const [secondFlavorId, setSecondFlavorId] = useState("");
+  const [selectedByGroup, setSelectedByGroup] = useState<Record<string, string[]>>(() => {
+    const init: Record<string, string[]> = {};
+    for (const group of groups) init[group.id] = [];
+    return init;
+  });
+
+  useEffect(() => {
+    setQty(1);
+    setPizzaMode("WHOLE");
+    setSecondFlavorId("");
+    const init: Record<string, string[]> = {};
+    for (const group of groups) init[group.id] = [];
+    setSelectedByGroup(init);
+  }, [groups, product.id]);
+
+  function toggleOption(group: PublicProductOptionGroup, optionId: string) {
+    setSelectedByGroup((prev) => {
+      const current = prev[group.id] ?? [];
+      const isSelected = current.includes(optionId);
+      const max = Math.max(1, group.maxSelections || 1);
+      let next: string[];
+      if (max === 1) {
+        next = isSelected ? [] : [optionId];
+      } else if (isSelected) {
+        next = current.filter((id) => id !== optionId);
+      } else {
+        if (current.length >= max) return prev;
+        next = [...current, optionId];
+      }
+      return { ...prev, [group.id]: next };
+    });
+  }
+
+  const sizeGroup = useMemo(() => groups.find((group) => isSizeGroup(group)) ?? null, [groups]);
+  const selectedSizeOption = useMemo(() => {
+    if (!sizeGroup) return null;
+    const selectedId = selectedByGroup[sizeGroup.id]?.[0];
+    if (!selectedId) return null;
+    return sizeGroup.options.find((option) => option.id === selectedId) ?? null;
+  }, [selectedByGroup, sizeGroup]);
+  const selectedSizeOptionKey = selectedSizeOption?.key ?? null;
+  const selectedSizeDeltaInCents = selectedSizeOption?.priceDeltaInCents ?? 0;
+  const primaryFullPriceInCents = getPrice(product) + selectedSizeDeltaInCents;
+  const secondFlavor = useMemo(
+    () => flavorProducts.find((flavor) => flavor.id === secondFlavorId) ?? null,
+    [flavorProducts, secondFlavorId],
+  );
+  const secondFlavorFullPriceInCents = secondFlavor
+    ? resolveFlavorFullPrice(secondFlavor, selectedSizeOptionKey)
+    : 0;
+  const addonTotalInCents = useMemo(
+    () =>
+      groups.reduce((sum, group) => {
+        if (isSizeGroup(group)) return sum;
+        const ids = selectedByGroup[group.id] ?? [];
+        for (const id of ids) {
+          const option = group.options.find((o) => o.id === id);
+          if (option) sum += option.priceDeltaInCents ?? 0;
+        }
+        return sum;
+      }, 0),
+    [groups, selectedByGroup],
+  );
+  const flavorBasePrice =
+    acceptsHalfAndHalf && pizzaMode === "HALF_AND_HALF" && secondFlavor
+      ? Math.max(primaryFullPriceInCents, secondFlavorFullPriceInCents)
+      : primaryFullPriceInCents;
+  const previewUnitPrice = flavorBasePrice + addonTotalInCents;
+  const img = resolveAssetUrl(product.imageUrl);
+  const badges = productBadges(product);
+  const original = pick<number>(
+    product as unknown as Record<string, unknown>,
+    "originalPriceInCents",
+    "oldPriceInCents",
+    "compareAtPriceInCents",
+  );
+
+  const validation = useMemo(() => {
+    if (acceptsHalfAndHalf && pizzaMode === "HALF_AND_HALF" && !secondFlavor) {
+      return { ok: false, reason: "Escolha o segundo sabor" };
+    }
+    for (const group of groups) {
+      const ids = selectedByGroup[group.id] ?? [];
+      const min = group.required ? Math.max(1, group.minSelections || 1) : group.minSelections || 0;
+      if (ids.length < min) return { ok: false, reason: `Selecione pelo menos ${min} em "${group.name}"` };
+    }
+    return { ok: true, reason: null as string | null };
+  }, [acceptsHalfAndHalf, groups, pizzaMode, secondFlavor, selectedByGroup]);
+
+  function handleAdd() {
+    if (!validation.ok) {
+      toast.error(validation.reason ?? "Complete as opções obrigatórias");
+      return;
+    }
+    const selectedOptions = groups
+      .map((group) => {
+        const ids = selectedByGroup[group.id] ?? [];
+        if (ids.length === 0) return null;
+        const displayOptions = ids.map((id) => {
+          const option = group.options.find((o) => o.id === id);
+          return {
+            groupName: group.name,
+            optionName: option?.name ?? "",
+            priceDeltaInCents: option?.priceDeltaInCents ?? 0,
+          };
+        });
+        return { optionGroupId: group.id, optionIds: ids, displayOptions };
+      })
+      .filter((value): value is NonNullable<CartItem["selectedOptions"]>[number] => value !== null);
+    const displayFlavors =
+      pizzaMode === "HALF_AND_HALF" && secondFlavor
+        ? [
+            { id: product.id, name: product.name, priceInCents: primaryFullPriceInCents },
+            { id: secondFlavor.id, name: secondFlavor.name, priceInCents: secondFlavorFullPriceInCents },
+          ]
+        : [];
+
+    onAdd({
+      product,
+      quantity: qty,
+      unitPriceInCents: previewUnitPrice,
+      notes,
+      selectedOptions,
+      selectedFlavorProductIds: pizzaMode === "HALF_AND_HALF" && secondFlavor ? [secondFlavor.id] : [],
+      displayFlavors,
+    });
+  }
+
+  return (
+    <div className="flex max-h-[90dvh] flex-col">
+      <div className="relative h-64 w-full flex-shrink-0 overflow-hidden bg-gradient-to-br from-muted to-muted/50">
+        {img ? (
+          <ProductImage src={img} alt={product.name} size="lg" rounded="rounded-none" className="h-full w-full object-cover" />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-muted-foreground/40">
+            <UtensilsCrossed className="h-16 w-16" />
+          </div>
+        )}
+        {badges.length > 0 && (
+          <div className="absolute left-4 top-4 flex flex-wrap gap-1">
+            {badges.map((badge) => (
+              <Badge key={badge.label} tone={badge.tone}>
+                {badge.label}
+              </Badge>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-5 overflow-y-auto p-6">
+        <div>
+          <DialogTitle className="text-3xl font-black tracking-tight text-foreground">
+            {product.name}
+          </DialogTitle>
+          {product.description && (
+            <DialogDescription className="mt-2 text-base leading-relaxed text-muted-foreground">
+              {product.description}
+            </DialogDescription>
+          )}
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-3xl font-black text-primary">{formatBRL(previewUnitPrice)}</span>
+            {typeof original === "number" && original > getPrice(product) && (
+              <span className="text-sm text-muted-foreground line-through">
+                {formatBRL(original)}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {acceptsHalfAndHalf && flavorProducts.length > 0 && (
+          <section className="rounded-xl border border-border/60 bg-muted/30">
+            <div className="border-b border-border/50 px-4 py-3">
+              <h3 className="text-base font-black text-foreground">Sabor da pizza</h3>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                O valor da pizza meio a meio será o do sabor de maior preço.
+              </p>
+            </div>
+            <div className="space-y-3 p-4">
+              <div className="grid grid-cols-2 gap-2">
+                {(["WHOLE", "HALF_AND_HALF"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setPizzaMode(mode)}
+                    className={`rounded-2xl px-4 py-3 text-sm font-black transition active:scale-[0.98] ${
+                      pizzaMode === mode
+                        ? "bg-primary text-primary-foreground shadow-md shadow-primary/30"
+                        : "bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    {mode === "WHOLE" ? "Inteira" : "Meio a meio"}
+                  </button>
+                ))}
+              </div>
+              {pizzaMode === "HALF_AND_HALF" && (
+                <div className="grid gap-2">
+                  {flavorProducts.map((flavor) => (
+                    <button
+                      key={flavor.id}
+                      type="button"
+                      onClick={() => setSecondFlavorId(flavor.id)}
+                      className={`flex items-center justify-between rounded-2xl border px-4 py-3 text-left transition active:scale-[0.98] ${
+                        secondFlavorId === flavor.id
+                          ? "border-primary bg-primary/10 text-foreground"
+                          : "border-border/70 bg-background text-foreground"
+                      }`}
+                    >
+                      <span className="font-bold">{flavor.name}</span>
+                      <span className="font-black text-primary">
+                        {formatBRL(resolveFlavorFullPrice(flavor, selectedSizeOptionKey))}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
+        {groups.map((group) => {
+          const ids = selectedByGroup[group.id] ?? [];
+          return (
+            <section key={group.id} className="rounded-xl border border-border/60 bg-muted/30">
+              <div className="flex items-start justify-between gap-3 border-b border-border/50 px-4 py-3">
+                <div>
+                  <h3 className="text-base font-black text-foreground">{group.name}</h3>
+                  {group.description && (
+                    <p className="mt-1 text-sm text-muted-foreground">{group.description}</p>
+                  )}
+                </div>
+                {group.required && (
+                  <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-primary">
+                    Obrigatório
+                  </span>
+                )}
+              </div>
+              <div className="grid gap-2 p-4">
+                {sortedOptions(group.options).map((option) => {
+                  const checked = ids.includes(option.id);
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      onClick={() => toggleOption(group, option.id)}
+                      className={`flex items-center justify-between gap-4 rounded-2xl border px-4 py-3 text-left transition active:scale-[0.98] ${
+                        checked
+                          ? "border-primary bg-primary/10 text-foreground"
+                          : "border-border/70 bg-background text-foreground"
+                      }`}
+                    >
+                      <span className="font-bold">{option.name}</span>
+                      <span className="font-black text-primary">
+                        {option.priceDeltaInCents > 0 ? `+ ${formatBRL(option.priceDeltaInCents)}` : "Incluso"}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          );
+        })}
+
+        <section className="rounded-xl border border-border/60 bg-muted/30 p-4">
+          <h3 className="text-base font-black text-foreground">Observações</h3>
+          <Textarea
+            value={notes}
+            onChange={(event) => setNotes(event.target.value)}
+            placeholder="Ex.: sem cebola, ponto da carne, retirar ingrediente..."
+            className="mt-3 min-h-24 rounded-2xl text-base"
+            maxLength={240}
+          />
+        </section>
+      </div>
+
+      <div className="flex flex-shrink-0 items-center gap-4 border-t border-border/60 bg-background p-5">
+        <div className="flex items-center rounded-2xl bg-muted p-1">
+          <button
+            type="button"
+            onClick={() => setQty((value) => Math.max(1, value - 1))}
+            className="flex h-14 w-14 items-center justify-center rounded-xl bg-card text-primary shadow-sm active:scale-95"
+            aria-label="Diminuir quantidade"
+          >
+            <Minus className="h-6 w-6" />
+          </button>
+          <span className="w-14 text-center text-2xl font-black text-foreground">{qty}</span>
+          <button
+            type="button"
+            onClick={() => setQty((value) => value + 1)}
+            className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm active:scale-95"
+            aria-label="Aumentar quantidade"
+          >
+            <Plus className="h-6 w-6" />
+          </button>
+        </div>
+        <Button
+          type="button"
+          onClick={handleAdd}
+          className="h-16 flex-1 rounded-2xl bg-gradient-to-r from-primary to-primary-glow text-xl font-black text-primary-foreground shadow-lg shadow-primary/30"
+        >
+          Adicionar · {formatBRL(previewUnitPrice * qty)}
+        </Button>
+      </div>
     </div>
   );
 }
@@ -2218,8 +2784,6 @@ function CategorySection({
   cart,
   inc,
   dec,
-  primary,
-  secondary,
   isKioskMode,
 }: {
   category: PublicCategory;
@@ -2228,110 +2792,140 @@ function CategorySection({
   cart: CartItem[];
   inc: (id: string) => void;
   dec: (id: string) => void;
-  primary: string;
-  secondary: string;
   isKioskMode: boolean;
 }) {
   if (products.length === 0) return null;
   return (
-    <section id={`cat-${category.id}`} className="mb-8 scroll-mt-24 last:mb-32">
-      <h2
-        className="text-xl font-black mb-1 px-1 flex items-center gap-2"
-        style={{ color: primary }}
-      >
-        <span className="w-1.5 h-6 rounded-full" style={{ background: secondary }}></span>
-        {category.name}
-      </h2>
+    <section id={`cat-${category.id}`} className="mb-10 scroll-mt-32 last:mb-32">
+      <div className="mb-3 flex items-baseline justify-between px-1">
+        <h2 className="text-2xl font-black tracking-tight text-foreground">
+          {category.name}
+        </h2>
+        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          {products.length} {products.length === 1 ? "item" : "itens"}
+        </span>
+      </div>
       {category.description && (
-        <p className="text-muted-foreground mb-4 text-xs px-1 pl-4.5 font-medium leading-relaxed">
+        <p className="text-muted-foreground mb-4 text-sm px-1 font-medium leading-relaxed">
           {category.description}
         </p>
       )}
-      <div className="grid grid-cols-1 gap-4">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {products.map((p) => {
           const item = cart.find((c) => c.product.id === p.id);
           const img = resolveAssetUrl(p.imageUrl);
+          const badges = productBadges(p);
+          const original = pick<number>(
+            p as unknown as Record<string, unknown>,
+            "originalPriceInCents",
+            "oldPriceInCents",
+            "compareAtPriceInCents",
+          );
           return (
-            <div
+            <article
               key={p.id}
-              className="bg-card rounded-3xl border shadow-sm overflow-hidden flex transition-all active:scale-[0.98]"
+              className="group relative flex w-full items-stretch gap-4 overflow-hidden rounded-2xl border border-border/70 bg-card p-4 text-left shadow-sm transition hover:border-primary/40 hover:shadow-md active:scale-[0.99]"
             >
-              <div className="w-28 h-28 sm:w-36 sm:h-36 relative overflow-hidden bg-muted flex-shrink-0">
-                <ProductImage
-                  src={img}
-                  alt={p.name}
-                  size="sm"
-                  rounded="rounded-none"
-                  className="h-full w-full object-cover"
-                />
-                {item && (
-                  <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
-                    <div className="bg-white px-2 py-0.5 rounded-full shadow-lg">
-                      <span className="font-black text-[10px]" style={{ color: primary }}>
-                        {item.quantity}x
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </div>
-              <div className="p-3 flex-1 flex flex-col justify-between min-w-0">
+              <button
+                type="button"
+                onClick={() => onAdd(p)}
+                className="flex min-w-0 flex-1 flex-col text-left"
+              >
                 <div className="pr-1">
-                  <h3 className="font-bold text-base leading-tight truncate">{p.name}</h3>
+                  {badges.length > 0 && (
+                    <div className="mb-2 flex flex-wrap gap-1">
+                      {badges.map((badge) => (
+                        <Badge key={badge.label} tone={badge.tone}>
+                          {badge.label}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                  <h3 className="line-clamp-1 text-xl font-bold leading-tight text-foreground">
+                    {p.name}
+                  </h3>
                   {p.description && (
-                    <p className="text-[10px] text-muted-foreground mt-1 line-clamp-2 leading-tight">
+                    <p className="mt-1 line-clamp-2 text-sm leading-snug text-muted-foreground">
                       {p.description}
                     </p>
                   )}
                 </div>
 
-                <div className="flex items-end justify-between gap-2">
-                  <div className="flex flex-col">
-                    <span className="font-black text-lg" style={{ color: primary }}>
+                <div className="mt-auto flex items-end justify-between gap-3 pt-4">
+                  <div className="flex flex-wrap items-baseline gap-2">
+                    <span className="text-2xl font-black text-primary">
                       {formatBRL(getPrice(p))}
                     </span>
+                    {typeof original === "number" && original > getPrice(p) && (
+                      <span className="text-sm text-muted-foreground line-through">
+                        {formatBRL(original)}
+                      </span>
+                    )}
                   </div>
+                </div>
+              </button>
 
-                  {item ? (
-                    <div
-                      className="flex items-center gap-1 rounded-full p-1 shadow-sm"
-                      style={{ background: secondary }}
-                    >
+              <div className="relative shrink-0">
+                <button
+                  type="button"
+                  onClick={() => onAdd(p)}
+                  className="relative h-32 w-32 overflow-hidden rounded-xl bg-gradient-to-br from-muted to-muted/50 sm:h-36 sm:w-36"
+                >
+                  {img ? (
+                    <ProductImage
+                      src={img}
+                      alt={p.name}
+                      size="sm"
+                      rounded="rounded-xl"
+                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-muted-foreground/50">
+                      <UtensilsCrossed className="h-10 w-10" />
+                    </div>
+                  )}
+                  {item && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-background/70">
+                      <div className="rounded-full bg-card px-3 py-1 shadow-lg ring-1 ring-border/60">
+                        <span className="text-sm font-black text-primary">
+                          {item.quantity}x
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </button>
+
+                {item ? (
+                  <div className="absolute -bottom-2 -right-2 flex items-center gap-1 rounded-full bg-card p-1 shadow-lg ring-2 ring-background">
                       <button
-                        onClick={() => dec(p.id)}
-                        className={`${isKioskMode ? "size-12" : "size-10"} rounded-full bg-white flex items-center justify-center shadow-sm active:scale-90`}
-                        style={{ color: primary }}
+                        onClick={() => dec(item.key)}
+                        className={`${isKioskMode ? "size-12" : "size-10"} rounded-full bg-muted flex items-center justify-center text-primary shadow-sm active:scale-90`}
                         aria-label="Diminuir"
                       >
                         <Minus className={isKioskMode ? "size-6" : "size-5"} />
                       </button>
-                      <span
-                        className={`font-black ${isKioskMode ? "text-xl w-10" : "text-base w-7"} text-center`}
-                        style={{ color: primary }}
-                      >
+                      <span className={`font-black ${isKioskMode ? "text-xl w-10" : "text-base w-7"} text-center text-primary`}>
                         {item.quantity}
                       </span>
                       <button
-                        onClick={() => inc(p.id)}
-                        className={`${isKioskMode ? "size-12" : "size-10"} rounded-full bg-white flex items-center justify-center shadow-sm active:scale-90`}
-                        style={{ color: primary }}
+                        onClick={() => inc(item.key)}
+                        className={`${isKioskMode ? "size-12" : "size-10"} rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-sm active:scale-90`}
                         aria-label="Aumentar"
                       >
                         <Plus className={isKioskMode ? "size-6" : "size-5"} />
                       </button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => onAdd(p)}
-                      className={`${isKioskMode ? "h-12 px-6 text-sm" : "h-10 px-4 text-xs"} rounded-xl flex items-center gap-1.5 font-black shadow-md transition-all active:scale-95`}
-                      style={{ background: primary, color: "#fff" }}
-                    >
-                      <Plus className="size-4" />
-                      Adicionar
-                    </button>
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => onAdd(p)}
+                    className="absolute -bottom-2 -right-2 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary-glow text-primary-foreground shadow-lg shadow-primary/40 ring-2 ring-background transition group-hover:scale-110 group-active:scale-95"
+                    aria-label="Adicionar"
+                  >
+                    <Plus className="size-6" strokeWidth={3} />
+                  </button>
+                )}
               </div>
-            </div>
+            </article>
           );
         })}
       </div>
@@ -2398,7 +2992,7 @@ function CartSheet({
       >
         <div className="flex items-center justify-between">
           <div>
-            <SheetTitle className="text-white text-2xl font-black">Meu Pedido</SheetTitle>
+            <SheetTitle className="text-white text-2xl font-black">Meu pedido</SheetTitle>
             <SheetDescription className="text-white/80 text-sm font-medium">
               {cart.length} {cart.length === 1 ? "item selecionado" : "itens selecionados"}
             </SheetDescription>
@@ -2412,8 +3006,8 @@ function CartSheet({
             <div className="bg-muted size-20 rounded-full flex items-center justify-center mx-auto mb-6 opacity-50">
               <ShoppingCart className="size-10" />
             </div>
-            <p className="text-xl font-bold">Seu carrinho estÃ¡ vazio</p>
-            <p className="text-sm mt-2">Escolha alguns produtos para comeÃ§ar seu pedido.</p>
+            <p className="text-xl font-bold">Seu carrinho está vazio</p>
+            <p className="text-sm mt-2">Escolha alguns produtos para começar seu pedido.</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -2421,8 +3015,8 @@ function CartSheet({
               const img = resolveAssetUrl(c.product.imageUrl);
               return (
                 <div
-                  key={c.product.id}
-                  className="bg-muted/30 p-4 rounded-3xl flex gap-4 items-center border border-transparent hover:border-muted-foreground/10 transition-colors"
+                  key={c.key}
+                  className="bg-card p-4 rounded-3xl flex gap-4 items-center border border-border/70 hover:border-primary/30 transition-colors shadow-sm"
                 >
                   <div className="size-20 flex-shrink-0">
                     <ProductImage
@@ -2439,14 +3033,29 @@ function CartSheet({
                         {c.product.name}
                       </div>
                       <div className="font-black whitespace-nowrap text-lg">
-                        {formatBRL(getPrice(c.product) * c.quantity)}
+                        {formatBRL(c.unitPriceInCents * c.quantity)}
                       </div>
                     </div>
+                    {(c.displayFlavors?.length || c.selectedOptions?.length || c.notes) && (
+                      <div className="space-y-1 text-xs font-medium text-muted-foreground">
+                        {c.displayFlavors && c.displayFlavors.length > 0 && (
+                          <p className="line-clamp-1">
+                            Sabores: {c.displayFlavors.map((flavor) => flavor.name).join(" + ")}
+                          </p>
+                        )}
+                        {c.selectedOptions?.flatMap((group) =>
+                          group.displayOptions.map((option) => `${option.groupName}: ${option.optionName}`),
+                        ).map((label) => (
+                          <p key={label} className="line-clamp-1">{label}</p>
+                        ))}
+                        {c.notes && <p className="line-clamp-1">Obs.: {c.notes}</p>}
+                      </div>
+                    )}
 
                     <div className="flex items-center justify-between mt-1">
-                      <div className="flex items-center gap-1 bg-white rounded-full p-1 shadow-sm border">
+                      <div className="flex items-center gap-1 bg-background rounded-full p-1 shadow-sm border border-border/70">
                         <button
-                          onClick={() => dec(c.product.id)}
+                          onClick={() => dec(c.key)}
                           className="size-10 rounded-full flex items-center justify-center active:bg-muted transition-colors"
                           aria-label="Diminuir"
                         >
@@ -2454,7 +3063,7 @@ function CartSheet({
                         </button>
                         <span className="font-black w-8 text-center text-lg">{c.quantity}</span>
                         <button
-                          onClick={() => inc(c.product.id)}
+                          onClick={() => inc(c.key)}
                           className="size-10 rounded-full flex items-center justify-center active:bg-muted transition-colors"
                           aria-label="Aumentar"
                         >
@@ -2463,7 +3072,7 @@ function CartSheet({
                       </div>
 
                       <button
-                        onClick={() => remove(c.product.id)}
+                        onClick={() => remove(c.key)}
                         className="size-12 rounded-2xl flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all active:scale-90"
                         aria-label="Remover"
                       >
@@ -2486,7 +3095,7 @@ function CartSheet({
           <Input
             value={customerName}
             onChange={(e) => setCustomerName(e.target.value)}
-            placeholder="Ex: JoÃ£o Silva"
+            placeholder="Ex.: João Silva"
             maxLength={60}
             className={`${isKioskMode ? "h-16" : "h-14"} text-lg font-bold rounded-xl border-2 focus-visible:ring-primary/20`}
             aria-invalid={!!nameError}
@@ -2515,7 +3124,7 @@ function CartSheet({
                 </div>
                 <div className="min-w-0">
                   <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                    CartÃ£o NFC conectado
+                    Cartão NFC conectado
                   </div>
                   <div className="font-bold truncate text-sm">{identifiedCustomer.name}</div>
                 </div>
@@ -2571,7 +3180,7 @@ function CartSheet({
                 Saldo NFC
               </div>
               <div className="text-sm font-bold mt-0.5">
-                {nfcDisabled ? "Aproxime seu cartÃ£o" : "Usar saldo do cartÃ£o"}
+                {nfcDisabled ? "Aproxime seu cartão" : "Usar saldo do cartão"}
               </div>
             </button>
           </div>
@@ -2603,12 +3212,12 @@ function CartSheet({
         >
           {submitting ? (
             <>
-              <Loader2 className="size-5 animate-spin mr-2" /> Enviandoâ€¦
+              <Loader2 className="size-5 animate-spin mr-2" /> Enviando pedido...
             </>
           ) : paymentMethod === "NFC" ? (
-            "Pagar com Saldo NFC"
+            "Pagar com saldo NFC"
           ) : (
-            "Confirmar Pedido"
+            "Confirmar pedido"
           )}
         </Button>
       </div>
@@ -2641,9 +3250,9 @@ function PixDialog({
   const copyKey = async () => {
     try {
       await navigator.clipboard.writeText(key);
-      toast.success("Chave PIX copiada!");
+      toast.success("Chave PIX copiada.");
     } catch {
-      toast.error("NÃ£o foi possÃ­vel copiar a chave.");
+      toast.error("Não foi possível copiar a chave.");
     }
   };
 
@@ -2684,7 +3293,7 @@ function PixDialog({
           </div>
         ) : (
           <div className="rounded-xl border border-dashed p-4 text-center text-sm text-muted-foreground">
-            Chave PIX nÃ£o configurada.
+            Chave PIX não configurada.
           </div>
         )}
 
@@ -2730,10 +3339,10 @@ function PixDialog({
         >
           {submitting ? (
             <>
-              <Loader2 className="size-5 animate-spin" /> Enviandoâ€¦
+              <Loader2 className="size-5 animate-spin" /> Enviando pedido...
             </>
           ) : (
-            "Aguardar ConfirmaÃ§Ã£o"
+            "Aguardar confirmação"
           )}
         </Button>
       </div>
