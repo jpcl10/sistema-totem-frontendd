@@ -1,6 +1,7 @@
 // Pendências que exigiriam backend novo (não implementadas):
 // - "Aplicar grupo a outras pizzas" (endpoint bulk apply).
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   Plus,
@@ -60,6 +61,8 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-context";
 import { handleApiError } from "@/lib/api-error";
+import { useOrganization } from "@/contexts/organization-context";
+import { qk } from "@/lib/query-keys";
 import {
   createCatalogCategory,
   createCatalogProduct,
@@ -101,9 +104,13 @@ export const Route = createFileRoute("/admin/catalog")({
 function CatalogPage() {
   useRequireModule(["ONLINE_ORDERS", "EVENTS"]);
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { token, user, loading: authLoading } = useAuth();
-  const isSuperAdmin = (user?.role ?? "").toUpperCase() === "SUPER_ADMIN";
-
+  const {
+    organizationId,
+    organizationName,
+    loading: organizationLoading,
+  } = useOrganization();
   const [categories, setCategories] = useState<CatalogCategory[]>([]);
   const [products, setProducts] = useState<CatalogProduct[]>([]);
   const [productCounts, setProductCounts] = useState<Record<string, ProductCounts>>({});
@@ -122,6 +129,8 @@ function CatalogPage() {
   const [sortBy, setSortBy] = useState("NAME");
   const [catCollapsed, setCatCollapsed] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const fetchRunRef = useRef(0);
+  const countRunRef = useRef(0);
 
 
 
@@ -129,7 +138,23 @@ function CatalogPage() {
     if (!authLoading && !token) navigate({ to: "/admin/login" });
   }, [authLoading, token, navigate]);
 
-  const fetchProductCounts = async (t: string, prods: CatalogProduct[]) => {
+  const resetCatalogState = () => {
+    setCategories([]);
+    setProducts([]);
+    setProductCounts({});
+    setError(null);
+    setCatOpen(false);
+    setProdOpen(false);
+    setEditingCat(null);
+    setEditingProd(null);
+    setSearch("");
+    setCategoryFilter("ALL");
+    setSectorFilter("ALL");
+    setStatusFilter("ALL");
+  };
+
+  const fetchProductCounts = async (t: string, orgId: string, prods: CatalogProduct[]) => {
+    const runId = ++countRunRef.current;
     const entries = await Promise.all(
       prods.map(async (p) => {
         try {
@@ -144,31 +169,60 @@ function CatalogPage() {
         }
       }),
     );
+    if (runId !== countRunRef.current || orgId !== organizationId) return;
     setProductCounts(Object.fromEntries(entries));
   };
 
-  const fetchAll = async (t: string) => {
+  const fetchAll = async (t: string, orgId: string) => {
+    const runId = ++fetchRunRef.current;
     setLoading(true);
     setError(null);
+    setProductCounts({});
     try {
-      const [cats, prods] = await Promise.all([
-        listCatalogCategories(t).catch(() => []),
-        listCatalogProducts(t).catch(() => []),
+      await Promise.all([
+        queryClient.cancelQueries({ queryKey: qk.catalog.categories(orgId) }),
+        queryClient.cancelQueries({ queryKey: qk.catalog.products(orgId) }),
       ]);
+      const [cats, prods] = await Promise.all([
+        queryClient.fetchQuery({
+          queryKey: qk.catalog.categories(orgId),
+          queryFn: () => listCatalogCategories(t),
+          staleTime: 0,
+        }),
+        queryClient.fetchQuery({
+          queryKey: qk.catalog.products(orgId),
+          queryFn: () => listCatalogProducts(t),
+          staleTime: 0,
+        }),
+      ]);
+      if (runId !== fetchRunRef.current || orgId !== organizationId) return;
       setCategories(cats);
       setProducts(prods);
-      void fetchProductCounts(t, prods);
+      void fetchProductCounts(t, orgId, prods);
     } catch (err) {
+      if (runId !== fetchRunRef.current || orgId !== organizationId) return;
       setError(handleApiError(err, "Não foi possível carregar o catálogo."));
     } finally {
-      setLoading(false);
+      if (runId === fetchRunRef.current && orgId === organizationId) setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (token) fetchAll(token);
+    fetchRunRef.current += 1;
+    countRunRef.current += 1;
+    void queryClient.cancelQueries({ queryKey: ["catalog"] });
+    void queryClient.cancelQueries({ queryKey: ["catalog-categories"] });
+    void queryClient.cancelQueries({ queryKey: ["catalog-products"] });
+    resetCatalogState();
+
+    if (!token || !organizationId || organizationLoading) {
+      setLoading(Boolean(token && organizationLoading));
+      return;
+    }
+
+    void fetchAll(token, organizationId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
+  }, [token, organizationId, organizationLoading]);
 
   const productCategoryId = (p: CatalogProduct) =>
     p.catalogCategoryId ?? p.categoryId ?? p.category?.id ?? "__none__";
@@ -245,7 +299,13 @@ function CatalogPage() {
     const next = !isActive(c);
     try {
       await updateCatalogCategory(token, c.id, { active: next });
-      const cats = await listCatalogCategories(token).catch(() => null);
+      const cats = organizationId
+        ? await queryClient.fetchQuery({
+            queryKey: qk.catalog.categories(organizationId),
+            queryFn: () => listCatalogCategories(token),
+            staleTime: 0,
+          }).catch(() => null)
+        : await listCatalogCategories(token).catch(() => null);
       if (cats) setCategories(cats);
       else setCategories((prev) => prev.map((x) => (x.id === c.id ? { ...x, active: next } : x)));
       toast.success(next ? "Categoria ativada" : "Categoria desativada");
@@ -259,8 +319,17 @@ function CatalogPage() {
     const next = !isActive(p);
     try {
       await updateCatalogProduct(token, p.id, { active: next });
-      const prods = await listCatalogProducts(token).catch(() => null);
-      if (prods) setProducts(prods);
+      const prods = organizationId
+        ? await queryClient.fetchQuery({
+            queryKey: qk.catalog.products(organizationId),
+            queryFn: () => listCatalogProducts(token),
+            staleTime: 0,
+          }).catch(() => null)
+        : await listCatalogProducts(token).catch(() => null);
+      if (prods) {
+        setProducts(prods);
+        if (organizationId) void fetchProductCounts(token, organizationId, prods);
+      }
       else setProducts((prev) => prev.map((x) => (x.id === p.id ? { ...x, active: next } : x)));
       toast.success(next ? "Produto ativado" : "Produto desativado");
     } catch (e) {
@@ -275,8 +344,8 @@ function CatalogPage() {
 
   return (
     <AdminLayout
-      title="Catálogo global"
-      subtitle="Categorias e produtos da organização"
+      title="Catálogo"
+      subtitle={organizationName ? `Categorias e produtos de ${organizationName}` : "Categorias e produtos da organização"}
     >
       {/* Page hero header */}
       <div className="mb-6 rounded-2xl border border-border/70 bg-gradient-to-br from-card via-card to-muted/30 p-6 shadow-[var(--shadow-soft)]">
@@ -284,7 +353,7 @@ function CatalogPage() {
           <div className="space-y-2">
             <div className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background/70 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
               <Package className="h-3 w-3" />
-              Catálogo global
+              Catálogo
             </div>
             <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
               Gerencie seu catálogo de produtos
@@ -352,11 +421,14 @@ function CatalogPage() {
                     </Button>
                   </DialogTrigger>
                   <NewCategoryDialog
-                    token={token}
-                    onCreated={(c) => {
-                      setCategories((prev) => [...prev, c]);
-                      setCatOpen(false);
-                    }}
+                  token={token}
+                  onCreated={(c) => {
+                    setCategories((prev) => [...prev, c]);
+                    if (organizationId) {
+                      void queryClient.invalidateQueries({ queryKey: qk.catalog.categories(organizationId) });
+                    }
+                    setCatOpen(false);
+                  }}
                   />
                 </Dialog>
               </div>
@@ -367,7 +439,7 @@ function CatalogPage() {
             <EmptyBlock
               icon={<FolderTree className="h-5 w-5" />}
               title="Nenhuma categoria"
-              description="Crie a primeira categoria do catálogo global."
+              description="Crie a primeira categoria do catálogo da organização."
             />
           ) : (
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -455,6 +527,9 @@ function CatalogPage() {
                   categories={categories}
                   onCreated={(p) => {
                     setProducts((prev) => [p, ...prev]);
+                    if (organizationId) {
+                      void queryClient.invalidateQueries({ queryKey: qk.catalog.products(organizationId) });
+                    }
                     setProdOpen(false);
                   }}
                 />
@@ -592,6 +667,9 @@ function CatalogPage() {
             category={editingCat}
             onSaved={(updated) => {
               setCategories((prev) => prev.map((x) => (x.id === updated.id ? { ...x, ...updated } : x)));
+              if (organizationId) {
+                void queryClient.invalidateQueries({ queryKey: qk.catalog.categories(organizationId) });
+              }
               setEditingCat(null);
             }}
           />
@@ -603,7 +681,7 @@ function CatalogPage() {
         onOpenChange={(o) => {
           if (!o) {
             setEditingProd(null);
-            if (token) void fetchProductCounts(token, products);
+            if (token && organizationId) void fetchProductCounts(token, organizationId, products);
           }
         }}
       >
@@ -615,8 +693,11 @@ function CatalogPage() {
             products={products}
             onSaved={(updated) => {
               setProducts((prev) => prev.map((x) => (x.id === updated.id ? { ...x, ...updated } : x)));
+              if (organizationId) {
+                void queryClient.invalidateQueries({ queryKey: qk.catalog.products(organizationId) });
+              }
               setEditingProd(null);
-              if (token) void fetchProductCounts(token, products);
+              if (token && organizationId) void fetchProductCounts(token, organizationId, products);
             }}
           />
         )}
