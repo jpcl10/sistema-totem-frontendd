@@ -47,6 +47,7 @@ interface UserRow {
   organizationId?: string;
   organization?: { id?: string; name?: string };
   createdAt?: string;
+  updatedAt?: string;
 }
 
 interface FormState {
@@ -55,6 +56,7 @@ interface FormState {
   email: string;
   password: string;
   organizationId: string;
+  originalOrganizationId?: string;
   role: "ADMIN" | "OPERATOR";
   active: boolean;
 }
@@ -147,6 +149,7 @@ function UsersPage() {
       email: u.email,
       password: "",
       organizationId: u.organizationId ?? u.organization?.id ?? "",
+      originalOrganizationId: u.organizationId ?? u.organization?.id ?? "",
       role: (u.role as "ADMIN" | "OPERATOR") ?? "ADMIN",
       active: u.active !== false,
     });
@@ -169,12 +172,26 @@ function UsersPage() {
     }
     setSaving(true);
     try {
+      const organizationChanged = Boolean(
+        form.id &&
+        form.originalOrganizationId &&
+        form.organizationId !== form.originalOrganizationId,
+      );
+      if (organizationChanged) {
+        const from = orgName(form.originalOrganizationId);
+        const to = orgName(form.organizationId);
+        const ok = window.confirm(
+          `Alterar a organização deste usuário de ${from} para ${to}?\n\nIsso invalidará sessões antigas e exigirá novo login.`,
+        );
+        if (!ok) return;
+      }
       const body: Record<string, unknown> = {
         name: form.name.trim(),
         email: form.email.trim(),
         organizationId: form.organizationId,
         role: form.role,
         active: form.active,
+        confirmOrganizationChange: organizationChanged,
       };
       if (form.password) body.password = form.password;
       const url = form.id
