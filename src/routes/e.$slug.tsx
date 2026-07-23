@@ -13,10 +13,6 @@ import {
   Clock,
   PartyPopper,
   AlertTriangle,
-  Nfc,
-  BadgeCheck,
-  ShieldAlert,
-  CreditCard,
   ArrowRight,
   UtensilsCrossed,
   Flame,
@@ -60,8 +56,6 @@ import {
   getCheckoutPaymentSettings,
   checkoutPayment,
   getPublicOrderStatus,
-  identifyNfc,
-  identifyNfcCanonical,
   getPublicApiRequestDiagnostics,
   type PublicMenu,
   type PublicProduct,
@@ -73,7 +67,6 @@ import {
   type PaymentTransaction,
   type PublicOrderResponse,
   type CheckoutPaymentResponse,
-  type NfcIdentifiedCustomer,
 } from "@/lib/public-api";
 import { enqueueJobsForOrder, type PrintSector } from "@/lib/print-queue";
 
@@ -132,15 +125,15 @@ function TotemWelcomeScreen({
 
   return (
     <div
-      className="fixed inset-0 z-40 flex flex-col overflow-y-auto bg-background animate-in fade-in duration-500"
+      className="min-h-[100dvh] overflow-x-hidden bg-background pb-10 animate-in fade-in duration-500"
       style={{
         ...branding.cssVars,
         ["--primary" as string]: primaryColor,
         ["--primary-glow" as string]: secondaryColor,
       }}
     >
-      <header className="relative shrink-0">
-        <div className="relative h-[34vh] min-h-[260px] w-full overflow-hidden">
+      <header className="relative">
+        <div className="relative h-[30dvh] min-h-56 max-h-[420px] w-full overflow-hidden sm:h-72">
           {bannerUrl ? (
             <>
               <img
@@ -160,33 +153,36 @@ function TotemWelcomeScreen({
           )}
         </div>
 
-        <div className="mx-auto -mt-20 flex w-full max-w-6xl items-end gap-6 px-8">
+        <div className="mx-auto -mt-14 flex w-full max-w-5xl items-end gap-4 px-4 sm:-mt-16 sm:px-6 lg:px-8">
           <div className="relative shrink-0">
             {logoUrl ? (
               <img
                 src={logoUrl}
                 alt={name}
                 draggable={false}
-                className="h-36 w-36 rounded-2xl border-4 border-background bg-card object-cover shadow-2xl ring-1 ring-border/40"
+                className="h-24 w-24 rounded-2xl border-4 border-background bg-card object-cover shadow-xl ring-1 ring-border/40 sm:h-32 sm:w-32"
                 onError={(e) => {
                   (e.currentTarget as HTMLImageElement).style.display = "none";
                 }}
               />
             ) : (
               <div
-                className="flex h-36 w-36 items-center justify-center rounded-2xl border-4 border-background bg-gradient-to-br from-primary to-primary-glow text-5xl font-black text-primary-foreground shadow-2xl ring-1 ring-border/40"
+                className="flex h-24 w-24 items-center justify-center rounded-2xl border-4 border-background bg-gradient-to-br from-primary to-primary-glow text-3xl font-black text-primary-foreground shadow-xl ring-1 ring-border/40 sm:h-32 sm:w-32 sm:text-4xl"
                 style={{ color: primaryColor }}
               >
                 {name.charAt(0).toUpperCase()}
               </div>
             )}
           </div>
-          <div className="min-w-0 flex-1 pb-4">
-            <h1 className="line-clamp-2 text-5xl font-black leading-tight tracking-tight text-foreground">
+          <div className="min-w-0 flex-1 pb-2">
+            <div className="mb-2 inline-flex rounded-full bg-primary/10 px-3 py-1 text-[11px] font-black uppercase tracking-widest text-primary">
+              Autoatendimento
+            </div>
+            <h1 className="line-clamp-2 break-words text-3xl font-black leading-tight tracking-tight text-foreground sm:text-5xl">
               {name}
             </h1>
             {welcomeMessage && (
-              <p className="mt-3 max-w-3xl text-xl font-medium leading-relaxed text-muted-foreground">
+              <p className="mt-2 max-w-3xl text-base font-medium leading-relaxed text-muted-foreground sm:text-xl">
                 {welcomeMessage}
               </p>
             )}
@@ -194,160 +190,25 @@ function TotemWelcomeScreen({
         </div>
       </header>
 
-      <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center px-8 py-10">
+      <main className="mx-auto flex w-full max-w-5xl flex-col px-4 py-8 sm:px-6 lg:px-8">
         <button
           type="button"
           onClick={onStart}
-          className="group flex w-full items-center justify-between gap-8 rounded-2xl bg-gradient-to-r from-primary to-primary-glow px-10 py-8 text-left text-primary-foreground shadow-2xl shadow-primary/40 ring-1 ring-primary/30 transition active:scale-[0.99]"
+          className="group flex w-full items-center justify-between gap-5 rounded-2xl bg-gradient-to-r from-primary to-primary-glow px-6 py-6 text-left text-primary-foreground shadow-2xl shadow-primary/30 ring-1 ring-primary/30 transition active:scale-[0.99] sm:px-8 sm:py-8"
         >
           <span>
             <span className="block text-sm font-black uppercase tracking-widest opacity-80">
-              Autoatendimento
+              Pedido no totem
             </span>
-            <span className="mt-1 block text-4xl font-black tracking-tight">
+            <span className="mt-1 block text-3xl font-black tracking-tight sm:text-4xl">
               Começar pedido
             </span>
           </span>
-          <span className="flex h-20 w-20 items-center justify-center rounded-full bg-background text-primary shadow-xl transition group-active:scale-95">
-            <ArrowRight className="h-10 w-10" strokeWidth={3} />
+          <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-background text-primary shadow-xl transition group-active:scale-95 sm:h-20 sm:w-20">
+            <ArrowRight className="h-8 w-8 sm:h-10 sm:w-10" strokeWidth={3} />
           </span>
         </button>
-
-        <button
-          type="button"
-          onClick={onStart}
-          className="mt-5 flex w-full items-center gap-5 rounded-2xl border border-border/70 bg-card p-6 text-left shadow-sm transition hover:border-primary/40 active:scale-[0.99]"
-        >
-          <div
-            className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl"
-            style={{ background: `${primaryColor}22`, color: primaryColor }}
-          >
-            <Nfc className="h-8 w-8" aria-hidden />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-xl font-black leading-tight text-foreground">
-              Aproxime sua pulseira ou cartão
-            </p>
-            <p className="mt-1 text-base text-muted-foreground">
-              Identificação rápida e segura durante o pedido.
-            </p>
-          </div>
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function TotemCategoryPicker({
-  event,
-  categories,
-  hasNfcIdentified,
-  onPickCategory,
-  onOpenNfc,
-}: {
-  event: PublicEvent | null | undefined;
-  categories: { cat: PublicCategory; count: number }[];
-  hasNfcIdentified: boolean;
-  onPickCategory: (id: string) => void;
-  onOpenNfc: () => void;
-}) {
-  const branding = usePublicEventBranding(event);
-  const { name, logoUrl, bannerUrl, primaryColor, secondaryColor } = branding;
-  return (
-    <div
-      className="fixed inset-0 z-40 flex flex-col overflow-y-auto bg-background text-foreground animate-in fade-in duration-500"
-      style={{
-        ...branding.cssVars,
-        ["--primary" as string]: primaryColor,
-        ["--primary-glow" as string]: secondaryColor,
-      }}
-    >
-      <header className="relative shrink-0">
-        <div className="relative h-56 w-full overflow-hidden">
-          {bannerUrl ? (
-            <>
-              <img src={bannerUrl} alt="" aria-hidden className="h-full w-full object-cover" />
-              <div className="absolute inset-0 bg-gradient-to-t from-background/95 via-background/30 to-transparent" />
-            </>
-          ) : (
-            <>
-              <div
-                className="h-full w-full"
-                style={{
-                  background: `linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%)`,
-                }}
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
-            </>
-          )}
-        </div>
-
-        <div className="mx-auto -mt-14 flex w-full max-w-6xl items-end gap-5 px-8">
-          {logoUrl ? (
-            <img
-              src={logoUrl}
-              alt={name}
-              className="h-28 w-28 rounded-2xl border-4 border-background bg-card object-cover shadow-xl ring-1 ring-border/40"
-            />
-          ) : (
-            <div className="flex h-28 w-28 items-center justify-center rounded-2xl border-4 border-background bg-gradient-to-br from-primary to-primary-glow text-3xl font-black text-primary-foreground shadow-xl">
-              {name.charAt(0).toUpperCase()}
-            </div>
-          )}
-          <div className="min-w-0 flex-1 pb-2">
-            <h1 className="line-clamp-1 text-4xl font-black leading-tight tracking-tight text-foreground">
-              {name}
-            </h1>
-            <p className="mt-1 text-lg font-medium text-muted-foreground">
-              Escolha uma categoria
-            </p>
-          </div>
-        </div>
-      </header>
-
-      <div className="mx-auto mt-8 w-full max-w-6xl px-8">
-        <button
-          type="button"
-          onClick={onOpenNfc}
-          className="group flex w-full items-center gap-5 rounded-2xl border border-border/70 bg-card p-5 text-left shadow-sm transition hover:border-primary/40 active:scale-[0.99]"
-        >
-          <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary">
-            <Nfc className="h-8 w-8" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-xl font-black leading-tight text-foreground">
-              {hasNfcIdentified ? "Cartão identificado" : "Aproxime sua pulseira ou cartão"}
-            </p>
-            <p className="mt-1 text-base text-muted-foreground">Identificação rápida e segura.</p>
-          </div>
-          <ArrowRight className="h-7 w-7 text-muted-foreground transition-transform group-hover:translate-x-1" />
-        </button>
-      </div>
-
-      <div className="mx-auto mt-8 w-full max-w-6xl flex-1 px-8 pb-10">
-        <div className="flex flex-wrap gap-3">
-          {categories.map(({ cat, count }) => (
-            <button
-              key={cat.id}
-              type="button"
-              onClick={() => onPickCategory(cat.id)}
-              className="group inline-flex min-h-20 flex-1 basis-[30%] items-center justify-between gap-4 rounded-full bg-card px-7 py-5 text-left text-muted-foreground shadow-sm ring-1 ring-border/60 transition hover:text-foreground active:scale-[0.98]"
-            >
-              <span className="min-w-0">
-                <span className="line-clamp-1 text-2xl font-black leading-tight text-foreground">
-                  {cat.name}
-                </span>
-                <span className="mt-1 block text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-                  {count} {count === 1 ? "item" : "itens"}
-                </span>
-              </span>
-              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 transition-transform group-hover:translate-x-1">
-                <ArrowRight className="h-6 w-6" />
-              </span>
-            </button>
-          ))}
-        </div>
-      </div>
+      </main>
     </div>
   );
 }
@@ -540,37 +401,16 @@ export function PublicMenuPage({
   const [pixExpired, setPixExpired] = useState(false);
   const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
 
-  // NFC Identification
-  const [nfcOpen, setNfcOpen] = useState(false);
-  const [nfcUid, setNfcUid] = useState("");
-  const [nfcLoading, setNfcLoading] = useState(false);
-  const [nfcError, setNfcError] = useState<string | null>(null);
-  const [nfcNotFound, setNfcNotFound] = useState(false);
-  const [nfcBlocked, setNfcBlocked] = useState(false);
-  const [identifiedCustomer, setIdentifiedCustomer] = useState<NfcIdentifiedCustomer | null>(null);
-  const [nfcSuccess, setNfcSuccess] = useState(false);
-  const [nfcReading, setNfcReading] = useState(false);
-
   // Totem payment flow
   const [paymentMethod, setPaymentMethod] = useState<"PIX" | "CARD">("PIX");
 
   // Premium welcome screen shown before catalog
   const [showWelcome, setShowWelcome] = useState(true);
-  // Premium category picker shown right after welcome, before the catalog list
-  const [showCategoryPicker, setShowCategoryPicker] = useState(true);
   const [legacyResolution, setLegacyResolution] = useState<{
     code?: string;
     canonicalUrl?: string | null;
     message?: string;
   } | null>(null);
-
-  // Auto-dismiss welcome + picker once a customer is identified via NFC
-  useEffect(() => {
-    if (identifiedCustomer) {
-      setShowWelcome(false);
-      setShowCategoryPicker(false);
-    }
-  }, [identifiedCustomer]);
 
   const resetTotem = () => {
     setConfirmation(null);
@@ -583,12 +423,6 @@ export function PublicMenuPage({
     setCustomerName("");
     setCartOpen(false);
     setPixOpen(false);
-    setIdentifiedCustomer(null);
-    setNfcSuccess(false);
-    setNfcNotFound(false);
-    setNfcBlocked(false);
-    setNfcUid("");
-    setNfcReading(false);
     setPaymentMethod("PIX");
   };
 
@@ -597,110 +431,6 @@ export function PublicMenuPage({
     setPixExpired(true);
     setRemainingSeconds(0);
   };
-
-  const openNfcModal = () => {
-    setNfcUid("");
-    setNfcError(null);
-    setNfcNotFound(false);
-    setNfcBlocked(false);
-    setNfcOpen(true);
-  };
-
-  const runNfcIdentify = async (uidInput: string, opts: { auto?: boolean } = {}) => {
-    const raw = uidInput.replace(/[^0-9A-Fa-f]/g, "").toUpperCase();
-    if (raw.length < 8) {
-      if (!opts.auto) setNfcError("Informe um UID válido (mín. 8 caracteres hex).");
-      return;
-    }
-    // Dismiss virtual keyboard / blur active element
-    try {
-      (document.activeElement as HTMLElement | null)?.blur?.();
-    } catch {
-      /* noop */
-    }
-    setNfcOpen(false);
-    setNfcLoading(true);
-    setNfcError(null);
-    setNfcNotFound(false);
-    setNfcBlocked(false);
-    setNfcReading(true);
-    // Brief reading animation for perceived feedback
-    const minDelay = new Promise((r) => setTimeout(r, 600));
-    try {
-      const [result] = await Promise.all([
-        organizationSlug
-          ? identifyNfcCanonical(organizationSlug, slug, raw)
-          : identifyNfc(slug, raw),
-        minDelay,
-      ]);
-      setNfcReading(false);
-      if (result.blocked) {
-        setNfcBlocked(true);
-        return;
-      }
-      if (!result.found || !result.customer) {
-        setNfcNotFound(true);
-        return;
-      }
-      setIdentifiedCustomer(result.customer);
-      if (result.customer.name && !customerName.trim()) {
-        setCustomerName(result.customer.name);
-      }
-      setNfcSuccess(true);
-    } catch (err) {
-      setNfcReading(false);
-      setNfcError(toFriendlyMessage(err));
-      if (opts.auto) toast.error(toFriendlyMessage(err));
-    } finally {
-      setNfcLoading(false);
-    }
-  };
-
-  const handleNfcIdentify = () => runNfcIdentify(nfcUid);
-
-  const clearIdentifiedCustomer = () => {
-    setIdentifiedCustomer(null);
-    setNfcSuccess(false);
-  };
-
-  // Auto-close success screen after 2s
-  useEffect(() => {
-    if (!nfcSuccess) return;
-    const t = setTimeout(() => setNfcSuccess(false), 2000);
-    return () => clearTimeout(t);
-  }, [nfcSuccess]);
-
-  // Auto-dismiss error overlays after 3s
-  useEffect(() => {
-    if (!nfcNotFound && !nfcBlocked) return;
-    const t = setTimeout(() => {
-      setNfcNotFound(false);
-      setNfcBlocked(false);
-    }, 3000);
-    return () => clearTimeout(t);
-  }, [nfcNotFound, nfcBlocked]);
-
-  // Listen to SK210 native NFC bridge ? fully automatic identification
-  useEffect(() => {
-    const onSk210 = (ev: Event) => {
-      const detail = (ev as CustomEvent<{ uid?: string }>).detail;
-      const uid = typeof detail?.uid === "string" ? detail.uid : "";
-      if (!uid) return;
-      setNfcUid(uid);
-      void runNfcIdentify(uid, { auto: true });
-    };
-    window.addEventListener("sk210:nfc", onSk210 as EventListener);
-    // Also expose a global helper the native layer can call
-    (window as unknown as { sk210NfcRead?: (uid: string) => void }).sk210NfcRead = (
-      uid: string,
-    ) => {
-      window.dispatchEvent(new CustomEvent("sk210:nfc", { detail: { uid } }));
-    };
-    return () => {
-      window.removeEventListener("sk210:nfc", onSk210 as EventListener);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slug]);
 
   // Detect Kiosk Mode
   const isKioskMode = useMemo(() => {
@@ -1371,53 +1101,24 @@ export function PublicMenuPage({
         event={event}
         onStart={() => {
           setShowWelcome(false);
-          setShowCategoryPicker(true);
         }}
-      />
-    );
-  }
-
-  if (showCategoryPicker && hasAnyProducts) {
-    const visibleCategories = menu.categories
-      .map((c) => ({ cat: c, count: productsByCat[c.id]?.length ?? 0 }))
-      .filter((c) => c.count > 0);
-    return (
-      <TotemCategoryPicker
-        event={event}
-        categories={visibleCategories}
-        hasNfcIdentified={!!identifiedCustomer}
-        onPickCategory={(id) => {
-          setActiveCat(id);
-          setShowCategoryPicker(false);
-          // Scroll to the chosen category after the catalog mounts
-          setTimeout(() => {
-            const el = document.getElementById(`cat-${id}`);
-            if (el) {
-              const offset = 160;
-              const bodyRect = document.body.getBoundingClientRect().top;
-              const elementRect = el.getBoundingClientRect().top;
-              window.scrollTo({ top: elementRect - bodyRect - offset, behavior: "smooth" });
-            }
-          }, 80);
-        }}
-        onOpenNfc={openNfcModal}
       />
     );
   }
 
   return (
     <div
-      className={`min-h-dvh bg-background flex flex-col overflow-x-hidden ${isKioskMode ? "kiosk-mode select-none" : ""}`}
+      className={`min-h-[100dvh] overflow-x-hidden bg-background pb-40 ${isKioskMode ? "kiosk-mode select-none" : ""}`}
       style={{
         ["--brand-primary" as string]: primary,
         ["--brand-secondary" as string]: secondary,
         ["--primary" as string]: primary,
         ["--primary-glow" as string]: secondary,
-        overscrollBehavior: "none",
+        overscrollBehaviorX: "none",
       }}
     >
       <header className="relative">
-        <div className="relative h-60 w-full overflow-hidden">
+        <div className="relative h-40 w-full overflow-hidden sm:h-56 md:h-60">
           {banner ? (
             <>
               <img src={banner} alt="" aria-hidden className="h-full w-full object-cover" />
@@ -1431,27 +1132,30 @@ export function PublicMenuPage({
           )}
         </div>
 
-        <div className="mx-auto -mt-14 max-w-6xl px-8">
-          <div className="flex items-end gap-5">
+        <div className="mx-auto -mt-10 max-w-5xl px-4 sm:-mt-14 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-3 sm:items-end sm:gap-4">
             <div className="relative shrink-0">
               {logo ? (
                 <img
                   src={logo}
                   alt={eventName}
-                  className="h-28 w-28 rounded-2xl border-4 border-background bg-card object-cover shadow-xl ring-1 ring-border/40"
+                  className="h-20 w-20 rounded-xl border-[3px] border-background bg-card object-cover shadow-xl ring-1 ring-border/40 min-[390px]:h-24 min-[390px]:w-24 sm:h-28 sm:w-28 sm:rounded-2xl sm:border-4"
                 />
               ) : (
-                <div className="flex h-28 w-28 items-center justify-center rounded-2xl border-4 border-background bg-gradient-to-br from-primary to-primary-glow text-3xl font-black text-primary-foreground shadow-xl">
+                <div className="flex h-20 w-20 items-center justify-center rounded-xl border-[3px] border-background bg-gradient-to-br from-primary to-primary-glow text-2xl font-black text-primary-foreground shadow-xl min-[390px]:h-24 min-[390px]:w-24 sm:h-28 sm:w-28 sm:rounded-2xl sm:border-4 sm:text-3xl">
                   {eventName.charAt(0).toUpperCase()}
                 </div>
               )}
             </div>
-            <div className="min-w-0 flex-1 pb-2">
-              <h1 className="line-clamp-2 break-words text-4xl font-black leading-tight tracking-tight text-foreground">
+            <div className="min-w-0 flex-1 pb-0.5 sm:pb-1.5">
+              <div className="mb-1.5 inline-flex rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-primary">
+                Autoatendimento
+              </div>
+              <h1 className="line-clamp-2 break-words text-xl font-black leading-tight tracking-tight text-foreground min-[390px]:text-2xl sm:text-3xl">
                 {eventName}
               </h1>
               {event?.totemWelcomeMessage && (
-                <p className="mt-2 line-clamp-1 text-lg font-medium text-muted-foreground">
+                <p className="mt-1.5 line-clamp-1 text-xs text-muted-foreground sm:text-sm">
                   {event.totemWelcomeMessage}
                 </p>
               )}
@@ -1461,9 +1165,9 @@ export function PublicMenuPage({
       </header>
 
       {menu.categories.length > 0 && (
-        <nav className="sticky top-0 z-30 mt-5 border-b border-border/60 bg-background/90 backdrop-blur-xl">
-          <div className="mx-auto max-w-6xl overflow-x-auto no-scrollbar touch-pan-x px-4">
-            <div className="flex gap-2.5 py-3">
+        <nav className="sticky top-0 z-30 mt-4 border-b border-border/60 bg-background/90 backdrop-blur-xl">
+          <div className="mx-auto max-w-5xl overflow-x-auto no-scrollbar touch-pan-x px-4 sm:px-6 lg:px-8">
+            <div className="flex gap-1.5 py-3">
               {menu.categories.map((c) => {
                 const hasProds = (productsByCat[c.id]?.length ?? 0) > 0;
                 if (!hasProds) return null;
@@ -1482,7 +1186,7 @@ export function PublicMenuPage({
                         window.scrollTo({ top: elementPosition - offset, behavior: "smooth" });
                       }
                     }}
-                    className={`shrink-0 rounded-full px-5 py-2.5 text-base font-bold transition-all active:scale-95 ${
+                    className={`shrink-0 rounded-full px-4 py-2 text-sm font-bold transition-all active:scale-95 sm:px-5 sm:py-2.5 sm:text-base ${
                       isActive
                         ? "bg-primary text-primary-foreground shadow-md shadow-primary/30"
                         : "bg-card text-muted-foreground ring-1 ring-border/60 hover:text-foreground"
@@ -1498,61 +1202,7 @@ export function PublicMenuPage({
       )}
 
       {/* Menu Content */}
-      <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-4 pb-40">
-        {/* NFC Identification Card */}
-        {!identifiedCustomer ? (
-          <button
-            onClick={openNfcModal}
-            className="w-full mb-6 rounded-2xl border border-border/70 bg-card p-5 flex items-center gap-4 text-left shadow-sm transition-all active:scale-[0.99] hover:border-primary/40 hover:shadow-md animate-in fade-in slide-in-from-top-2 duration-500"
-          >
-            <div className="size-16 rounded-xl bg-primary/15 text-primary flex items-center justify-center flex-shrink-0">
-              <Nfc className="size-8" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-0.5">
-                Identificação NFC
-              </div>
-              <div className="text-lg font-black leading-tight text-foreground">Aproxime seu cartão</div>
-              <div className="text-xs font-medium text-muted-foreground mt-0.5">
-                Identificação rápida e segura
-              </div>
-            </div>
-            <div className="px-4 py-2.5 rounded-full bg-primary text-primary-foreground text-xs font-black uppercase tracking-wider whitespace-nowrap shadow-md shadow-primary/30">
-              Identificar
-            </div>
-          </button>
-        ) : (
-          <div
-            className="w-full mb-6 rounded-2xl border border-primary/20 bg-primary/10 p-5 flex items-center gap-4 shadow-sm animate-in fade-in zoom-in-95 duration-300"
-          >
-            <div className="size-16 rounded-xl bg-primary text-primary-foreground flex items-center justify-center flex-shrink-0 shadow-md shadow-primary/30">
-              <BadgeCheck className="size-8" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-[10px] font-black uppercase tracking-widest text-primary mb-0.5">
-                Cliente identificado
-              </div>
-              <div className="text-lg font-black leading-tight text-foreground truncate">
-                {identifiedCustomer.name}
-              </div>
-              <div className="text-xs font-bold text-muted-foreground mt-0.5 flex items-center gap-2">
-                <span>{identifiedCustomer.code}</span>
-                <span className="opacity-40">?</span>
-                <span className="inline-flex items-center gap-1">
-                  <Nfc className="size-3" /> NFC
-                </span>
-              </div>
-            </div>
-            <button
-              onClick={clearIdentifiedCustomer}
-              className="size-10 rounded-full bg-background hover:bg-muted flex items-center justify-center text-muted-foreground transition-colors"
-              aria-label="Remover identificação"
-            >
-              <X className="size-5" />
-            </button>
-          </div>
-        )}
-
+      <main className="mx-auto mt-4 w-full max-w-5xl space-y-8 px-4 pb-44 sm:px-6 lg:px-8">
         {!hasAnyProducts ? (
           <div className="text-center py-20 px-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="mx-auto max-w-xl rounded-2xl border border-dashed border-border bg-card p-10 text-center">
@@ -1579,52 +1229,39 @@ export function PublicMenuPage({
         )}
       </main>
 
-      {/* Always-visible bottom cart bar - Refined for Totem Vertical */}
-      <div className="fixed bottom-0 inset-x-0 z-40 border-t border-border/60 bg-background/95 shadow-[0_-8px_30px_rgba(0,0,0,0.12)] backdrop-blur-xl pb-safe">
-        <div
-          className={`max-w-6xl mx-auto px-4 ${isKioskMode ? "py-6" : "py-4"} flex items-center gap-3`}
-        >
-          <button
-            onClick={() => setCartOpen(true)}
-            className={`flex items-center gap-3 px-4 ${isKioskMode ? "py-5" : "py-4"} rounded-2xl bg-card font-semibold text-left text-primary ring-1 ring-border/60 transition-all hover:bg-muted/50 active:scale-95`}
-            aria-label="Ver carrinho"
-          >
-            <div className="relative">
-              <ShoppingCart className={isKioskMode ? "size-10" : "size-8"} />
-              {cartHasItems && (
-                <span
-                  className={`absolute -top-2 -right-2 text-[10px] font-black rounded-full ${isKioskMode ? "size-6" : "size-5"} flex items-center justify-center shadow-sm`}
-                  style={{ background: primary, color: "#fff" }}
-                >
+      {cartHasItems && (
+        <div className="fixed inset-x-0 bottom-0 z-40 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
+          <div className="mx-auto flex max-w-3xl items-center gap-3 rounded-2xl bg-gradient-to-r from-primary to-primary-glow p-3 text-primary-foreground shadow-2xl shadow-primary/30 ring-1 ring-primary/30">
+            <button
+              onClick={() => setCartOpen(true)}
+              className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-2 py-2 text-left font-semibold transition-all active:scale-[0.99]"
+              aria-label="Ver carrinho"
+            >
+              <div className="relative">
+                <ShoppingCart className="size-7" />
+                <span className="absolute -right-2 -top-2 flex size-5 items-center justify-center rounded-full bg-background text-[10px] font-black text-primary shadow">
                   {totalItems}
                 </span>
-              )}
-            </div>
-            <div className="leading-tight">
-              <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
-                Total
               </div>
-              <div className={`font-black ${isKioskMode ? "text-2xl" : "text-xl"}`}>
-                {formatBRL(totalCents)}
+              <div className="leading-tight">
+                <div className="text-[10px] font-bold uppercase tracking-wider opacity-80">
+                  Total
+                </div>
+                <div className="text-xl font-black">
+                  {formatBRL(totalCents)}
+                </div>
               </div>
-            </div>
-          </button>
+            </button>
 
-          <Button
-            onClick={() => {
-              if (!cartHasItems) {
-                toast.error("Adicione itens ao pedido");
-                return;
-              }
-              setCartOpen(true);
-            }}
-            disabled={!cartHasItems}
-            className={`flex-1 ${isKioskMode ? "h-20 text-2xl" : "h-16 text-xl"} rounded-2xl bg-gradient-to-r from-primary to-primary-glow font-black text-primary-foreground shadow-lg shadow-primary/30 transition-all active:scale-[0.98] active:shadow-md disabled:opacity-50`}
-          >
-            Finalizar
-          </Button>
+            <Button
+              onClick={() => setCartOpen(true)}
+              className="h-14 shrink-0 rounded-xl bg-background px-5 text-base font-black text-primary shadow-lg transition-all active:scale-[0.98] sm:px-8 sm:text-lg"
+            >
+              Finalizar
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Product modal */}
       <Dialog
@@ -1671,7 +1308,6 @@ export function PublicMenuPage({
           primary={primary}
           secondary={secondary}
           isKioskMode={isKioskMode}
-          identifiedCustomer={identifiedCustomer}
           paymentMethod={paymentMethod}
           setPaymentMethod={setPaymentMethod}
           pixAvailable={totemPixAvailable}
@@ -1680,241 +1316,6 @@ export function PublicMenuPage({
           pixUnavailableReason={checkoutSettings?.totem?.unavailablePixReason ?? null}
         />
       </Sheet>
-
-      {/* NFC Reading overlay (auto, no interaction) */}
-      <Dialog
-        open={nfcReading}
-        onOpenChange={() => {
-          /* not closable manually */
-        }}
-      >
-        <DialogContent className="w-[min(92vw,420px)] max-w-[420px] rounded-3xl p-0 overflow-hidden border-none shadow-2xl">
-          <div
-            className="p-10 text-center"
-            style={{
-              background: `linear-gradient(135deg, ${primary} 0%, ${secondary} 100%)`,
-              color: "#fff",
-            }}
-          >
-            <div className="relative mx-auto mb-5 size-28 flex items-center justify-center">
-              <span className="absolute inset-0 rounded-full bg-white/15 animate-ping" />
-              <span className="absolute inset-2 rounded-full bg-white/10" />
-              <div className="relative size-24 rounded-full bg-white/20 backdrop-blur flex items-center justify-center shadow-inner">
-                <Nfc className="size-12 animate-pulse" />
-              </div>
-            </div>
-            <DialogTitle className="text-white text-2xl font-black">Lendo cartão...</DialogTitle>
-            <DialogDescription className="text-white/85 text-sm font-medium mt-1">
-              Mantenha o cartão próximo ao leitor
-            </DialogDescription>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* NFC Auto error overlays (no manual modal needed) */}
-      <Dialog
-        open={!nfcOpen && nfcBlocked}
-        onOpenChange={(o) => {
-          if (!o) setNfcBlocked(false);
-        }}
-      >
-        <DialogContent className="w-[min(92vw,420px)] max-w-[420px] rounded-3xl p-0 overflow-hidden border-none shadow-2xl">
-          <div className="p-8 text-center bg-gradient-to-br from-red-500 to-red-600 text-white">
-            <div className="size-20 rounded-full bg-white/20 backdrop-blur flex items-center justify-center mx-auto mb-4 shadow-inner animate-in zoom-in duration-300">
-              <ShieldAlert className="size-12" />
-            </div>
-            <DialogTitle className="text-white text-2xl font-black">Cartão bloqueado</DialogTitle>
-            <DialogDescription className="text-white/85 text-sm font-medium mt-1">
-              Procure a equipe do evento.
-            </DialogDescription>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
-        open={!nfcOpen && nfcNotFound}
-        onOpenChange={(o) => {
-          if (!o) setNfcNotFound(false);
-        }}
-      >
-        <DialogContent className="w-[min(92vw,420px)] max-w-[420px] rounded-3xl p-0 overflow-hidden border-none shadow-2xl">
-          <div className="p-8 text-center bg-gradient-to-br from-amber-500 to-amber-600 text-white">
-            <div className="size-20 rounded-full bg-white/20 backdrop-blur flex items-center justify-center mx-auto mb-4 shadow-inner animate-in zoom-in duration-300">
-              <AlertTriangle className="size-12" />
-            </div>
-            <DialogTitle className="text-white text-2xl font-black">
-              Cartão não cadastrado
-            </DialogTitle>
-            <DialogDescription className="text-white/85 text-sm font-medium mt-1">
-              Verifique com a equipe do evento.
-            </DialogDescription>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* NFC Identification Modal */}
-      <Dialog
-        open={nfcOpen}
-        onOpenChange={(o) => {
-          if (!nfcLoading) setNfcOpen(o);
-        }}
-      >
-        <DialogContent
-          onOpenAutoFocus={(e) => {
-            e.preventDefault();
-            (document.activeElement as HTMLElement | null)?.blur();
-          }}
-          className="w-[min(92vw,440px)] sm:max-w-[440px] max-h-[calc(100vh-48px)] overflow-y-auto rounded-[28px] p-0 border-none shadow-2xl"
-        >
-          <div
-            className="p-6 pb-4"
-            style={{
-              background: `linear-gradient(135deg, ${primary} 0%, ${secondary} 100%)`,
-              color: "#fff",
-            }}
-          >
-            <div className="size-16 rounded-2xl bg-white/15 backdrop-blur flex items-center justify-center mb-3 shadow-inner">
-              <Nfc className="size-8" />
-            </div>
-            <DialogHeader className="space-y-1 text-left">
-              <DialogTitle className="text-white text-2xl font-black">
-                Identificar Cliente
-              </DialogTitle>
-              <DialogDescription className="text-white/85 text-sm font-medium">
-                Aproxime o cartão do leitor ou informe o UID manualmente.
-              </DialogDescription>
-            </DialogHeader>
-          </div>
-
-          <div className="p-6 space-y-4">
-            {nfcBlocked ? (
-              <div className="rounded-2xl border-2 border-red-200 bg-red-50 p-5 flex items-start gap-3 animate-in fade-in zoom-in-95 duration-200">
-                <ShieldAlert className="size-6 text-red-600 flex-shrink-0 mt-0.5" />
-                <div>
-                  <div className="font-black text-red-900">Cartão bloqueado</div>
-                  <div className="text-sm text-red-800 font-medium mt-1">
-                    Procure a equipe do evento para liberar este cartão.
-                  </div>
-                </div>
-              </div>
-            ) : nfcNotFound ? (
-              <div className="space-y-3 animate-in fade-in zoom-in-95 duration-200">
-                <div className="rounded-2xl border-2 border-amber-200 bg-amber-50 p-5 flex items-start gap-3">
-                  <AlertTriangle className="size-6 text-amber-600 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <div className="font-black text-amber-900">Cartão não cadastrado</div>
-                    <div className="text-sm text-amber-800 font-medium mt-1">
-                      Verifique o UID ou procure a equipe do evento.
-                    </div>
-                  </div>
-                </div>
-                <Button
-                  variant="outline"
-                  onClick={() => setNfcOpen(false)}
-                  className="w-full h-12 rounded-2xl font-bold"
-                >
-                  Continuar sem identificação
-                </Button>
-              </div>
-            ) : null}
-
-            <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">
-                UID do cartão
-              </label>
-              <Input
-                value={nfcUid}
-                onChange={(e) => {
-                  setNfcUid(e.target.value);
-                  setNfcError(null);
-                  setNfcNotFound(false);
-                  setNfcBlocked(false);
-                }}
-                placeholder="Aproxime o cartão ou digite o UID"
-                inputMode="text"
-                className="h-14 text-lg font-bold rounded-xl border-2 focus-visible:ring-primary/20 font-mono tracking-wider"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleNfcIdentify();
-                }}
-              />
-              {nfcError && (
-                <p className="text-xs text-destructive font-bold flex items-center gap-1 ml-1">
-                  <X className="size-3" /> {nfcError}
-                </p>
-              )}
-            </div>
-
-            <Button
-              onClick={handleNfcIdentify}
-              disabled={nfcLoading || !nfcUid.trim()}
-              className="w-full h-14 text-base font-black rounded-2xl shadow-md transition-all active:scale-[0.98]"
-              style={{ background: primary, color: "#fff" }}
-            >
-              {nfcLoading ? (
-                <>
-                  <Loader2 className="size-5 animate-spin mr-2" /> Identificando...
-                </>
-              ) : (
-                <>
-                  <Nfc className="size-5 mr-2" /> Identificar
-                </>
-              )}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* NFC Success Modal */}
-      <Dialog open={nfcSuccess} onOpenChange={setNfcSuccess}>
-        <DialogContent className="w-[min(92vw,440px)] sm:max-w-[440px] max-h-[calc(100vh-48px)] overflow-y-auto rounded-[28px] p-0 border-none shadow-2xl">
-          <div className="p-8 text-center bg-gradient-to-br from-emerald-500 to-emerald-600 text-white">
-            <div className="size-20 rounded-full bg-white/20 backdrop-blur flex items-center justify-center mx-auto mb-4 shadow-inner animate-in zoom-in duration-300">
-              <BadgeCheck className="size-12" />
-            </div>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 text-[10px] font-black uppercase tracking-widest mb-3">
-              <CheckCircle2 className="size-3" /> Identificado
-            </div>
-            <DialogTitle className="text-white text-3xl font-black">
-              Olá, {identifiedCustomer?.name?.split(" ")[0] ?? "Cliente"} 
-            </DialogTitle>
-            <DialogDescription className="text-white/85 text-sm font-medium mt-1">
-              Cartão reconhecido com sucesso.
-            </DialogDescription>
-          </div>
-
-          <div className="p-6 space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-2xl bg-muted/40 p-4">
-                <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">
-                  Cartão
-                </div>
-                <div className="font-black text-lg font-mono">{identifiedCustomer?.code}</div>
-              </div>
-              <div className="rounded-2xl bg-muted/40 p-4">
-                <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">
-                  Tipo
-                </div>
-                <div className="font-black text-lg capitalize">
-                  {identifiedCustomer?.type === "CUSTOMER"
-                    ? "Cliente"
-                    : (identifiedCustomer?.type ?? "?").toLowerCase()}
-                </div>
-              </div>
-            </div>
-
-            <Button
-              onClick={() => {
-                setNfcSuccess(false);
-                setNfcOpen(false);
-              }}
-              className="w-full h-14 text-base font-black rounded-2xl shadow-md transition-all active:scale-[0.98]"
-              style={{ background: primary, color: "#fff" }}
-            >
-              Continuar Pedido
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* PIX payment dialog */}
       <Dialog
@@ -2783,7 +2184,6 @@ function CartSheet({
   primary,
   secondary,
   isKioskMode,
-  identifiedCustomer,
   paymentMethod,
   setPaymentMethod,
   pixAvailable,
@@ -2804,7 +2204,6 @@ function CartSheet({
   primary: string;
   secondary: string;
   isKioskMode: boolean;
-  identifiedCustomer: NfcIdentifiedCustomer | null;
   paymentMethod: "PIX" | "CARD";
   setPaymentMethod: (m: "PIX" | "CARD") => void;
   pixAvailable: boolean;
@@ -2813,8 +2212,6 @@ function CartSheet({
   pixUnavailableReason?: string | null;
 }) {
   const empty = cart.length === 0;
-  const balanceCents = identifiedCustomer?.balanceInCents ?? 0;
-  const hasBalanceEnough = !!identifiedCustomer && balanceCents >= totalCents;
   const selectedMethodAvailable =
     paymentMethod === "PIX" ? pixAvailable : cardAvailable;
 
@@ -2950,47 +2347,6 @@ function CartSheet({
             </p>
           )}
         </div>
-
-        {identifiedCustomer && (
-          <div
-            className={`rounded-2xl p-4 border-2 ${
-              hasBalanceEnough ? "bg-emerald-50 border-emerald-200" : "bg-amber-50 border-amber-200"
-            }`}
-          >
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2 min-w-0">
-                <div
-                  className={`size-9 rounded-full flex items-center justify-center ${
-                    hasBalanceEnough ? "bg-emerald-500" : "bg-amber-500"
-                  } text-white`}
-                >
-                  <CreditCard className="size-5" />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                    Cartão NFC conectado
-                  </div>
-                  <div className="font-bold truncate text-sm">{identifiedCustomer.name}</div>
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                  Saldo
-                </div>
-                <div
-                  className={`font-black text-lg ${hasBalanceEnough ? "text-emerald-700" : "text-amber-700"}`}
-                >
-                  {formatBRL(balanceCents)}
-                </div>
-              </div>
-            </div>
-            {!hasBalanceEnough && (
-              <p className="text-xs text-amber-700 font-semibold mt-2">
-                Saldo insuficiente para este pedido.
-              </p>
-            )}
-          </div>
-        )}
 
         <div className="space-y-2">
           <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">
