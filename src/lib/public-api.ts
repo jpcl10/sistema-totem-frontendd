@@ -134,6 +134,77 @@ async function handle<T>(res: Response): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+export interface PublicApiRequestDiagnostics {
+  endpoint: string;
+  method: string;
+  status?: number;
+  apiMessage?: string;
+  payload?: unknown;
+  organizationSlug?: string | null;
+  eventSlug?: string | null;
+}
+
+const publicApiDiagnosticsKey = "__publicApiDiagnostics";
+
+export function getPublicApiRequestDiagnostics(error: unknown): PublicApiRequestDiagnostics | null {
+  if (!error || typeof error !== "object") return null;
+  const value = (error as Record<string, unknown>)[publicApiDiagnosticsKey];
+  if (!value || typeof value !== "object") return null;
+  return value as PublicApiRequestDiagnostics;
+}
+
+function withPublicApiDiagnostics<T extends Error>(
+  error: T,
+  diagnostics: PublicApiRequestDiagnostics,
+): T {
+  const existing = getPublicApiRequestDiagnostics(error);
+  Object.defineProperty(error, publicApiDiagnosticsKey, {
+    configurable: true,
+    enumerable: false,
+    value: {
+      ...diagnostics,
+      ...existing,
+      status: existing?.status ?? diagnostics.status,
+      apiMessage: existing?.apiMessage ?? diagnostics.apiMessage,
+      payload: existing?.payload ?? diagnostics.payload,
+    },
+  });
+  return error;
+}
+
+async function publicApiFetch(
+  url: string,
+  init: Parameters<typeof apiFetch>[1] = {},
+  diagnostics: Omit<PublicApiRequestDiagnostics, "endpoint" | "method" | "status" | "apiMessage"> = {},
+): Promise<Response> {
+  const method = init.method ?? "GET";
+  const endpoint = url.replace(API_BASE_URL, "");
+  const baseDiagnostics = {
+    endpoint,
+    method,
+    ...diagnostics,
+  };
+
+  let res: Response;
+  try {
+    res = await apiFetch(url, init);
+  } catch (error) {
+    if (error instanceof Error) throw withPublicApiDiagnostics(error, baseDiagnostics);
+    throw error;
+  }
+
+  if (!res.ok) {
+    const error = await fromResponse(res);
+    throw withPublicApiDiagnostics(error, {
+      ...baseDiagnostics,
+      status: res.status,
+      apiMessage: error.raw || error.message,
+    });
+  }
+
+  return res;
+}
+
 function encodeEventPath({
   organizationSlug,
   eventSlug,
@@ -276,11 +347,12 @@ function normalizePublicOrder(raw: unknown): PublicOrderResponse {
 }
 
 export async function getPublicMenu(slug: string): Promise<PublicMenu> {
-  const res = await apiFetch(
+  const res = await publicApiFetch(
     `${API_BASE_URL}/public/events/${encodeURIComponent(slug)}/catalog-menu`,
     { headers: { ...API_HEADERS } },
+    { eventSlug: slug },
   );
-  const data = await handle<unknown>(res);
+  const data = await res.json() as unknown;
   const obj = (data && typeof data === "object" ? data : {}) as Record<string, unknown>;
   const event = normalizePublicEvent(obj.event ?? obj);
   const eventObj = event as unknown as Record<string, unknown>;
@@ -297,11 +369,12 @@ export async function getPublicMenu(slug: string): Promise<PublicMenu> {
 }
 
 export async function resolveLegacyPublicEvent(slug: string): Promise<LegacyPublicEventResolution> {
-  const res = await apiFetch(
+  const res = await publicApiFetch(
     `${API_BASE_URL}/public/events/${encodeURIComponent(slug)}/catalog-menu`,
     { headers: { ...API_HEADERS } },
+    { eventSlug: slug },
   );
-  return handle<LegacyPublicEventResolution>(res);
+  return res.json() as Promise<LegacyPublicEventResolution>;
 }
 
 export async function getCanonicalPublicMenu({
@@ -311,11 +384,12 @@ export async function getCanonicalPublicMenu({
   organizationSlug: string;
   eventSlug: string;
 }): Promise<PublicMenu> {
-  const res = await apiFetch(
+  const res = await publicApiFetch(
     `${API_BASE_URL}${encodeEventPath({ organizationSlug, eventSlug })}/catalog-menu`,
     { headers: { ...API_HEADERS } },
+    { organizationSlug, eventSlug },
   );
-  const data = await handle<unknown>(res);
+  const data = await res.json() as unknown;
   const obj = (data && typeof data === "object" ? data : {}) as Record<string, unknown>;
   const event = normalizePublicEvent(obj.event ?? obj);
   const eventObj = event as unknown as Record<string, unknown>;
@@ -371,15 +445,17 @@ function pickBalance(obj: Record<string, unknown> | undefined | null): number | 
 
 export async function identifyNfc(slug: string, uid: string): Promise<NfcIdentifyResponse> {
   const normalized = uid.replace(/[^0-9A-Fa-f]/g, "").toUpperCase();
-  const res = await apiFetch(
+  const payload = { uid: normalized };
+  const res = await publicApiFetch(
     `${API_BASE_URL}/public/events/${encodeURIComponent(slug)}/nfc/identify`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json", ...API_HEADERS },
-      body: JSON.stringify({ uid: normalized }),
+      body: JSON.stringify(payload),
     },
+    { eventSlug: slug, payload },
   );
-  const data = await handle<NfcIdentifyResponse & { card?: Record<string, unknown> }>(res);
+  const data = await res.json() as NfcIdentifyResponse & { card?: Record<string, unknown> };
   const customer = data.customer;
   const blocked = data.blocked === true || (customer?.status && String(customer.status).toUpperCase() === "BLOCKED");
   let normalizedCustomer = customer;
@@ -399,15 +475,17 @@ export async function identifyNfcCanonical(
   uid: string,
 ): Promise<NfcIdentifyResponse> {
   const normalized = uid.replace(/[^0-9A-Fa-f]/g, "").toUpperCase();
-  const res = await apiFetch(
+  const payload = { uid: normalized };
+  const res = await publicApiFetch(
     `${API_BASE_URL}${encodeEventPath({ organizationSlug, eventSlug })}/nfc/identify`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json", ...API_HEADERS },
-      body: JSON.stringify({ uid: normalized }),
+      body: JSON.stringify(payload),
     },
+    { organizationSlug, eventSlug, payload },
   );
-  const data = await handle<NfcIdentifyResponse & { card?: Record<string, unknown> }>(res);
+  const data = await res.json() as NfcIdentifyResponse & { card?: Record<string, unknown> };
   const customer = data.customer;
   const blocked = data.blocked === true || (customer?.status && String(customer.status).toUpperCase() === "BLOCKED");
   let normalizedCustomer = customer;
@@ -497,15 +575,16 @@ export async function createPublicOrder(
   slug: string,
   input: CreatePublicOrderInput,
 ): Promise<PublicOrderResponse> {
-  const res = await apiFetch(
+  const res = await publicApiFetch(
     `${API_BASE_URL}/public/events/${encodeURIComponent(slug)}/orders`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json", ...API_HEADERS },
       body: JSON.stringify(input),
     },
+    { eventSlug: slug, payload: input },
   );
-  const data = await handle<PublicOrderResponse | { order: PublicOrderResponse }>(res);
+  const data = await res.json() as PublicOrderResponse | { order: PublicOrderResponse };
   return normalizePublicOrder(
     "order" in (data as object)
       ? (data as { order: PublicOrderResponse }).order
@@ -518,15 +597,16 @@ export async function createPublicOrderCanonical(
   eventSlug: string,
   input: CreatePublicOrderInput,
 ): Promise<PublicOrderResponse> {
-  const res = await apiFetch(
+  const res = await publicApiFetch(
     `${API_BASE_URL}${encodeEventPath({ organizationSlug, eventSlug })}/orders`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json", ...API_HEADERS },
       body: JSON.stringify(input),
     },
+    { organizationSlug, eventSlug, payload: input },
   );
-  const data = await handle<PublicOrderResponse | { order: PublicOrderResponse }>(res);
+  const data = await res.json() as PublicOrderResponse | { order: PublicOrderResponse };
   return normalizePublicOrder(
     "order" in (data as object)
       ? (data as { order: PublicOrderResponse }).order
@@ -538,10 +618,12 @@ export async function getCheckoutPaymentSettings(
   eventId: string,
   context: "TOTEM" | "PUBLIC_CHECKOUT" = "PUBLIC_CHECKOUT",
 ): Promise<CheckoutPaymentSettings> {
-  const res = await apiFetch(`${API_BASE_URL}/public/events/${encodeURIComponent(eventId)}/checkout-payment-settings?context=${encodeURIComponent(context)}`, {
-    headers: { ...API_HEADERS },
-  });
-  const data = await handle<CheckoutPaymentSettings | { checkoutPaymentSettings: CheckoutPaymentSettings }>(res);
+  const res = await publicApiFetch(
+    `${API_BASE_URL}/public/events/${encodeURIComponent(eventId)}/checkout-payment-settings?context=${encodeURIComponent(context)}`,
+    { headers: { ...API_HEADERS } },
+    { payload: { eventId, context } },
+  );
+  const data = await res.json() as CheckoutPaymentSettings | { checkoutPaymentSettings: CheckoutPaymentSettings };
   return "checkoutPaymentSettings" in (data as object)
     ? (data as { checkoutPaymentSettings: CheckoutPaymentSettings }).checkoutPaymentSettings
     : (data as CheckoutPaymentSettings);
@@ -562,21 +644,18 @@ export async function checkoutPayment(
 ): Promise<CheckoutPaymentResponse> {
   const url = `${API_BASE_URL}/public/orders/${encodeURIComponent(orderId)}/checkout-payment`;
   // [redacted log]
-  const res = await fetch(url, {
+  const res = await publicApiFetch(url, {
     method: "POST",
     headers: { 
       "Content-Type": "application/json",
       ...API_HEADERS
     },
     body: JSON.stringify(input),
-  });
+  }, { eventSlug: null, payload: { orderId, ...input } });
   
   // [redacted log]
   const data = await res.json();
   // [redacted log]
-  if (!res.ok) {
-    throw new Error(data?.message || "Erro ao preparar pagamento");
-  }
 
   return data as CheckoutPaymentResponse;
 }

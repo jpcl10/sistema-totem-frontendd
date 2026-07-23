@@ -10,6 +10,7 @@ import { useEffect } from "react";
 
 import { AuthProvider } from "@/lib/auth-context";
 import { OrganizationProvider } from "@/contexts/organization-context";
+import { getPublicApiRequestDiagnostics } from "@/lib/public-api";
 
 const TITLE_MAP: Array<[RegExp, string]> = [
   [/^\/admin\/login/, "Login"],
@@ -74,7 +75,24 @@ function NotFoundComponent() {
 }
 
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
-  console.error(error);
+  if (import.meta.env.DEV) {
+    const diagnostics = getPublicApiRequestDiagnostics(error);
+    /* eslint-disable no-console */
+    console.groupCollapsed("[Route Error] Nao foi possivel carregar esta pagina");
+    console.error(error);
+    console.info("Endpoint:", diagnostics?.endpoint ?? "desconhecido");
+    console.info("Metodo:", diagnostics?.method ?? "desconhecido");
+    console.info("Status HTTP:", diagnostics?.status ?? "sem resposta HTTP");
+    console.info("Mensagem da API:", diagnostics?.apiMessage ?? error.message);
+    console.info("Payload enviado:", diagnostics?.payload ?? null);
+    console.info("Slug do evento:", diagnostics?.eventSlug ?? null);
+    console.info("Slug da organizacao:", diagnostics?.organizationSlug ?? null);
+    console.info("Stack completa:", error.stack ?? "Stack indisponivel");
+    console.groupEnd();
+    /* eslint-enable no-console */
+  } else {
+    console.error(error);
+  }
   const router = useRouter();
 
   return (

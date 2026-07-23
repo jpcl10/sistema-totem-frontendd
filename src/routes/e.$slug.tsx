@@ -62,6 +62,7 @@ import {
   getPublicOrderStatus,
   identifyNfc,
   identifyNfcCanonical,
+  getPublicApiRequestDiagnostics,
   type PublicMenu,
   type PublicProduct,
   type PublicProductOptionGroup,
@@ -75,6 +76,31 @@ import {
   type NfcIdentifiedCustomer,
 } from "@/lib/public-api";
 import { enqueueJobsForOrder, type PrintSector } from "@/lib/print-queue";
+
+function logTotemPublicApiError(
+  label: string,
+  error: unknown,
+  context: { eventSlug: string; organizationSlug?: string | null; payload?: unknown },
+) {
+  if (!import.meta.env.DEV) return;
+
+  const diagnostics = getPublicApiRequestDiagnostics(error);
+  const stack = error instanceof Error ? error.stack : undefined;
+
+  /* eslint-disable no-console */
+  console.groupCollapsed(`[Totem Public] ${label}`);
+  console.error(error);
+  console.info("Endpoint:", diagnostics?.endpoint ?? "desconhecido");
+  console.info("Metodo:", diagnostics?.method ?? "desconhecido");
+  console.info("Status HTTP:", diagnostics?.status ?? "sem resposta HTTP");
+  console.info("Mensagem da API:", diagnostics?.apiMessage ?? (error instanceof Error ? error.message : String(error)));
+  console.info("Payload enviado:", diagnostics?.payload ?? context.payload ?? null);
+  console.info("Slug do evento:", diagnostics?.eventSlug ?? context.eventSlug);
+  console.info("Slug da organizacao:", diagnostics?.organizationSlug ?? context.organizationSlug ?? null);
+  console.info("Stack completa:", stack ?? "Stack indisponivel");
+  console.groupEnd();
+  /* eslint-enable no-console */
+}
 
 function isLegacyPixEnabled(event?: PublicEvent | null): boolean {
   const v = event?.pixEnabled as unknown;
@@ -816,9 +842,13 @@ export function PublicMenuPage({
             setError("Evento não encontrado");
           }
         })
-        .catch(
-          (e) => alive && setError(toFriendlyMessage(e, "Não foi possível carregar o cardápio.")),
-        )
+        .catch((e) => {
+          logTotemPublicApiError("Falha ao resolver evento legado", e, {
+            eventSlug: slug,
+            organizationSlug,
+          });
+          if (alive) setError(toFriendlyMessage(e, "Não foi possível carregar o cardápio."));
+        })
         .finally(() => alive && setLoading(false));
       return () => {
         alive = false;
@@ -833,9 +863,13 @@ export function PublicMenuPage({
         setMenu(m);
         setActiveCat(m.categories[0]?.id ?? null);
       })
-      .catch(
-        (e) => alive && setError(toFriendlyMessage(e, "Não foi possível carregar o cardápio.")),
-      )
+      .catch((e) => {
+        logTotemPublicApiError("Falha ao carregar cardapio canonico", e, {
+          eventSlug: slug,
+          organizationSlug,
+        });
+        if (alive) setError(toFriendlyMessage(e, "Não foi possível carregar o cardápio."));
+      })
       .finally(() => alive && setLoading(false));
     return () => {
       alive = false;
@@ -888,6 +922,11 @@ export function PublicMenuPage({
         }
       })
       .catch((err) => {
+        logTotemPublicApiError("Falha ao carregar pagamentos do totem", err, {
+          eventSlug: slug,
+          organizationSlug,
+          payload: { eventId: event.id, context: "TOTEM" },
+        });
         if (!alive) return;
         setCheckoutSettings(null);
         toast.error(toFriendlyMessage(err, "Não foi possível carregar os pagamentos do totem."));
@@ -1090,6 +1129,10 @@ export function PublicMenuPage({
       }
       return true;
     } catch (e) {
+      logTotemPublicApiError("Falha ao validar pedido antes do envio", e, {
+        eventSlug: slug,
+        organizationSlug,
+      });
       handleApiError(e, "Não foi possível validar seu pedido. Tente novamente.");
       return false;
     }
@@ -1164,7 +1207,11 @@ export function PublicMenuPage({
             : null,
         );
       } catch (err) {
-        console.error("CHECKOUT PAYMENT ERROR:", err);
+        logTotemPublicApiError("Falha ao iniciar pagamento do checkout", err, {
+          eventSlug: slug,
+          organizationSlug,
+          payload: { orderId: order.id, context: "TOTEM", paymentMethod: "PIX" },
+        });
         const isTimeout = (err as Error)?.message === "CHECKOUT_TIMEOUT";
         setPaymentStep("operator");
         setConfirmation((prev) =>
@@ -1231,13 +1278,19 @@ export function PublicMenuPage({
 
   const sendOrder = async (method: "PIX" | "CARD") => {
     setSubmitting(true);
+    let payload: ReturnType<typeof buildOrderPayload> | null = null;
     try {
-      const payload = buildOrderPayload(method);
+      payload = buildOrderPayload(method);
       const order = organizationSlug
         ? await createPublicOrderCanonical(organizationSlug, slug, payload)
         : await createPublicOrder(slug, payload);
       await handleOrderCreated(order, method);
     } catch (e) {
+      logTotemPublicApiError("Falha ao criar pedido do totem", e, {
+        eventSlug: slug,
+        organizationSlug,
+        payload,
+      });
       const msg = String((e as { message?: string })?.message ?? "").toLowerCase();
       if (
         msg.includes("stock") ||
