@@ -58,13 +58,10 @@ import {
   createPublicOrder,
   createPublicOrderCanonical,
   getCheckoutPaymentSettings,
-  createPixAutomaticPayment,
   checkoutPayment,
   getPublicOrderStatus,
   identifyNfc,
   identifyNfcCanonical,
-  payWithNfcBalance,
-  payWithNfcBalanceCanonical,
   type PublicMenu,
   type PublicProduct,
   type PublicProductOptionGroup,
@@ -79,7 +76,7 @@ import {
 } from "@/lib/public-api";
 import { enqueueJobsForOrder, type PrintSector } from "@/lib/print-queue";
 
-function isPixEnabled(event?: PublicEvent | null): boolean {
+function isLegacyPixEnabled(event?: PublicEvent | null): boolean {
   const v = event?.pixEnabled as unknown;
   if (v === true) return true;
   if (typeof v === "string") return ["true", "1", "yes", "on"].includes(v.toLowerCase());
@@ -491,10 +488,11 @@ export function PublicMenuPage({
   const [nameError, setNameError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // New paymentStep state for the final flow
   const [paymentStep, setPaymentStep] = useState<
-    "loading" | "pix_automatic" | "pix_manual" | "operator" | "paid" | null
+    "loading" | "pix_automatic" | "pix_unavailable" | "operator" | "paid" | null
   >(null);
+  const [checkoutSettings, setCheckoutSettings] = useState<CheckoutPaymentSettings | null>(null);
+  const [checkoutSettingsLoading, setCheckoutSettingsLoading] = useState(false);
 
   const [confirmation, setConfirmation] = useState<{
     id?: string;
@@ -503,15 +501,8 @@ export function PublicMenuPage({
     totalInCents?: number;
     customerName?: string;
     transaction?: PaymentTransaction | null;
-    isManualPix?: boolean;
     error?: string | null;
     checkoutSettings?: CheckoutPaymentSettings;
-    manualPix?: {
-      pixKey?: string;
-      receiverName?: string;
-      city?: string;
-      instructions?: string;
-    };
     message?: string;
   } | null>(null);
   const [pixOpen, setPixOpen] = useState(false);
@@ -529,11 +520,8 @@ export function PublicMenuPage({
   const [nfcSuccess, setNfcSuccess] = useState(false);
   const [nfcReading, setNfcReading] = useState(false);
 
-  // NFC balance payment flow
-  const [paymentMethod, setPaymentMethod] = useState<"PIX" | "NFC">("PIX");
-  const [nfcConfirmOpen, setNfcConfirmOpen] = useState(false);
-  const [nfcPaying, setNfcPaying] = useState(false);
-  const [nfcPaidBalance, setNfcPaidBalance] = useState<number | null>(null);
+  // Totem payment flow
+  const [paymentMethod, setPaymentMethod] = useState<"PIX" | "CARD">("PIX");
 
   // Premium welcome screen shown before catalog
   const [showWelcome, setShowWelcome] = useState(true);
@@ -571,9 +559,6 @@ export function PublicMenuPage({
     setNfcUid("");
     setNfcReading(false);
     setPaymentMethod("PIX");
-    setNfcConfirmOpen(false);
-    setNfcPaying(false);
-    setNfcPaidBalance(null);
   };
 
   const showPixExpiredScreen = () => {
@@ -858,6 +843,15 @@ export function PublicMenuPage({
   }, [slug, organizationSlug]);
 
   const event = menu?.event;
+  const totemPixAvailable =
+    checkoutSettings?.totem?.pixAvailable ??
+    checkoutSettings?.mercadoPago?.pixAutomaticAvailable ??
+    false;
+  const totemCardAvailable =
+    checkoutSettings?.totem?.cardAvailable ??
+    checkoutSettings?.mercadoPago?.terminalEnabled ??
+    checkoutSettings?.mercadoPago?.cardEnabled ??
+    false;
   const primary = event?.primaryColor || "#0f172a";
   const secondary = event?.secondaryColor || "#f59e0b";
   const branding = usePublicEventBranding(event);
@@ -868,6 +862,43 @@ export function PublicMenuPage({
 
   const totalItems = cart.reduce((s, c) => s + c.quantity, 0);
   const totalCents = cart.reduce((s, c) => s + c.unitPriceInCents * c.quantity, 0);
+
+  useEffect(() => {
+    if (!event?.id) {
+      setCheckoutSettings(null);
+      return;
+    }
+    let alive = true;
+    setCheckoutSettingsLoading(true);
+    getCheckoutPaymentSettings(event.id, "TOTEM")
+      .then((settings) => {
+        if (!alive) return;
+        setCheckoutSettings(settings);
+        const pixAllowed =
+          settings.totem?.pixAvailable ?? settings.mercadoPago?.pixAutomaticAvailable ?? false;
+        const cardAllowed =
+          settings.totem?.cardAvailable ??
+          settings.mercadoPago?.terminalEnabled ??
+          settings.mercadoPago?.cardEnabled ??
+          false;
+        if (!pixAllowed && cardAllowed) {
+          setPaymentMethod("CARD");
+        } else if (pixAllowed) {
+          setPaymentMethod("PIX");
+        }
+      })
+      .catch((err) => {
+        if (!alive) return;
+        setCheckoutSettings(null);
+        toast.error(toFriendlyMessage(err, "Não foi possível carregar os pagamentos do totem."));
+      })
+      .finally(() => {
+        if (alive) setCheckoutSettingsLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [event?.id]);
 
   const productsByCat = useMemo(() => {
     const map: Record<string, PublicProduct[]> = {};
@@ -1064,9 +1095,11 @@ export function PublicMenuPage({
     }
   };
 
-  const buildOrderPayload = (pix: boolean): Parameters<typeof createPublicOrder>[1] => {
+  const buildOrderPayload = (method: "PIX" | "CARD"): Parameters<typeof createPublicOrder>[1] => {
     const payload: Parameters<typeof createPublicOrder>[1] = {
       customerName: customerName.trim(),
+      checkoutContext: "TOTEM",
+      paymentMethod: method,
       items: cart.map((c) => ({
         productId: c.product.id,
         quantity: c.quantity,
@@ -1078,18 +1111,15 @@ export function PublicMenuPage({
         selectedFlavorProductIds: c.selectedFlavorProductIds,
       })),
     };
-    if (pix) {
-      payload.paymentMethod = "PIX";
-      payload.paymentStatus = "PENDING";
-      payload.status = "PENDING";
-    }
+    payload.paymentStatus = "PENDING";
+    payload.status = method === "PIX" ? "PENDING" : "CONFIRMED";
     return payload;
   };
 
-  const handleOrderCreated = async (order: PublicOrderResponse) => {
+  const handleOrderCreated = async (order: PublicOrderResponse, method: "PIX" | "CARD") => {
     const num = String(order.number ?? order.orderNumber ?? order.code ?? order.id);
     const returnedPending = (order.paymentStatus ?? "").toUpperCase() === "PENDING";
-    const awaitingPayment = returnedPending;
+    const awaitingPayment = method === "PIX" && returnedPending;
 
     setPaymentStep("loading");
 
@@ -1097,11 +1127,10 @@ export function PublicMenuPage({
     setConfirmation({
       id: order.id,
       number: num,
-      pix: awaitingPayment,
+      pix: method === "PIX",
       totalInCents: order.totalInCents || totalCents,
       customerName: customerName.trim(),
       transaction: null,
-      isManualPix: false,
       error: null,
       checkoutSettings: undefined,
     });
@@ -1109,23 +1138,28 @@ export function PublicMenuPage({
     if (awaitingPayment) {
       try {
         const checkoutResponse = await Promise.race([
-          checkoutPayment(order.id),
+          checkoutPayment(order.id, { context: "TOTEM", paymentMethod: "PIX" }),
           new Promise<never>((_, reject) =>
             setTimeout(() => reject(new Error("CHECKOUT_TIMEOUT")), 20000),
           ),
         ]);
 
-        // Logs already handled in checkoutPayment
-        setPaymentStep(checkoutResponse.paymentStep);
+        const nextPaymentStep =
+          checkoutResponse.paymentStep === "pix_manual"
+            ? "pix_unavailable"
+            : checkoutResponse.paymentStep;
+        setPaymentStep(nextPaymentStep);
         setConfirmation((prev) =>
           prev
             ? {
                 ...prev,
-                pix: checkoutResponse.paymentStep !== "paid",
+                pix: nextPaymentStep !== "paid",
                 transaction: checkoutResponse.paymentTransaction,
-                isManualPix: checkoutResponse.paymentStep === "pix_manual",
-                manualPix: checkoutResponse.manualPix,
                 message: checkoutResponse.message,
+                error:
+                  nextPaymentStep === "pix_unavailable"
+                    ? checkoutResponse.message ?? "PIX indisponível neste totem."
+                    : prev.error,
               }
             : null,
         );
@@ -1150,7 +1184,7 @@ export function PublicMenuPage({
         );
       }
     } else {
-      // Not awaiting payment (already paid or cash)
+      // Card payments are handled by the configured terminal/operator flow.
       setPaymentStep(null);
 
       // Print tickets
@@ -1195,14 +1229,14 @@ export function PublicMenuPage({
     setPixOpen(false);
   };
 
-  const sendOrder = async (pix: boolean) => {
+  const sendOrder = async (method: "PIX" | "CARD") => {
     setSubmitting(true);
     try {
-      const payload = buildOrderPayload(pix);
+      const payload = buildOrderPayload(method);
       const order = organizationSlug
         ? await createPublicOrderCanonical(organizationSlug, slug, payload)
         : await createPublicOrder(slug, payload);
-      await handleOrderCreated(order);
+      await handleOrderCreated(order, method);
     } catch (e) {
       const msg = String((e as { message?: string })?.message ?? "").toLowerCase();
       if (
@@ -1224,116 +1258,23 @@ export function PublicMenuPage({
     const ok = await validateBeforeSubmit();
     if (!ok) return;
 
-    if (paymentMethod === "NFC") {
-      // Validate balance before opening confirmation
-      const balance = identifiedCustomer?.balanceInCents ?? 0;
-      if (!identifiedCustomer) {
-        toast.error("Aproxime seu cartão NFC para usar saldo.");
+    if (paymentMethod === "PIX") {
+      if (!totemPixAvailable) {
+        toast.error(
+          checkoutSettings?.totem?.unavailablePixReason ??
+            "PIX automático indisponível neste totem.",
+        );
         return;
       }
-      if (balance < totalCents) {
-        toast.error(`Saldo insuficiente. Disponível: ${formatBRL(balance)}`);
-        return;
-      }
-      setNfcConfirmOpen(true);
+      await sendOrder("PIX");
       return;
     }
 
-    const pix = isPixEnabled(event);
-    if (pix) {
-      await sendOrder(true);
+    if (!totemCardAvailable) {
+      toast.error("Pagamento com cartão indisponível neste totem.");
       return;
     }
-    await sendOrder(false);
-  };
-
-  const submitNfcPayment = async () => {
-    if (!identifiedCustomer || nfcPaying) return;
-    const uid = identifiedCustomer.uid;
-    setNfcPaying(true);
-    setPaymentStep("loading");
-    try {
-      // Create order first (pending). Backend pay-with-nfc-balance will mark it paid.
-      const order = organizationSlug
-        ? await createPublicOrderCanonical(organizationSlug, slug, {
-            customerName: customerName.trim(),
-            items: cart.map((c) => ({
-              productId: c.product.id,
-              quantity: c.quantity,
-              notes: c.notes,
-              selectedOptions: c.selectedOptions?.map((group) => ({
-                optionGroupId: group.optionGroupId,
-                optionIds: group.optionIds,
-              })),
-              selectedFlavorProductIds: c.selectedFlavorProductIds,
-            })),
-            paymentMethod: "NFC_BALANCE",
-            paymentStatus: "PENDING",
-            status: "PENDING",
-          })
-        : await createPublicOrder(slug, {
-            customerName: customerName.trim(),
-          items: cart.map((c) => ({
-            productId: c.product.id,
-            quantity: c.quantity,
-            notes: c.notes,
-            selectedOptions: c.selectedOptions?.map((group) => ({
-              optionGroupId: group.optionGroupId,
-              optionIds: group.optionIds,
-            })),
-            selectedFlavorProductIds: c.selectedFlavorProductIds,
-          })),
-            paymentMethod: "NFC_BALANCE",
-            paymentStatus: "PENDING",
-            status: "PENDING",
-          });
-
-      const num = String(order.number ?? order.orderNumber ?? order.code ?? order.id);
-      setConfirmation({
-        id: order.id,
-        number: num,
-        pix: false,
-        totalInCents: order.totalInCents || totalCents,
-        customerName: customerName.trim(),
-        transaction: null,
-        isManualPix: false,
-        error: null,
-      });
-
-      const result = organizationSlug
-        ? await payWithNfcBalanceCanonical(organizationSlug, slug, order.id, uid)
-        : await payWithNfcBalance(slug, order.id, uid);
-      const newBalance =
-        result.newBalanceInCents ??
-        (result.card?.balanceInCents as number | undefined) ??
-        Math.max(0, (identifiedCustomer.balanceInCents ?? 0) - totalCents);
-
-      setNfcPaidBalance(newBalance);
-      setIdentifiedCustomer((prev) => (prev ? { ...prev, balanceInCents: newBalance } : prev));
-      setPaymentStep("paid");
-      toast.success("Pagamento aprovado!");
-
-      setCart([]);
-      setCustomerName("");
-      setCartOpen(false);
-      setNfcConfirmOpen(false);
-    } catch (e) {
-      const msg = String((e as { message?: string })?.message ?? "").toLowerCase();
-      let friendly = "Não foi possível concluir o pagamento com saldo NFC.";
-      if (msg.includes("insuf") || msg.includes("balance"))
-        friendly = "Saldo insuficiente no cartão.";
-      else if (msg.includes("block")) friendly = "Cartão bloqueado. Procure um operador.";
-      else if (msg.includes("not found") || msg.includes("404"))
-        friendly = "Cartão não encontrado.";
-      else if (msg.includes("already") || msg.includes("paid"))
-        friendly = "Este pedido já foi pago.";
-      toast.error(friendly);
-      setPaymentStep("operator");
-      setConfirmation((prev) => (prev ? { ...prev, error: friendly } : prev));
-      setNfcConfirmOpen(false);
-    } finally {
-      setNfcPaying(false);
-    }
+    await sendOrder("CARD");
   };
 
   if (loading) {
@@ -1660,7 +1601,10 @@ export function PublicMenuPage({
           identifiedCustomer={identifiedCustomer}
           paymentMethod={paymentMethod}
           setPaymentMethod={setPaymentMethod}
-          pixAvailable={isPixEnabled(event)}
+          pixAvailable={totemPixAvailable}
+          cardAvailable={totemCardAvailable}
+          paymentSettingsLoading={checkoutSettingsLoading}
+          pixUnavailableReason={checkoutSettings?.totem?.unavailablePixReason ?? null}
         />
       </Sheet>
 
@@ -1911,96 +1855,11 @@ export function PublicMenuPage({
           event={event}
           totalCents={totalCents}
           submitting={submitting}
-          onConfirm={() => sendOrder(true)}
+          onConfirm={() => sendOrder("PIX")}
           primary={primary}
           secondary={secondary}
           isKioskMode={isKioskMode}
         />
-      </Dialog>
-
-      {/* NFC payment confirmation */}
-      <Dialog
-        open={nfcConfirmOpen}
-        onOpenChange={(o) => {
-          if (!nfcPaying) setNfcConfirmOpen(o);
-        }}
-      >
-        <DialogContent className="w-[min(92vw,440px)] sm:max-w-[440px] rounded-[28px] p-0 border-none shadow-2xl overflow-hidden">
-          <div
-            className="p-6 text-white"
-            style={{
-              background: `linear-gradient(135deg, ${primary} 0%, ${secondary} 100%)`,
-            }}
-          >
-            <div className="size-14 rounded-full bg-white/20 backdrop-blur flex items-center justify-center mb-3">
-              <CreditCard className="size-7" />
-            </div>
-            <DialogTitle className="text-white text-2xl font-black">
-              Confirmar pagamento
-            </DialogTitle>
-            <DialogDescription className="text-white/85 text-sm font-medium">
-              Pagamento com saldo do cartão NFC.
-            </DialogDescription>
-          </div>
-
-          <div className="p-6 space-y-4">
-            <div className="grid grid-cols-2 gap-3 text-left">
-              <div className="rounded-2xl bg-muted/40 p-4">
-                <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">
-                  Cliente
-                </div>
-                <div className="font-bold text-sm truncate">{identifiedCustomer?.name ?? "?"}</div>
-              </div>
-              <div className="rounded-2xl bg-muted/40 p-4">
-                <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">
-                  Valor
-                </div>
-                <div className="font-black text-lg">{formatBRL(totalCents)}</div>
-              </div>
-              <div className="rounded-2xl bg-muted/40 p-4">
-                <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">
-                  Saldo atual
-                </div>
-                <div className="font-bold text-base">
-                  {formatBRL(identifiedCustomer?.balanceInCents ?? 0)}
-                </div>
-              </div>
-              <div className="rounded-2xl bg-emerald-50 p-4 border border-emerald-200">
-                <div className="text-[10px] font-black uppercase tracking-widest text-emerald-700 mb-1">
-                  Saldo após
-                </div>
-                <div className="font-black text-base text-emerald-700">
-                  {formatBRL(Math.max(0, (identifiedCustomer?.balanceInCents ?? 0) - totalCents))}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex gap-2 pt-2">
-              <Button
-                variant="outline"
-                disabled={nfcPaying}
-                onClick={() => setNfcConfirmOpen(false)}
-                className="flex-1 h-14 font-black rounded-2xl"
-              >
-                Cancelar pagamento
-              </Button>
-              <Button
-                disabled={nfcPaying}
-                onClick={submitNfcPayment}
-                className="flex-1 h-14 font-black rounded-2xl text-white"
-                style={{ background: "#7c3aed" }}
-              >
-                {nfcPaying ? (
-                  <>
-                    <Loader2 className="size-5 animate-spin mr-2" /> Processando pagamento...
-                  </>
-                ) : (
-                   "Confirmar pagamento"
-                )}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
       </Dialog>
 
       {/* PIX Expired Screen */}
@@ -2146,8 +2005,8 @@ export function PublicMenuPage({
               </div>
 
               <h2 className="text-4xl font-black mb-4 leading-tight" style={{ color: primary }}>
-                {paymentStep === "pix_manual"
-                  ? "Pague com PIX manual"
+                {paymentStep === "pix_unavailable"
+                  ? "PIX indisponível"
                   : paymentStep === "operator"
                     ? "Pagamento pendente"
                     : paymentStep === "paid"
@@ -2203,29 +2062,13 @@ export function PublicMenuPage({
                     <div
                       className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-black ${
                         paymentStep === "paid"
-                          ? nfcPaidBalance !== null
-                            ? "bg-purple-100 text-purple-700"
-                            : "bg-green-100 text-green-700"
+                          ? "bg-green-100 text-green-700"
                           : "bg-amber-100 text-amber-700"
                       }`}
                     >
-                      {paymentStep === "paid"
-                        ? nfcPaidBalance !== null
-                          ? "NFC pago"
-                          : "Pago"
-                        : "Pagamento pendente"}
+                      {paymentStep === "paid" ? "Pago" : "Pagamento pendente"}
                     </div>
                   </div>
-                  {paymentStep === "paid" && nfcPaidBalance !== null && (
-                    <div className="col-span-2">
-                      <div className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-black mb-1">
-                        Saldo restante no cartão
-                      </div>
-                      <div className="text-2xl font-black text-purple-700">
-                        {formatBRL(nfcPaidBalance)}
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
 
@@ -2296,89 +2139,7 @@ export function PublicMenuPage({
                     </div>
                   )}
 
-                  {paymentStep === "pix_manual" && confirmation.manualPix && (
-                    <div className="space-y-6">
-                      <h3
-                        className="text-2xl font-black mb-2 flex items-center gap-2"
-                        style={{ color: primary }}
-                      >
-                        <QrCode className="size-6" />
-                        Pague com PIX manual
-                      </h3>
-
-                      <div className="p-3 bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold rounded-xl mb-4">
-                        PIX automático indisponível no momento. Use o PIX manual abaixo.
-                      </div>
-
-                      <div className="space-y-4">
-                        {confirmation.manualPix.pixKey && (
-                          <div>
-                            <div className="text-[10px] text-muted-foreground uppercase tracking-widest font-black mb-2">
-                              Chave PIX
-                            </div>
-                            <div className="flex gap-2">
-                              <Input
-                                value={confirmation.manualPix.pixKey}
-                                readOnly
-                                className="h-12 font-mono text-base font-bold bg-muted/30 border-none"
-                              />
-                              <Button
-                                variant="secondary"
-                                className="h-12 w-12 p-0 rounded-xl"
-                                onClick={() => {
-                                  navigator.clipboard.writeText(
-                                    confirmation.manualPix?.pixKey || "",
-                                  );
-                                  toast.success("Chave PIX copiada!");
-                                }}
-                              >
-                                <Copy className="size-5" />
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-
-                        {confirmation.manualPix.receiverName && (
-                          <div>
-                            <div className="text-[10px] text-muted-foreground uppercase tracking-widest font-black mb-1">
-                              Recebedor
-                            </div>
-                            <div className="font-bold text-lg">
-                              {confirmation.manualPix.receiverName}
-                            </div>
-                          </div>
-                        )}
-
-                        {confirmation.manualPix.city && (
-                          <div>
-                            <div className="text-[10px] text-muted-foreground uppercase tracking-widest font-black mb-1">
-                              Cidade
-                            </div>
-                            <div className="font-bold text-lg">{confirmation.manualPix.city}</div>
-                          </div>
-                        )}
-
-                        {confirmation.manualPix.instructions && (
-                          <div
-                            className="p-4 bg-muted/50 rounded-2xl text-sm font-medium border-l-4"
-                            style={{ borderColor: secondary }}
-                          >
-                            {confirmation.manualPix.instructions}
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100 text-amber-800 text-sm font-bold flex gap-3">
-                        <Clock className="size-5 flex-shrink-0" />
-                        <p>
-                          Após pagar, apresente o comprovante ao operador. Seu pedido será preparado
-                          após a confirmação.
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  {paymentStep === "operator" && (
+                  {(paymentStep === "pix_unavailable" || paymentStep === "operator") && (
                     <div className="space-y-4 text-center py-6">
                       <div className="size-16 rounded-full bg-destructive/10 text-destructive flex items-center justify-center mx-auto mb-4">
                         <X className="size-8" />
@@ -2389,10 +2150,12 @@ export function PublicMenuPage({
                         </div>
                       )}
                       <h3 className="text-xl font-black" style={{ color: primary }}>
-                        Pagamento pendente
+                        {paymentStep === "pix_unavailable" ? "PIX indisponível" : "Pagamento pendente"}
                       </h3>
                       <p className="text-muted-foreground font-medium">
-                        Procure um operador para realizar o pagamento e liberar seu pedido.
+                        {paymentStep === "pix_unavailable"
+                          ? "O Mercado Pago não está configurado corretamente para gerar PIX neste totem."
+                          : "Use o terminal de cartão configurado ou procure um operador para concluir o pagamento."}
                       </p>
                     </div>
                   )}
@@ -2951,6 +2714,9 @@ function CartSheet({
   paymentMethod,
   setPaymentMethod,
   pixAvailable,
+  cardAvailable,
+  paymentSettingsLoading,
+  pixUnavailableReason,
 }: {
   cart: CartItem[];
   totalCents: number;
@@ -2966,21 +2732,26 @@ function CartSheet({
   secondary: string;
   isKioskMode: boolean;
   identifiedCustomer: NfcIdentifiedCustomer | null;
-  paymentMethod: "PIX" | "NFC";
-  setPaymentMethod: (m: "PIX" | "NFC") => void;
+  paymentMethod: "PIX" | "CARD";
+  setPaymentMethod: (m: "PIX" | "CARD") => void;
   pixAvailable: boolean;
+  cardAvailable: boolean;
+  paymentSettingsLoading: boolean;
+  pixUnavailableReason?: string | null;
 }) {
   const empty = cart.length === 0;
   const balanceCents = identifiedCustomer?.balanceInCents ?? 0;
   const hasBalanceEnough = !!identifiedCustomer && balanceCents >= totalCents;
-  const nfcDisabled = !identifiedCustomer;
+  const selectedMethodAvailable =
+    paymentMethod === "PIX" ? pixAvailable : cardAvailable;
 
-  // Auto-fallback: if user picked NFC but card unidentified, revert to PIX
   useEffect(() => {
-    if (paymentMethod === "NFC" && !identifiedCustomer && pixAvailable) {
+    if (paymentMethod === "PIX" && !pixAvailable && cardAvailable) {
+      setPaymentMethod("CARD");
+    } else if (paymentMethod === "CARD" && !cardAvailable && pixAvailable) {
       setPaymentMethod("PIX");
     }
-  }, [paymentMethod, identifiedCustomer, pixAvailable, setPaymentMethod]);
+  }, [paymentMethod, pixAvailable, cardAvailable, setPaymentMethod]);
   return (
     <SheetContent
       side="bottom"
@@ -3156,34 +2927,41 @@ function CartSheet({
             <button
               type="button"
               onClick={() => setPaymentMethod("PIX")}
-              disabled={!pixAvailable}
+              disabled={!pixAvailable || paymentSettingsLoading}
               className={`rounded-2xl border-2 p-3 text-left transition-all ${
                 paymentMethod === "PIX"
                   ? "border-emerald-500 bg-emerald-50"
                   : "border-muted bg-white"
-              } ${!pixAvailable ? "opacity-40 cursor-not-allowed" : "active:scale-[0.98]"}`}
+              } ${!pixAvailable || paymentSettingsLoading ? "opacity-40 cursor-not-allowed" : "active:scale-[0.98]"}`}
             >
               <div className="text-[10px] font-black uppercase tracking-widest text-emerald-700">
                 PIX
               </div>
-              <div className="text-sm font-bold mt-0.5">Pagar via PIX</div>
+              <div className="text-sm font-bold mt-0.5">
+                {pixAvailable ? "QR Code automático" : "Indisponível"}
+              </div>
             </button>
             <button
               type="button"
-              onClick={() => !nfcDisabled && setPaymentMethod("NFC")}
-              disabled={nfcDisabled}
+              onClick={() => setPaymentMethod("CARD")}
+              disabled={!cardAvailable || paymentSettingsLoading}
               className={`rounded-2xl border-2 p-3 text-left transition-all ${
-                paymentMethod === "NFC" ? "border-purple-500 bg-purple-50" : "border-muted bg-white"
-              } ${nfcDisabled ? "opacity-50 cursor-not-allowed" : "active:scale-[0.98]"}`}
+                paymentMethod === "CARD" ? "border-sky-500 bg-sky-50" : "border-muted bg-white"
+              } ${!cardAvailable || paymentSettingsLoading ? "opacity-50 cursor-not-allowed" : "active:scale-[0.98]"}`}
             >
-              <div className="text-[10px] font-black uppercase tracking-widest text-purple-700">
-                Saldo NFC
+              <div className="text-[10px] font-black uppercase tracking-widest text-sky-700">
+                Cartão
               </div>
               <div className="text-sm font-bold mt-0.5">
-                {nfcDisabled ? "Aproxime seu cartão" : "Usar saldo do cartão"}
+                {cardAvailable ? "Terminal do totem" : "Indisponível"}
               </div>
             </button>
           </div>
+          {!pixAvailable && pixUnavailableReason && (
+            <p className="text-xs font-semibold text-muted-foreground">
+              {pixUnavailableReason}
+            </p>
+          )}
         </div>
 
         <div className="flex items-center justify-between pt-1">
@@ -3201,12 +2979,13 @@ function CartSheet({
           disabled={
             submitting ||
             empty ||
-            (paymentMethod === "NFC" && (!identifiedCustomer || balanceCents < totalCents))
+            paymentSettingsLoading ||
+            !selectedMethodAvailable
           }
           className={`w-full ${isKioskMode ? "h-20 text-2xl" : "h-16 text-xl"} font-black rounded-2xl shadow-lg transition-all active:scale-[0.98]`}
           style={
-            paymentMethod === "NFC"
-              ? { background: "#7c3aed", color: "#fff" }
+            paymentMethod === "CARD"
+              ? { background: primary, color: "#fff" }
               : { background: secondary, color: primary }
           }
         >
@@ -3214,10 +2993,12 @@ function CartSheet({
             <>
               <Loader2 className="size-5 animate-spin mr-2" /> Enviando pedido...
             </>
-          ) : paymentMethod === "NFC" ? (
-            "Pagar com saldo NFC"
+          ) : paymentSettingsLoading ? (
+            "Carregando pagamentos..."
+          ) : paymentMethod === "CARD" ? (
+            "Pagar com cartão"
           ) : (
-            "Confirmar pedido"
+            "Gerar PIX"
           )}
         </Button>
       </div>

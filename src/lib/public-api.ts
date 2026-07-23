@@ -67,8 +67,11 @@ export interface LegacyPublicEventResolution {
 }
 
 export interface CheckoutPaymentSettings {
+  context?: "TOTEM" | "PUBLIC_CHECKOUT";
   mercadoPago: {
     pixAutomaticAvailable: boolean;
+    cardEnabled?: boolean;
+    terminalEnabled?: boolean;
   };
   manualPix: {
     enabled: boolean;
@@ -76,6 +79,12 @@ export interface CheckoutPaymentSettings {
     pixReceiverName?: string;
     pixQrCode?: string;
     pixInstructions?: string;
+  };
+  totem?: {
+    allowedPaymentMethods: ("PIX" | "CARD")[];
+    pixAvailable: boolean;
+    cardAvailable: boolean;
+    unavailablePixReason?: string | null;
   };
 }
 
@@ -107,7 +116,7 @@ export interface PaymentTransaction {
 }
 
 export interface CheckoutPaymentResponse {
-  paymentStep: "pix_automatic" | "pix_manual" | "operator" | "paid";
+  paymentStep: "pix_automatic" | "pix_manual" | "pix_unavailable" | "operator" | "paid";
   order: PublicOrderResponse;
   manualPix?: {
     enabled: boolean;
@@ -467,7 +476,8 @@ export async function payWithNfcBalanceCanonical(
 export interface CreatePublicOrderInput {
   customerName: string;
   items: { productId: string; quantity: number }[];
-  paymentMethod?: "PIX" | "CASH" | "CARD" | string;
+  checkoutContext?: "TOTEM" | "PUBLIC_EVENT";
+  paymentMethod?: "PIX" | "CARD" | "PIX_AUTOMATIC" | "CREDIT_CARD" | "DEBIT_CARD" | string;
   paymentStatus?: "PENDING" | "PAID" | string;
   status?: "PENDING" | "CONFIRMED" | string;
 }
@@ -524,11 +534,17 @@ export async function createPublicOrderCanonical(
   );
 }
 
-export async function getCheckoutPaymentSettings(eventId: string): Promise<CheckoutPaymentSettings> {
-  const res = await apiFetch(`${API_BASE_URL}/public/events/${encodeURIComponent(eventId)}/checkout-payment-settings`, {
+export async function getCheckoutPaymentSettings(
+  eventId: string,
+  context: "TOTEM" | "PUBLIC_CHECKOUT" = "PUBLIC_CHECKOUT",
+): Promise<CheckoutPaymentSettings> {
+  const res = await apiFetch(`${API_BASE_URL}/public/events/${encodeURIComponent(eventId)}/checkout-payment-settings?context=${encodeURIComponent(context)}`, {
     headers: { ...API_HEADERS },
   });
-  return handle<CheckoutPaymentSettings>(res);
+  const data = await handle<CheckoutPaymentSettings | { checkoutPaymentSettings: CheckoutPaymentSettings }>(res);
+  return "checkoutPaymentSettings" in (data as object)
+    ? (data as { checkoutPaymentSettings: CheckoutPaymentSettings }).checkoutPaymentSettings
+    : (data as CheckoutPaymentSettings);
 }
 
 export async function createPixAutomaticPayment(orderId: string): Promise<PaymentTransaction> {
@@ -540,7 +556,10 @@ export async function createPixAutomaticPayment(orderId: string): Promise<Paymen
   return handle<PaymentTransaction>(res);
 }
 
-export async function checkoutPayment(orderId: string): Promise<CheckoutPaymentResponse> {
+export async function checkoutPayment(
+  orderId: string,
+  input: { context?: "TOTEM" | "PUBLIC_CHECKOUT"; paymentMethod?: "PIX" | "CARD" } = {},
+): Promise<CheckoutPaymentResponse> {
   const url = `${API_BASE_URL}/public/orders/${encodeURIComponent(orderId)}/checkout-payment`;
   // [redacted log]
   const res = await fetch(url, {
@@ -549,7 +568,7 @@ export async function checkoutPayment(orderId: string): Promise<CheckoutPaymentR
       "Content-Type": "application/json",
       ...API_HEADERS
     },
-    body: JSON.stringify({}),
+    body: JSON.stringify(input),
   });
   
   // [redacted log]
