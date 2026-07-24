@@ -224,7 +224,7 @@ function PrintingInner() {
 
       <SettingsSection
         title="Impressoras vinculadas"
-        description="Escolha um dispositivo (PRINTER ou SK210) para cada função."
+        description="Escolha um dispositivo (PRINTER, PRINT_AGENT ou SK210) para cada função."
       >
         <SettingsGroup columns={2}>
           <DeviceSelect

@@ -231,7 +231,12 @@ function PrintQueuePage() {
   const printing = printingQuery.data?.effective ?? null;
   const readiness = readinessQuery.data ?? null;
 
-  const printerDevices = devices.filter((device) => device.type === "PRINTER" || device.type === "SK210");
+  const printerDevices = devices.filter(
+    (device) =>
+      device.type === "PRINTER" ||
+      device.type === "PRINT_AGENT" ||
+      device.type === "SK210"
+  );
   const totemDevices = devices.filter((device) => device.type === "TOTEM");
   const onlineDevices = devices.filter(deviceOnline);
 

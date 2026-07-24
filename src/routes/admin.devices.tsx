@@ -117,6 +117,7 @@ export const Route = createFileRoute("/admin/devices")({
 const TYPE_LABEL: Record<DeviceType, string> = {
   TOTEM: "Totem",
   SK210: "SK210",
+  PRINT_AGENT: "Print Agent",
   CALL_SCREEN: "Tela de Chamada",
   PRINTER: "Impressora",
 };
@@ -124,6 +125,7 @@ const TYPE_LABEL: Record<DeviceType, string> = {
 const TYPE_ICON: Record<DeviceType, typeof Monitor> = {
   TOTEM: Monitor,
   SK210: Cpu,
+  PRINT_AGENT: Printer,
   CALL_SCREEN: Tv,
   PRINTER: Printer,
 };
@@ -446,7 +448,7 @@ function DevicesPage() {
       next[idx] = { ...next[idx], ...(dv as UnifiedDevice) };
       return next;
     });
-    if (dv.type === "PRINTER" || dv.type === "SK210") {
+    if (dv.type === "PRINTER" || dv.type === "PRINT_AGENT" || dv.type === "SK210") {
       queryClient.invalidateQueries({ queryKey: qk.settings.printing(orgId) });
     }
   };
@@ -489,7 +491,7 @@ function DevicesPage() {
   return (
     <AdminLayout
       title="Dispositivos"
-      subtitle="Gerencie totens, SK210, telas de chamada e impressoras da organização."
+      subtitle="Gerencie totens, SK210, Print Agents, telas de chamada e impressoras da organização."
       actions={
         <Button
           onClick={() => setCreateOpen(true)}

@@ -1,7 +1,7 @@
 import { API_BASE_URL, authHeaders } from "./auth";
 import { apiFetch, fromResponse } from "./api-error";
 
-export type DeviceType = "TOTEM" | "PRINTER" | "CALL_SCREEN" | "SK210";
+export type DeviceType = "TOTEM" | "PRINTER" | "PRINT_AGENT" | "CALL_SCREEN" | "SK210";
 export type DeviceStatus = "ACTIVE" | "PAUSED" | "OFFLINE" | "MAINTENANCE";
 export type DeviceAuthStatus = "PENDING" | "ACTIVE" | "REVOKED";
 

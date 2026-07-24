@@ -41,17 +41,22 @@ export function useUpdatePrintingSettings() {
 }
 
 /**
- * Lista de dispositivos filtrada em PRINTER, usada para vincular impressoras
+ * Lista de dispositivos filtrada em PRINTER, PRINT_AGENT e SK210, usada para vincular impressoras
  * à organização / sources / sectors.
  */
 export function usePrinterDevices() {
   const { token } = useAuth();
   const orgId = useOrgId();
   return useQuery({
-    queryKey: qk.devices.list(orgId, { type: "PRINTER+SK210" }),
+    queryKey: qk.devices.list(orgId, { type: "PRINTER+PRINT_AGENT+SK210" }),
     queryFn: async () => {
       const all = await listDevices(token!);
-      return all.filter((d) => d.type === "PRINTER" || d.type === "SK210");
+      return all.filter(
+        (d) =>
+          d.type === "PRINTER" ||
+          d.type === "PRINT_AGENT" ||
+          d.type === "SK210"
+      );
     },
     enabled: !!token && !!orgId,
     staleTime: 30_000,
