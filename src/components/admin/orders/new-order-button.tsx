@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { Plus, ChevronDown, Loader2 } from "lucide-react";
+import { CalendarDays, ChevronDown, Loader2, MapPin, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { useNavigate } from "@tanstack/react-router";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -22,43 +23,40 @@ import {
   resolveStrategies,
   type OrderCreationStrategy,
 } from "@/lib/order-strategies";
+import type { EventItem } from "@/lib/events-api";
 import { listOnlineStores, type OnlineStore } from "@/lib/online-store-api";
 
 type Props = {
   token: string;
   hasEvents: boolean;
   hasOnline: boolean;
+  events: EventItem[];
+  eventsLoading?: boolean;
   currentEventId?: string;
   currentEventName?: string;
   onCreated?: () => void;
 };
 
-/**
- * "Novo Pedido" button — always visible. Routes to the correct
- * OrderCreationStrategy based on active modules. Shows a picker when
- * multiple strategies are available (hybrid orgs) or when a resource
- * (event/store) must be chosen first.
- */
 export function NewOrderButton({
   token,
   hasEvents,
   hasOnline,
+  events,
+  eventsLoading = false,
   currentEventId,
   currentEventName,
   onCreated,
 }: Props) {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [strategies, setStrategies] = useState<OrderCreationStrategy[]>([]);
   const [stores, setStores] = useState<OnlineStore[]>([]);
   const [storePickerOpen, setStorePickerOpen] = useState(false);
   const [eventPickerOpen, setEventPickerOpen] = useState(false);
+  const [noEventOpen, setNoEventOpen] = useState(false);
 
-  const [activeEvent, setActiveEvent] = useState<
-    { id: string; name?: string } | null
-  >(null);
-  const [activeStore, setActiveStore] = useState<
-    { id: string; name?: string } | null
-  >(null);
+  const [activeEvent, setActiveEvent] = useState<{ id: string; name?: string } | null>(null);
+  const [activeStore, setActiveStore] = useState<{ id: string; name?: string } | null>(null);
 
   const refresh = async () => {
     setLoading(true);
@@ -85,21 +83,35 @@ export function NewOrderButton({
 
   const trigger = async (kind: "event" | "store") => {
     if (kind === "event") {
-      if (!currentEventId) {
-        setEventPickerOpen(true);
-        toast.info("Selecione um evento no filtro para lançar a venda.");
+      const selectedEvent = events.find((event) => event.id === currentEventId);
+      if (selectedEvent || currentEventId) {
+        setActiveEvent({ id: selectedEvent?.id ?? currentEventId!, name: selectedEvent?.name ?? currentEventName });
         return;
       }
-      setActiveEvent({ id: currentEventId, name: currentEventName });
+      if (eventsLoading) {
+        toast.info("Carregando eventos disponiveis.");
+        return;
+      }
+
+      const activeEvents = events.filter(isActiveEvent);
+      if (activeEvents.length === 1) {
+        const event = activeEvents[0];
+        setActiveEvent({ id: event.id, name: event.name });
+        return;
+      }
+      if (activeEvents.length > 1) {
+        setEventPickerOpen(true);
+        return;
+      }
+      setNoEventOpen(true);
       return;
     }
-    // store
+
     if (stores.length === 1) {
       setActiveStore({ id: stores[0].id, name: stores[0].name });
       return;
     }
     if (stores.length === 0) {
-      // Try to load
       try {
         const list = await listOnlineStores(token);
         setStores(list);
@@ -116,7 +128,6 @@ export function NewOrderButton({
 
   const showEvent = hasEvents;
   const showStore = hasOnline;
-
   const label = (
     <>
       <Plus className="h-4 w-4" />
@@ -125,7 +136,6 @@ export function NewOrderButton({
   );
 
   const renderButton = () => {
-    // Both available → dropdown
     if (showEvent && showStore) {
       return (
         <DropdownMenu>
@@ -136,42 +146,21 @@ export function NewOrderButton({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onSelect={() => void trigger("event")}>
-              Novo pedido no evento
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => void trigger("store")}>
-              Novo pedido na loja
-            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => void trigger("event")}>Novo pedido no evento</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => void trigger("store")}>Novo pedido na loja</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       );
     }
-    // Only events
     if (showEvent) {
       return (
-        <Button
-          size="sm"
-          className="shadow-sm"
-          disabled={loading}
-          onClick={() => void trigger("event")}
-          title={
-            !currentEventId
-              ? "Selecione um evento para lançar a venda"
-              : "Novo pedido no evento"
-          }
-        >
+        <Button size="sm" className="shadow-sm" disabled={loading} onClick={() => void trigger("event")}>
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : label}
         </Button>
       );
     }
-    // Only online
     return (
-      <Button
-        size="sm"
-        className="shadow-sm"
-        disabled={loading}
-        onClick={() => void trigger("store")}
-      >
+      <Button size="sm" className="shadow-sm" disabled={loading} onClick={() => void trigger("store")}>
         {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : label}
       </Button>
     );
@@ -208,12 +197,11 @@ export function NewOrderButton({
         />
       )}
 
-      {/* Store picker */}
       <Dialog open={storePickerOpen} onOpenChange={setStorePickerOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Selecionar loja</DialogTitle>
-            <DialogDescription>Escolha a loja onde o pedido será lançado.</DialogDescription>
+            <DialogDescription>Escolha a loja onde o pedido sera lancado.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-2 py-2">
             {stores.map((s) => (
@@ -239,20 +227,99 @@ export function NewOrderButton({
         </DialogContent>
       </Dialog>
 
-      {/* Event picker (informational — real selection happens via header filter) */}
       <Dialog open={eventPickerOpen} onOpenChange={setEventPickerOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Selecione um evento</DialogTitle>
-            <DialogDescription>
-              Use o filtro de evento acima para selecionar onde a venda será lançada.
-            </DialogDescription>
+            <DialogTitle>Selecionar evento</DialogTitle>
+            <DialogDescription>Escolha onde a venda manual sera lancada.</DialogDescription>
           </DialogHeader>
+          <div className="grid max-h-[60vh] gap-3 overflow-y-auto py-2">
+            {events.filter(isActiveEvent).map((event) => (
+              <div key={event.id} className="rounded-lg border border-border bg-card p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0 space-y-2">
+                    <div>
+                      <div className="font-semibold">{event.name}</div>
+                      <div className="text-xs text-muted-foreground">{event.status ?? "Ativo"}</div>
+                    </div>
+                    <div className="grid gap-1 text-xs text-muted-foreground sm:grid-cols-2">
+                      <span className="inline-flex items-center gap-1">
+                        <CalendarDays className="h-3.5 w-3.5" />
+                        {formatEventDate(event)}
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <MapPin className="h-3.5 w-3.5" />
+                        {eventText(event, ["locationName", "location", "address"]) || "-"}
+                      </span>
+                      <span>Organizacao: {eventText(event, ["organizationName", "organization"]) || "Atual"}</span>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      setEventPickerOpen(false);
+                      setActiveEvent({ id: event.id, name: event.name });
+                    }}
+                  >
+                    Continuar
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
         </DialogContent>
       </Dialog>
 
-      {/* Discard the ref if strategies list is empty (nothing to render). */}
+      <Dialog open={noEventOpen} onOpenChange={setNoEventOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nenhum evento ativo</DialogTitle>
+            <DialogDescription>Cadastre ou reabra um evento antes de lancar uma venda manual.</DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setNoEventOpen(false)}>Cancelar</Button>
+            <Button
+              onClick={() => {
+                setNoEventOpen(false);
+                void navigate({ to: "/admin/events" });
+              }}
+            >
+              Ir para Eventos
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {strategies.length === 0 ? null : null}
     </>
   );
+}
+
+function isActiveEvent(event: EventItem): boolean {
+  const status = String(event.status ?? "ACTIVE").toUpperCase();
+  return !["CLOSED", "ARCHIVED", "CANCELLED", "CANCELED", "ENDED", "INACTIVE"].includes(status);
+}
+
+function formatEventDate(event: EventItem): string {
+  const startsAt = typeof event.startsAt === "string" ? event.startsAt : "";
+  if (!startsAt) return "-";
+  return new Date(startsAt).toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function eventText(event: EventItem, keys: string[]): string | undefined {
+  for (const key of keys) {
+    const value = event[key];
+    if (typeof value === "string" && value.trim()) return value;
+    if (value && typeof value === "object" && "name" in value) {
+      const name = (value as { name?: unknown }).name;
+      if (typeof name === "string" && name.trim()) return name;
+    }
+  }
+  return undefined;
 }

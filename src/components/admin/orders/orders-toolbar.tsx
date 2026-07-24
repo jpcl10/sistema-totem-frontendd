@@ -282,6 +282,33 @@ export function OrdersToolbar({
         {/* Right cluster */}
         <div className="col-span-2 flex flex-wrap items-center gap-2 sm:col-span-1">
           {/* Search always visible */}
+          {showEvents && (
+            <div className="min-w-[210px] flex-1 sm:w-[240px] sm:flex-none">
+              <label className="mb-1 block text-[11px] font-medium text-muted-foreground">
+                Evento
+              </label>
+              <Select
+                value={filters.eventId || "__ALL__"}
+                onValueChange={(v) =>
+                  onFiltersChange({ eventId: v === "__ALL__" ? "" : v })
+                }
+                disabled={eventsLoading}
+              >
+                <SelectTrigger className="h-9 w-full">
+                  <SelectValue placeholder={eventsLoading ? "Carregando..." : "Todos os eventos"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__ALL__">Todos os eventos</SelectItem>
+                  {events.map((ev) => (
+                    <SelectItem key={ev.id} value={ev.id}>
+                      {ev.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           <div className="relative min-w-0 flex-1 sm:w-[280px] sm:flex-none">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input

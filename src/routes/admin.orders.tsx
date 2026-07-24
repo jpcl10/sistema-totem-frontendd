@@ -813,6 +813,8 @@ function OrdersPage() {
               token={token}
               hasEvents={hasEventsModule}
               hasOnline={hasOnlineModule}
+              events={events}
+              eventsLoading={eventsLoading}
               currentEventId={eventId ?? undefined}
               currentEventName={events.find((e) => e.id === eventId)?.name}
               onCreated={() => {
