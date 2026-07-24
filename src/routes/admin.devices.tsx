@@ -1013,13 +1013,14 @@ function CreateDeviceDialog({
             paperSize: paperSize.trim() || undefined,
           }
         : undefined;
+      const trimmedLocationName = locationName.trim();
       const result = await createDevice(token, {
         name: name.trim(),
         code: code.trim(),
         type,
-        eventId: contextType === "EVENT" ? eventId : null,
-        storeId: contextType === "STORE" ? storeId : null,
-        locationName: locationName.trim() || null,
+        ...(contextType === "EVENT" ? { eventId } : {}),
+        ...(contextType === "STORE" ? { storeId } : {}),
+        ...(trimmedLocationName ? { locationName: trimmedLocationName } : {}),
         ...(metadata ? { metadata } : {}),
       });
       toast.success("Dispositivo criado com sucesso.");
@@ -1198,13 +1199,14 @@ function EditDeviceDialog({
             paperSize: paperSize.trim() || undefined,
           }
         : undefined;
+      const trimmedLocationName = locationName.trim();
       const dv = await updateDevice(token, device.id, {
         name: name.trim(),
         type,
         status,
-        eventId: contextType === "EVENT" ? eventId : null,
-        storeId: contextType === "STORE" ? storeId : null,
-        locationName: locationName.trim() || null,
+        ...(contextType === "EVENT" ? { eventId } : {}),
+        ...(contextType === "STORE" ? { storeId } : {}),
+        ...(trimmedLocationName ? { locationName: trimmedLocationName } : {}),
         ...(metadata ? { metadata } : {}),
       });
       toast.success("Dispositivo atualizado.");

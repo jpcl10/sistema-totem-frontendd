@@ -34,18 +34,18 @@ export interface CreateDeviceInput {
   code: string;
   type: DeviceType;
   /** Vínculo mutuamente exclusivo com `storeId`. */
-  eventId?: string | null;
+  eventId?: string;
   /** Vínculo mutuamente exclusivo com `eventId`. */
-  storeId?: string | null;
-  locationName?: string | null;
+  storeId?: string;
+  locationName?: string;
   metadata?: Record<string, unknown> | null;
 }
 
 export interface UpdateDeviceInput {
   name?: string;
-  eventId?: string | null;
-  storeId?: string | null;
-  locationName?: string | null;
+  eventId?: string;
+  storeId?: string;
+  locationName?: string;
   type?: DeviceType;
   status?: DeviceStatus;
   metadata?: Record<string, unknown> | null;
