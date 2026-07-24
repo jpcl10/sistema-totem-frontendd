@@ -662,8 +662,12 @@ function DevicesPage() {
         events={events}
         stores={stores}
         token={token}
-        onCreated={(dv) => {
+        onCreated={(dv, createdCredentials) => {
           upsertDevice(dv);
+          if (createdCredentials) {
+            setCredentials(createdCredentials);
+            setCredsDevice(dv);
+          }
           setCreateOpen(false);
         }}
       />
@@ -762,7 +766,8 @@ function DeviceCard({
 }) {
   const Icon = TYPE_ICON[device.type] ?? Monitor;
   const health = getHealth(device.lastHeartbeatAt);
-  const isPrinterish = device.type === "PRINTER" || device.type === "SK210";
+  const isPrinterish =
+    device.type === "PRINTER" || device.type === "PRINT_AGENT" || device.type === "SK210";
   const pm = isPrinterish ? getPrinterMeta(device) : null;
   const isLegacy = device.source === "legacy_printer";
 
@@ -946,7 +951,7 @@ function CreateDeviceDialog({
   events: EventItem[];
   stores: OnlineStore[];
   token: string | null;
-  onCreated: (dv: Device) => void;
+  onCreated: (dv: Device, credentials?: DeviceCredentials) => void;
 }) {
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
@@ -979,7 +984,7 @@ function CreateDeviceDialog({
     }
   }, [open]);
 
-  const isPrinterish = type === "PRINTER" || type === "SK210";
+  const isPrinterish = type === "PRINTER" || type === "PRINT_AGENT" || type === "SK210";
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -1008,7 +1013,7 @@ function CreateDeviceDialog({
             paperSize: paperSize.trim() || undefined,
           }
         : undefined;
-      const dv = await createDevice(token, {
+      const result = await createDevice(token, {
         name: name.trim(),
         code: code.trim(),
         type,
@@ -1018,7 +1023,7 @@ function CreateDeviceDialog({
         ...(metadata ? { metadata } : {}),
       });
       toast.success("Dispositivo criado com sucesso.");
-      onCreated(dv);
+      onCreated(result.device, result.credentials);
     } catch (err) {
       handleApiError(err, "Não foi possível criar o dispositivo.");
     } finally {
@@ -1056,6 +1061,7 @@ function CreateDeviceDialog({
               <option value="TOTEM">Totem</option>
               <option value="SK210">SK210</option>
               <option value="CALL_SCREEN">Tela de Chamada</option>
+              <option value="PRINT_AGENT">Print Agent</option>
               <option value="PRINTER">Impressora</option>
             </select>
           </div>
@@ -1159,7 +1165,7 @@ function EditDeviceDialog({
   if (!device) return null;
 
 
-  const isPrinterish = type === "PRINTER" || type === "SK210";
+  const isPrinterish = type === "PRINTER" || type === "PRINT_AGENT" || type === "SK210";
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -1234,6 +1240,7 @@ function EditDeviceDialog({
               <option value="TOTEM">Totem</option>
               <option value="SK210">SK210</option>
               <option value="CALL_SCREEN">Tela de Chamada</option>
+              <option value="PRINT_AGENT">Print Agent</option>
               <option value="PRINTER">Impressora</option>
             </select>
           </div>

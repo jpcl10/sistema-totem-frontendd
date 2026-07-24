@@ -57,6 +57,11 @@ export interface DeviceCredentials {
   deviceSecret: string;
 }
 
+export interface CreateDeviceResult {
+  device: Device;
+  credentials?: DeviceCredentials;
+}
+
 async function handle<T>(res: Response): Promise<T> {
   if (!res.ok) throw await fromResponse(res);
   return res.json() as Promise<T>;
@@ -95,14 +100,28 @@ export async function getDevice(token: string, id: string): Promise<Device> {
   return unwrapOne<Device>(data, "device");
 }
 
-export async function createDevice(token: string, input: CreateDeviceInput): Promise<Device> {
+export async function createDevice(token: string, input: CreateDeviceInput): Promise<CreateDeviceResult> {
   const res = await apiFetch(`${API_BASE_URL}/devices`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders(token) },
     body: JSON.stringify(input),
   });
   const data = await handle<unknown>(res);
-  return unwrapOne<Device>(data, "device");
+  const device = unwrapOne<Device>(data, "device");
+  const obj = (data && typeof data === "object" ? (data as Record<string, unknown>) : {}) as Record<
+    string,
+    unknown
+  >;
+  const deviceSecret = String(obj.deviceSecret ?? obj.device_secret ?? obj.secret ?? "");
+  return {
+    device,
+    credentials: deviceSecret
+      ? {
+          deviceCode: device.code,
+          deviceSecret,
+        }
+      : undefined,
+  };
 }
 
 export async function updateDevice(
