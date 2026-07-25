@@ -2285,6 +2285,7 @@ function SuccessScreen({ order, storeName }: { order: PublicOrderCreated; storeN
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
   const status404Count = useRef(0);
+  const missingQrCount = useRef(0);
 
   const isPixPending =
     (
@@ -2340,7 +2341,14 @@ function SuccessScreen({ order, storeName }: { order: PublicOrderCreated; storeN
         if (cancelled || !status?.paymentStatus) return;
         status404Count.current = 0;
         if (paymentStatusHasPixQr(status)) {
+          missingQrCount.current = 0;
           setStatusPreparation((current) => mergePaymentStatusPreparation(current ?? order.paymentPreparation, status));
+        } else if (!hasPixQr && !isPaidStatus(status.paymentStatus)) {
+          missingQrCount.current += 1;
+          if (missingQrCount.current >= 3) {
+            setPaymentError("Não foi possível gerar o QR Code PIX. Tente novamente ou escolha outra forma de pagamento.");
+            cancelled = true;
+          }
         }
         if (isPaidStatus(status.paymentStatus)) {
           setPaymentConfirmed(true);
@@ -2381,12 +2389,12 @@ function SuccessScreen({ order, storeName }: { order: PublicOrderCreated; storeN
     };
 
     checkStatus();
-    const intervalId = window.setInterval(checkStatus, 35000);
+    const intervalId = window.setInterval(checkStatus, hasPixQr ? 35000 : 3000);
     return () => {
       cancelled = true;
       window.clearInterval(intervalId);
     };
-  }, [paymentConfirmed, paymentExpired, preparation?.paymentStep, order.id, order.paymentPreparation]);
+  }, [hasPixQr, paymentConfirmed, paymentExpired, preparation?.paymentStep, order.id, order.paymentPreparation]);
 
   const copyCode = async (value: string) => {
     try {
@@ -2412,6 +2420,9 @@ function SuccessScreen({ order, storeName }: { order: PublicOrderCreated; storeN
 
   const showPixQr = preparation?.paymentStep === "pix_automatic";
   const showPixManual = preparation?.paymentStep === "pix_manual" && preparation?.manualPix?.enabled;
+  const showPixPreparationError =
+    preparation?.paymentStep === "payment_error" ||
+    preparation?.paymentStep === "pix_unavailable";
 
   return (
     <div className="flex flex-col">
@@ -2519,6 +2530,13 @@ function SuccessScreen({ order, storeName }: { order: PublicOrderCreated; storeN
               <Loader2 className="mx-auto h-10 w-10 animate-spin text-muted-foreground" />
               <p className="mt-3 text-sm text-muted-foreground">Gerando QR code PIX. Aguarde alguns segundos e mantenha esta tela aberta.</p>
             </div>
+          </div>
+        ) : showPixPreparationError ? (
+          <div className="space-y-2 rounded-2xl border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+            <p className="font-semibold">Não foi possível gerar o QR Code PIX.</p>
+            <p className="text-xs">
+              {preparation?.message ?? "Tente novamente ou escolha outra forma de pagamento."}
+            </p>
           </div>
         ) : null}
 
