@@ -204,7 +204,8 @@ interface EnqueueContext {
 }
 
 function orderNumberOf(o: OrderLike): string {
-  const n = o.number ?? o.orderNumber ?? o.code ?? o.id.slice(-6).toUpperCase();
+  const fallbackId = typeof o.id === "string" && o.id ? o.id.slice(-6).toUpperCase() : "TEST";
+  const n = o.number ?? o.orderNumber ?? o.code ?? fallbackId;
   return String(n);
 }
 
