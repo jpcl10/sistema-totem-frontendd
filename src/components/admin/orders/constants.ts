@@ -6,7 +6,7 @@ import {
   PackageCheck,
   Truck,
 } from "lucide-react";
-import type { OrderStatus } from "@/lib/orders-api";
+import { ORDER_STATUSES, type OrderStatus } from "@/lib/orders-api";
 
 /**
  * Kanban columns keyed by the normalized status returned by
@@ -59,18 +59,18 @@ export const COLUMNS: {
 ];
 
 /**
- * Default next-status transitions. `READY` defaults to `COMPLETED`
+ * Default next-status transitions. `READY` defaults to `DELIVERED`
  * (pickup / dine-in / event). For online delivery, `nextStatusFor`
  * in `helpers.ts` promotes it to `OUT_FOR_DELIVERY`.
  */
 export const NEXT_STATUS: Partial<
   Record<OrderStatus, { status: OrderStatus; label: string }>
 > = {
-  NEW: { status: "CONFIRMED", label: "Confirmar" },
-  CONFIRMED: { status: "PREPARING", label: "Iniciar preparo" },
-  PREPARING: { status: "READY", label: "Marcar pronto" },
-  READY: { status: "COMPLETED", label: "Marcar entregue" },
-  OUT_FOR_DELIVERY: { status: "COMPLETED", label: "Marcar entregue" },
+  NEW: { status: ORDER_STATUSES.CONFIRMED, label: "Confirmar" },
+  CONFIRMED: { status: ORDER_STATUSES.PREPARING, label: "Iniciar preparo" },
+  PREPARING: { status: ORDER_STATUSES.READY, label: "Marcar pronto" },
+  READY: { status: ORDER_STATUSES.DELIVERED, label: "Marcar entregue" },
+  OUT_FOR_DELIVERY: { status: ORDER_STATUSES.DELIVERED, label: "Marcar entregue" },
 };
 
 /** Column routing table: unknown values fall back in the consumer. */

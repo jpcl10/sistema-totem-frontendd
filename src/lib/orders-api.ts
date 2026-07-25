@@ -1,7 +1,21 @@
 import { API_BASE_URL, authHeaders } from "./auth";
 import { apiFetch, fromResponse } from "./api-error";
 
-export type OrderStatus = "PENDING" | "PREPARING" | "READY" | "DELIVERED" | string;
+export const ORDER_STATUSES = {
+  NEW: "NEW",
+  PENDING: "PENDING",
+  CONFIRMED: "CONFIRMED",
+  PREPARING: "PREPARING",
+  READY: "READY",
+  OUT_FOR_DELIVERY: "OUT_FOR_DELIVERY",
+  DELIVERED: "DELIVERED",
+  COMPLETED: "COMPLETED",
+  CANCELLED: "CANCELLED",
+} as const;
+
+export type OrderStatus =
+  | (typeof ORDER_STATUSES)[keyof typeof ORDER_STATUSES]
+  | string;
 
 export interface OrderItem {
   id?: string;

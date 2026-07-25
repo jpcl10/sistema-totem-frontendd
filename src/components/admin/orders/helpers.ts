@@ -1,4 +1,4 @@
-import type { Order } from "@/lib/orders-api";
+import { ORDER_STATUSES, type Order } from "@/lib/orders-api";
 
 export type SectorFilter = "ALL" | "BAR" | "KITCHEN";
 export type ViewFilter = "ACTIVE" | "DELIVERED" | "ALL";
@@ -116,7 +116,7 @@ export function contextLabel(
  * Resolve the next status transition for the "advance" button.
  * READY branches on fulfillment type: online delivery goes through
  * OUT_FOR_DELIVERY, everything else (pickup, dine-in, event) jumps
- * straight to COMPLETED.
+ * straight to DELIVERED.
  */
 export function nextStatusFor(
   o: Order,
@@ -142,20 +142,20 @@ export function nextStatusFor(
   switch (status) {
     case "NEW":
     case "RECEIVED":
-      return { status: "CONFIRMED", label: "Confirmar" };
+      return { status: ORDER_STATUSES.CONFIRMED, label: "Confirmar" };
     case "CONFIRMED":
     case "PENDING":
-      return { status: "PREPARING", label: "Iniciar preparo" };
+      return { status: ORDER_STATUSES.PREPARING, label: "Iniciar preparo" };
     case "PREPARING":
     case "IN_PROGRESS":
-      return { status: "READY", label: "Marcar pronto" };
+      return { status: ORDER_STATUSES.READY, label: "Marcar pronto" };
     case "READY":
     case "DONE":
       if (isOnline && isDelivery)
-        return { status: "OUT_FOR_DELIVERY", label: "Saiu para entrega" };
-      return { status: "COMPLETED", label: "Marcar entregue" };
+        return { status: ORDER_STATUSES.OUT_FOR_DELIVERY, label: "Saiu para entrega" };
+      return { status: ORDER_STATUSES.DELIVERED, label: "Marcar entregue" };
     case "OUT_FOR_DELIVERY":
-      return { status: "COMPLETED", label: "Marcar entregue" };
+      return { status: ORDER_STATUSES.DELIVERED, label: "Marcar entregue" };
     default:
       return undefined;
   }
