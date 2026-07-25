@@ -1420,8 +1420,7 @@ export function PublicMenuPage({
       {!pixExpired &&
         confirmation &&
         confirmation.pix &&
-        paymentStep === "pix_automatic" &&
-        confirmation.transaction && (
+        paymentStep === "pix_automatic" && (
           <div className="fixed inset-0 z-[100] bg-background animate-in fade-in duration-300 flex flex-col items-center px-4 py-4 text-center overflow-hidden">
             <div className="w-full max-w-xl flex flex-col items-center flex-1 min-h-0">
               <h2
@@ -1465,15 +1464,31 @@ export function PublicMenuPage({
               )}
 
               <div className="bg-white p-3 rounded-2xl border-2 shadow-sm mt-3">
-                {confirmation.transaction.qrCodeBase64 ? (
-                  <img
-                    src={`data:image/png;base64,${confirmation.transaction.qrCodeBase64}`}
-                    alt="QR Code PIX"
-                    className="w-[min(70vw,420px)] h-[min(70vw,420px)] block"
-                  />
-                ) : confirmation.transaction.qrCode ? (
-                  <QRCodeSVG value={confirmation.transaction.qrCode} size={380} />
-                ) : null}
+                {confirmation.transaction ? (
+                  confirmation.transaction.qrCodeBase64 ? (
+                    <img
+                      src={`data:image/png;base64,${confirmation.transaction.qrCodeBase64}`}
+                      alt="QR Code PIX"
+                      className="w-[min(70vw,420px)] h-[min(70vw,420px)] block"
+                    />
+                  ) : confirmation.transaction.qrCode ? (
+                    <QRCodeSVG value={confirmation.transaction.qrCode} size={380} />
+                  ) : (
+                    <div className="py-12">
+                      <Loader2 className="mx-auto size-12 animate-spin text-muted-foreground" />
+                      <p className="mt-4 text-sm text-muted-foreground">
+                        Aguardando geração do QR Code PIX...
+                      </p>
+                    </div>
+                  )
+                ) : (
+                  <div className="py-12">
+                    <Loader2 className="mx-auto size-12 animate-spin text-muted-foreground" />
+                    <p className="mt-4 text-sm text-muted-foreground">
+                      Aguardando criação do pagamento PIX...
+                    </p>
+                  </div>
+                )}
               </div>
 
               {confirmation.transaction.pixCopyPaste && (
@@ -1514,7 +1529,7 @@ export function PublicMenuPage({
         )}
 
       {confirmation &&
-        !(confirmation.pix && paymentStep === "pix_automatic" && confirmation.transaction) && (
+        !(confirmation.pix && paymentStep === "pix_automatic") && (
           <div className="fixed inset-0 z-[100] bg-background animate-in fade-in duration-300 flex flex-col items-center p-6 text-center overflow-y-auto">
             <div className="max-w-2xl w-full my-auto flex flex-col items-center py-10">
               <div

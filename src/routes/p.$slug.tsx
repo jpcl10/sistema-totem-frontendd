@@ -1023,9 +1023,19 @@ function PublicStorePage() {
       <Dialog open={!!successOrder} onOpenChange={(o) => !o && setSuccessOrder(null)}>
         <DialogContent className="max-w-md overflow-hidden p-0">
           <VisuallyHidden>
-            <DialogTitle>Pedido recebido</DialogTitle>
+            <DialogTitle>
+              {successOrder?.paymentPreparation?.paymentStep === 'pix_automatic'
+                ? 'Aguardando pagamento PIX'
+                : successOrder?.paymentPreparation?.paymentStep === 'pix_manual'
+                ? 'Aguardando instruções PIX'
+                : 'Pedido recebido'}
+            </DialogTitle>
             <DialogDescription>
-              Confirmação do pedido com número, itens e forma de pagamento.
+              {successOrder?.paymentPreparation?.paymentStep === 'pix_automatic'
+                ? 'Use o QR Code abaixo para pagar e aguarde a confirmação automática.'
+                : successOrder?.paymentPreparation?.paymentStep === 'pix_manual'
+                ? 'Siga as instruções de PIX manual para concluir o pagamento.'
+                : 'Confirmação do pedido com número, itens e forma de pagamento.'}
             </DialogDescription>
           </VisuallyHidden>
           {successOrder && <SuccessScreen order={successOrder} storeName={store.name} />}
@@ -2187,6 +2197,23 @@ function SuccessScreen({ order, storeName }: { order: PublicOrderCreated; storeN
   const [paymentExpired, setPaymentExpired] = useState<boolean>(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
 
+  const isPixPending =
+    (preparation?.paymentStep === "pix_automatic" || preparation?.paymentStep === "pix_manual") &&
+    !paymentConfirmed &&
+    !paymentExpired;
+
+  const paymentHeading = paymentConfirmed
+    ? "Pedido confirmado!"
+    : isPixPending
+    ? "Aguardando pagamento PIX"
+    : "Pedido recebido!";
+
+  const paymentSubtitle = paymentConfirmed
+    ? `${storeName} confirmou o pagamento e está processando seu pedido.`
+    : isPixPending
+    ? "Use o PIX abaixo para pagar. O pedido será finalizado após a confirmação."
+    : `${storeName} recebeu seu pedido.`;
+
   const isPaidStatus = (status?: string): boolean =>
     status === "PAID" || status === "NOT_REQUIRED";
 
@@ -2250,8 +2277,20 @@ function SuccessScreen({ order, storeName }: { order: PublicOrderCreated; storeN
           <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-white/20 ring-4 ring-white/30 backdrop-blur">
             <CheckCircle2 className="h-9 w-9" />
           </div>
-          <h2 className="text-xl font-black">Pedido recebido!</h2>
-          <p className="mt-1 text-sm opacity-90">{storeName} recebeu seu pedido.</p>
+          <h2 className="text-xl font-black">
+            {paymentConfirmed
+              ? 'Pedido confirmado!'
+              : isPixPending
+              ? 'Aguardando pagamento PIX'
+              : 'Pedido recebido!'}
+          </h2>
+          <p className="mt-1 text-sm opacity-90">
+            {paymentConfirmed
+              ? `${storeName} confirmou o pagamento e está processando seu pedido.`
+              : isPixPending
+              ? 'Use o PIX abaixo para pagar. O pedido será finalizado após a confirmação.'
+              : `${storeName} recebeu seu pedido.`}
+          </p>
           <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-1.5 text-sm font-black ring-1 ring-white/20 backdrop-blur">
             Pedido <span className="font-mono">#{number}</span>
           </div>
