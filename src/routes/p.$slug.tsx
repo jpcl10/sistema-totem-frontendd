@@ -2198,7 +2198,10 @@ function SuccessScreen({ order, storeName }: { order: PublicOrderCreated; storeN
   const [paymentError, setPaymentError] = useState<string | null>(null);
 
   const isPixPending =
-    (preparation?.paymentStep === "pix_automatic" || preparation?.paymentStep === "pix_manual") &&
+    (
+      (preparation?.paymentStep === "pix_automatic" || preparation?.paymentStep === "pix_manual") ||
+      (order.paymentMethod === "PIX" && ((order.paymentStatus ?? "").toString().toUpperCase() === "PENDING"))
+    ) &&
     !paymentConfirmed &&
     !paymentExpired;
 

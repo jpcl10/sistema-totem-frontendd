@@ -1420,7 +1420,7 @@ export function PublicMenuPage({
       {!pixExpired &&
         confirmation &&
         confirmation.pix &&
-        (paymentStep === "pix_automatic" || paymentStep === "loading") && (
+        (paymentStep === "pix_automatic" || paymentStep === "loading" || confirmation.transaction) && (
           <div className="fixed inset-0 z-[100] bg-background animate-in fade-in duration-300 flex flex-col items-center px-4 py-4 text-center overflow-hidden">
             <div className="w-full max-w-xl flex flex-col items-center flex-1 min-h-0">
               <h2
@@ -1529,7 +1529,7 @@ export function PublicMenuPage({
         )}
 
       {confirmation &&
-        !(confirmation.pix && (paymentStep === "pix_automatic" || paymentStep === "loading")) && (
+        !(confirmation.pix && (paymentStep === "pix_automatic" || paymentStep === "loading" || confirmation.transaction)) && (
           <div className="fixed inset-0 z-[100] bg-background animate-in fade-in duration-300 flex flex-col items-center p-6 text-center overflow-y-auto">
             <div className="max-w-2xl w-full my-auto flex flex-col items-center py-10">
               <div
