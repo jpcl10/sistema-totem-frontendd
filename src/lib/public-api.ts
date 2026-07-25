@@ -117,7 +117,8 @@ export interface PaymentProviderSetting {
 
 export interface PaymentTransaction {
   id: string;
-  orderId: string;
+  orderId?: string | null;
+  onlineOrderId?: string | null;
   provider: string;
   method: string;
   amountInCents: number;
@@ -133,6 +134,15 @@ export interface PaymentTransaction {
 export interface PublicOrderPaymentPreparation {
   paymentStep: "pix_automatic" | "pix_manual" | "pix_unavailable" | "operator" | "paid" | "non_payment_method" | "payment_error";
   isPaymentConfirmed?: boolean;
+  transactionId?: string | null;
+  status?: string | null;
+  paymentMethod?: string | null;
+  paymentStatus?: string | null;
+  providerStatus?: string | null;
+  qrCode?: string;
+  qrCodeBase64?: string;
+  ticketUrl?: string;
+  expiresAt?: string;
   paymentTransaction?: PaymentTransaction | null;
   manualPix?: {
     enabled: boolean;
@@ -143,6 +153,11 @@ export interface PublicOrderPaymentPreparation {
   };
   message?: string;
 }
+
+export type OnlineOrderCreationResponse = {
+  order: PublicOrderCreated;
+  paymentPreparation?: PublicOrderPaymentPreparation;
+};
 
 export interface CheckoutPaymentResponse {
   paymentStep: "pix_automatic" | "pix_manual" | "pix_unavailable" | "operator" | "paid" | "non_payment_method" | "payment_error" | "cancelled";
@@ -389,6 +404,78 @@ function normalizePublicOrder(raw: unknown): PublicOrderResponse {
         : typeof obj.total_in_cents === "number"
           ? (obj.total_in_cents as number)
           : undefined,
+  };
+}
+
+function normalizePaymentPreparation(raw: unknown): PublicOrderPaymentPreparation | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const obj = raw as Record<string, unknown>;
+  const tx =
+    obj.paymentTransaction && typeof obj.paymentTransaction === "object"
+      ? (obj.paymentTransaction as PaymentTransaction)
+      : null;
+
+  const qrCode =
+    typeof obj.qrCode === "string"
+      ? obj.qrCode
+      : typeof tx?.qrCode === "string"
+        ? tx.qrCode
+        : typeof tx?.pixCopyPaste === "string"
+          ? tx.pixCopyPaste
+          : undefined;
+
+  return {
+    ...(obj as PublicOrderPaymentPreparation),
+    paymentStep: String(obj.paymentStep ?? "payment_error") as PublicOrderPaymentPreparation["paymentStep"],
+    isPaymentConfirmed:
+      typeof obj.isPaymentConfirmed === "boolean"
+        ? obj.isPaymentConfirmed
+        : undefined,
+    transactionId:
+      typeof obj.transactionId === "string"
+        ? obj.transactionId
+        : typeof tx?.id === "string"
+          ? tx.id
+          : null,
+    status:
+      typeof obj.status === "string"
+        ? obj.status
+        : typeof tx?.status === "string"
+          ? tx.status
+          : null,
+    paymentMethod:
+      typeof obj.paymentMethod === "string"
+        ? obj.paymentMethod
+        : typeof tx?.method === "string"
+          ? tx.method
+          : null,
+    paymentStatus:
+      typeof obj.paymentStatus === "string"
+        ? obj.paymentStatus
+        : typeof tx?.status === "string"
+          ? tx.status
+          : null,
+    providerStatus:
+      typeof obj.providerStatus === "string"
+        ? obj.providerStatus
+        : typeof tx?.gatewayStatus === "string"
+          ? tx.gatewayStatus
+          : null,
+    qrCode,
+    qrCodeBase64:
+      typeof obj.qrCodeBase64 === "string"
+        ? obj.qrCodeBase64
+        : typeof tx?.qrCodeBase64 === "string"
+          ? tx.qrCodeBase64
+          : undefined,
+    ticketUrl: typeof obj.ticketUrl === "string" ? obj.ticketUrl : undefined,
+    expiresAt:
+      typeof obj.expiresAt === "string"
+        ? obj.expiresAt
+        : typeof tx?.expiresAt === "string"
+          ? tx.expiresAt
+          : undefined,
+    paymentTransaction: tx,
   };
 }
 
@@ -741,6 +828,7 @@ export async function getPublicOrderStatus(
 ): Promise<{ paymentStatus?: string } | null> {
   const id = encodeURIComponent(orderId);
   const candidates = [
+    `${API_BASE_URL}/public/online-orders/${id}/payment-status`,
     `${API_BASE_URL}/public/orders/${id}`,
     `${API_BASE_URL}/public/orders/${id}/status`,
     `${API_BASE_URL}/orders/${id}`,
@@ -1236,11 +1324,33 @@ export async function createPublicStoreOrder(
     ((obj.data as PublicOrderCreated) as PublicOrderCreated) ??
     (data as PublicOrderCreated);
   const paymentPreparation =
-    (obj.paymentPreparation as PublicOrderPaymentPreparation | undefined) ??
-    baseOrder.paymentPreparation;
+    normalizePaymentPreparation(obj.paymentPreparation) ??
+    normalizePaymentPreparation(baseOrder.paymentPreparation);
 
   return {
     ...baseOrder,
     paymentPreparation
   };
+}
+
+export interface PublicPaymentStatusResponse {
+  orderId: string;
+  paymentStatus: string;
+  orderStatus?: string;
+  paidAt?: string | null;
+}
+
+export async function getPublicOnlineOrderPaymentStatus(
+  orderId: string,
+): Promise<PublicPaymentStatusResponse | null> {
+  try {
+    const res = await fetch(
+      `${API_BASE_URL}/public/online-orders/${encodeURIComponent(orderId)}/payment-status`,
+      { headers: { ...API_HEADERS } },
+    );
+    if (!res.ok) return null;
+    return res.json() as Promise<PublicPaymentStatusResponse>;
+  } catch {
+    return null;
+  }
 }

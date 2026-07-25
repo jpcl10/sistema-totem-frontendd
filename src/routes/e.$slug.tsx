@@ -293,6 +293,15 @@ function formatBRL(cents: number): string {
   return (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
+function pixImageSrc(base64?: string | null): string | null {
+  if (!base64) return null;
+  return base64.startsWith("data:image/") ? base64 : `data:image/png;base64,${base64}`;
+}
+
+function pixCode(transaction?: PaymentTransaction | null): string {
+  return transaction?.pixCopyPaste ?? transaction?.qrCode ?? "";
+}
+
 function pick<T = unknown>(obj: Record<string, unknown> | undefined | null, ...keys: string[]): T | undefined {
   if (!obj) return undefined;
   for (const key of keys) {
@@ -968,16 +977,40 @@ export function PublicMenuPage({
           checkoutResponse.paymentStep === "pix_manual"
             ? "pix_unavailable"
             : checkoutResponse.paymentStep;
+        const nextTransaction = checkoutResponse.paymentTransaction
+          ? {
+              ...checkoutResponse.paymentTransaction,
+              qrCode:
+                checkoutResponse.paymentTransaction.qrCode ??
+                checkoutResponse.paymentTransaction.pixCopyPaste,
+            }
+          : null;
+        const missingPixQr =
+          nextPaymentStep === "pix_automatic" &&
+          !nextTransaction?.qrCode &&
+          !nextTransaction?.qrCodeBase64 &&
+          !nextTransaction?.pixCopyPaste;
+
+        if (missingPixQr) {
+          console.error("Nao foi possivel gerar o QR Code PIX.", {
+            orderId: order.id,
+            transactionId: nextTransaction?.id ?? null,
+            providerStatus: nextTransaction?.gatewayStatus ?? null,
+          });
+        }
+
         setPaymentStep(nextPaymentStep);
         setConfirmation((prev) =>
           prev
             ? {
                 ...prev,
                 pix: nextPaymentStep !== "paid",
-                transaction: checkoutResponse.paymentTransaction,
+                transaction: nextTransaction,
                 message: checkoutResponse.message,
                 error:
-                  nextPaymentStep === "pix_unavailable"
+                  missingPixQr
+                    ? "Nao foi possivel gerar o QR Code PIX. Tente novamente ou escolha outra forma de pagamento."
+                    : nextPaymentStep === "pix_unavailable"
                     ? checkoutResponse.message ?? "PIX indisponível neste totem."
                     : prev.error,
               }
@@ -1465,9 +1498,9 @@ export function PublicMenuPage({
 
               <div className="bg-white p-3 rounded-2xl border-2 shadow-sm mt-3">
                 {confirmation.transaction ? (
-                  confirmation.transaction.qrCodeBase64 ? (
+                  pixImageSrc(confirmation.transaction.qrCodeBase64) ? (
                     <img
-                      src={`data:image/png;base64,${confirmation.transaction.qrCodeBase64}`}
+                      src={pixImageSrc(confirmation.transaction.qrCodeBase64) ?? ""}
                       alt="QR Code PIX"
                       className="w-[min(70vw,420px)] h-[min(70vw,420px)] block"
                     />
@@ -1491,12 +1524,18 @@ export function PublicMenuPage({
                 )}
               </div>
 
-              {confirmation.transaction?.pixCopyPaste && (
+              {confirmation.error && (
+                <div className="mt-3 rounded-2xl border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm font-bold text-destructive">
+                  {confirmation.error}
+                </div>
+              )}
+
+              {pixCode(confirmation.transaction) && (
                 <Button
                   variant="secondary"
                   className="mt-3 h-11 px-5 font-bold rounded-xl gap-2 text-sm shadow-sm"
                   onClick={() => {
-                    const code = confirmation.transaction?.pixCopyPaste;
+                    const code = pixCode(confirmation.transaction);
                     if (!code) {
                       toast.error("Código PIX indisponível. Tente novamente ou chame o operador.");
                       return;
@@ -1675,9 +1714,9 @@ export function PublicMenuPage({
 
                       <div className="flex flex-col items-center gap-4">
                         <div className="bg-white p-4 rounded-2xl border-2 shadow-sm">
-                          {confirmation.transaction.qrCodeBase64 ? (
+                          {pixImageSrc(confirmation.transaction.qrCodeBase64) ? (
                             <img
-                              src={`data:image/png;base64,${confirmation.transaction.qrCodeBase64}`}
+                              src={pixImageSrc(confirmation.transaction.qrCodeBase64) ?? ""}
                               alt="QR Code PIX"
                               className="size-48 sm:size-64"
                             />
@@ -1686,12 +1725,12 @@ export function PublicMenuPage({
                           ) : null}
                         </div>
 
-                        {confirmation.transaction.pixCopyPaste && (
+                        {pixCode(confirmation.transaction) && (
                           <Button
                             variant="secondary"
                             className="w-full h-14 font-bold rounded-xl gap-2 text-lg shadow-sm"
                             onClick={() => {
-                              const code = confirmation.transaction?.pixCopyPaste;
+                              const code = pixCode(confirmation.transaction);
                               if (!code) {
                                 toast.error(
                                   "Código PIX indisponível. Tente novamente ou chame o operador.",
@@ -1734,7 +1773,7 @@ export function PublicMenuPage({
                       <p className="text-muted-foreground font-medium">
                         {paymentStep === "pix_unavailable"
                           ? "O Mercado Pago não está configurado corretamente para gerar PIX neste totem."
-                          : "Use o terminal de cartão configurado ou procure um operador para concluir o pagamento."}
+                          : "Nao foi possivel iniciar o PIX automatico. Tente novamente ou procure um operador."}
                       </p>
                     </div>
                   )}
@@ -2670,5 +2709,3 @@ function PixDialog({
     </DialogContent>
   );
 }
-
-

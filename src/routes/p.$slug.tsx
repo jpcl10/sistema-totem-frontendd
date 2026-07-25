@@ -52,6 +52,7 @@ import {
   getPublicStoreCustomerByPhone,
   createPublicStoreOrder,
   getPublicOrderStatus,
+  getPublicOnlineOrderPaymentStatus,
   type PublicStore,
   type PublicStoreProduct,
   type PublicStoreCategory,
@@ -148,6 +149,19 @@ function parseBRLToCents(input: string): number {
   const n = Number(clean);
   if (!Number.isFinite(n) || n < 0) return 0;
   return Math.round(n * 100);
+}
+
+function pixImageSrc(base64?: string | null): string | null {
+  if (!base64) return null;
+  return base64.startsWith("data:image/") ? base64 : `data:image/png;base64,${base64}`;
+}
+
+function pixCopyPaste(preparation?: PublicOrderPaymentPreparation | null): string {
+  return preparation?.qrCode ?? preparation?.paymentTransaction?.pixCopyPaste ?? "";
+}
+
+function pixQrBase64(preparation?: PublicOrderPaymentPreparation | null): string | undefined {
+  return preparation?.qrCodeBase64 ?? preparation?.paymentTransaction?.qrCodeBase64;
 }
 
 /** Extract loose optional fields (badges, delivery time) without breaking types. */
@@ -554,8 +568,34 @@ function PublicStorePage() {
       setSuccessOrder(created);
       setCheckoutOpen(false);
       setCartOpen(false);
-      setCart([]);
-      setOrderNotes("");
+      const pixPreparation = created.paymentPreparation;
+      const hasPixPayment =
+        form.paymentMethod === "PIX" && pixPreparation?.paymentStep === "pix_automatic";
+      const hasPixQr =
+        Boolean(pixCopyPaste(pixPreparation)) ||
+        Boolean(pixQrBase64(pixPreparation));
+
+      if (hasPixPayment && hasPixQr) {
+        try {
+          window.localStorage.setItem(
+            `public-store-pix:${slug}`,
+            JSON.stringify({
+              orderId: created.id,
+              orderNumber: created.orderNumber ?? created.code ?? null,
+              totalInCents: created.totalInCents ?? null,
+              paymentPreparation: pixPreparation,
+              createdAt: new Date().toISOString(),
+            }),
+          );
+        } catch (error) {
+          console.warn("Nao foi possivel preservar o pagamento PIX no localStorage:", error);
+        }
+        setCart([]);
+        setOrderNotes("");
+      } else if (form.paymentMethod !== "PIX") {
+        setCart([]);
+        setOrderNotes("");
+      }
     } catch (err) {
       // Detect the DELIVERY_DISABLED backend error explicitly so we can
       // route the user back to the fulfillment/entrega step instead of
@@ -2193,9 +2233,15 @@ function SuccessScreen({ order, storeName }: { order: PublicOrderCreated; storeN
   };
   const preparation = order.paymentPreparation;
   const transaction = preparation?.paymentTransaction;
+  const copyPasteCode = pixCopyPaste(preparation);
+  const qrBase64 = pixQrBase64(preparation);
+  const qrImage = pixImageSrc(qrBase64);
+  const qrValue = preparation?.qrCode ?? transaction?.qrCode ?? copyPasteCode;
+  const hasPixQr = Boolean(copyPasteCode || qrImage || transaction?.qrCode);
   const [paymentConfirmed, setPaymentConfirmed] = useState<boolean>(preparation?.isPaymentConfirmed ?? false);
   const [paymentExpired, setPaymentExpired] = useState<boolean>(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
 
   const isPixPending =
     (
@@ -2218,24 +2264,53 @@ function SuccessScreen({ order, storeName }: { order: PublicOrderCreated; storeN
     : `${storeName} recebeu seu pedido.`;
 
   const isPaidStatus = (status?: string): boolean =>
-    status === "PAID" || status === "NOT_REQUIRED";
+    status === "PAID" || status === "APPROVED" || status === "NOT_REQUIRED";
+
+  useEffect(() => {
+    if (!preparation?.expiresAt || paymentConfirmed || paymentExpired) return;
+
+    const tick = () => {
+      const seconds = Math.max(0, Math.floor((new Date(preparation.expiresAt as string).getTime() - Date.now()) / 1000));
+      setRemainingSeconds(seconds);
+      if (seconds <= 0) {
+        setPaymentExpired(true);
+        setPaymentError("PIX expirado. Gere um novo PIX ou escolha outra forma de pagamento.");
+      }
+    };
+
+    tick();
+    const id = window.setInterval(tick, 1000);
+    return () => window.clearInterval(id);
+  }, [preparation?.expiresAt, paymentConfirmed, paymentExpired]);
 
   useEffect(() => {
     if (paymentConfirmed || paymentExpired) return;
     if (preparation?.paymentStep !== "pix_automatic") return;
-    const orderId = transaction?.orderId ?? order.id;
+    const orderId = transaction?.onlineOrderId ?? transaction?.orderId ?? order.id;
     if (!orderId) return;
 
     let cancelled = false;
 
     const checkStatus = async () => {
       try {
-        const status = await getPublicOrderStatus(orderId);
+        const status =
+          await getPublicOnlineOrderPaymentStatus(orderId) ??
+          await getPublicOrderStatus(orderId);
         if (cancelled || !status?.paymentStatus) return;
         if (isPaidStatus(status.paymentStatus)) {
           setPaymentConfirmed(true);
           setPaymentError(null);
           toast.success("Pagamento PIX confirmado!");
+          try {
+            for (const key of Object.keys(window.localStorage)) {
+              if (key.startsWith("public-store-pix:")) {
+                const value = window.localStorage.getItem(key);
+                if (value?.includes(orderId)) window.localStorage.removeItem(key);
+              }
+            }
+          } catch {
+            // best effort
+          }
           return;
         }
         if (
@@ -2253,12 +2328,12 @@ function SuccessScreen({ order, storeName }: { order: PublicOrderCreated; storeN
     };
 
     checkStatus();
-    const intervalId = window.setInterval(checkStatus, 3000);
+    const intervalId = window.setInterval(checkStatus, 35000);
     return () => {
       cancelled = true;
       window.clearInterval(intervalId);
     };
-  }, [paymentConfirmed, paymentExpired, preparation?.paymentStep, transaction]);
+  }, [paymentConfirmed, paymentExpired, preparation?.paymentStep, transaction?.onlineOrderId, transaction?.orderId, order.id]);
 
   const copyCode = async (value: string) => {
     try {
@@ -2269,7 +2344,20 @@ function SuccessScreen({ order, storeName }: { order: PublicOrderCreated; storeN
     }
   };
 
-  const showPixQr = preparation?.paymentStep === "pix_automatic" && transaction;
+  useEffect(() => {
+    if (
+      preparation?.paymentStep === "pix_automatic" &&
+      !hasPixQr
+    ) {
+      console.error("Nao foi possivel gerar QR Code PIX.", {
+        orderId: order.id,
+        transactionId: preparation.transactionId ?? transaction?.id ?? null,
+        providerStatus: preparation.providerStatus ?? transaction?.gatewayStatus ?? null,
+      });
+    }
+  }, [hasPixQr, order.id, preparation, transaction]);
+
+  const showPixQr = preparation?.paymentStep === "pix_automatic";
   const showPixManual = preparation?.paymentStep === "pix_manual" && preparation?.manualPix?.enabled;
 
   return (
@@ -2300,7 +2388,7 @@ function SuccessScreen({ order, storeName }: { order: PublicOrderCreated; storeN
         </div>
       </div>
       <div className="space-y-4 p-5">
-        {showPixQr && transaction ? (
+        {showPixQr ? (
           <div className="space-y-4 rounded-2xl border border-border/70 bg-muted/40 p-4 text-sm">
             <div className="flex items-center justify-between gap-4">
               <div>
@@ -2312,26 +2400,41 @@ function SuccessScreen({ order, storeName }: { order: PublicOrderCreated; storeN
               </div>
             </div>
             <div className="grid gap-3 rounded-3xl border border-border/60 bg-background/90 p-4 text-center">
-              {transaction.qrCodeBase64 ? (
-                <img src={`data:image/png;base64,${transaction.qrCodeBase64}`} alt="QR code PIX" className="mx-auto h-52 w-52" />
-              ) : transaction.qrCode ? (
+              {qrImage ? (
+                <img src={qrImage} alt="QR Code PIX" className="mx-auto h-52 w-52" />
+              ) : transaction?.qrCode ? (
                 <QRCodeSVG value={transaction.qrCode} size={220} level="M" />
+              ) : qrValue ? (
+                <QRCodeSVG value={qrValue} size={220} level="M" />
               ) : null}
-              {transaction.pixCopyPaste ? (
+              {copyPasteCode ? (
                 <div className="space-y-2">
-                  <div className="rounded-2xl border border-border/60 bg-card p-3 text-left text-xs tracking-tight">
-                    <p className="break-words">{transaction.pixCopyPaste}</p>
-                  </div>
+                  <Textarea readOnly value={copyPasteCode} className="min-h-24 resize-none font-mono text-xs" />
                   <Button
                     variant="outline"
                     className="w-full"
-                    onClick={() => copyCode(transaction.pixCopyPaste ?? "")}
+                    onClick={() => copyCode(copyPasteCode)}
                   >
                     <Copy className="mr-2 h-4 w-4" /> Copiar código PIX
                   </Button>
                 </div>
               ) : null}
             </div>
+            {typeof remainingSeconds === "number" && !paymentConfirmed && !paymentExpired ? (
+              <div className="flex items-center justify-between rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900">
+                <span className="text-xs font-semibold">Tempo restante</span>
+                <span className="font-mono text-sm font-black">
+                  {String(Math.floor(remainingSeconds / 60)).padStart(2, "0")}:
+                  {String(remainingSeconds % 60).padStart(2, "0")}
+                </span>
+              </div>
+            ) : null}
+            {!hasPixQr ? (
+              <div className="rounded-2xl border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+                <p className="font-semibold">Nao foi possivel gerar o QR Code PIX.</p>
+                <p className="mt-1 text-xs">Tente novamente ou escolha outra forma de pagamento.</p>
+              </div>
+            ) : null}
             {paymentExpired ? (
               <div className="rounded-2xl border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
                 <p className="font-semibold">Pagamento expirou ou foi rejeitado.</p>
