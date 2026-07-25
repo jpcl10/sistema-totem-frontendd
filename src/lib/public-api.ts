@@ -1335,22 +1335,63 @@ export async function createPublicStoreOrder(
 
 export interface PublicPaymentStatusResponse {
   orderId: string;
+  orderNumber?: number;
+  paymentMethod?: string;
   paymentStatus: string;
   orderStatus?: string;
+  transaction?: {
+    status?: string | null;
+    qrCode?: string | null;
+    qrCodeBase64?: string | null;
+    ticketUrl?: string | null;
+    expiresAt?: string | null;
+    providerStatus?: string | null;
+  } | null;
   paidAt?: string | null;
+}
+
+export class PublicPaymentStatusError extends Error {
+  constructor(
+    message: string,
+    public readonly details: {
+      orderId: string;
+      url: string;
+      status?: number;
+    },
+  ) {
+    super(message);
+  }
 }
 
 export async function getPublicOnlineOrderPaymentStatus(
   orderId: string,
-): Promise<PublicPaymentStatusResponse | null> {
+): Promise<PublicPaymentStatusResponse> {
+  const url = `${API_BASE_URL}/public/online-orders/${encodeURIComponent(orderId)}/payment-status`;
   try {
-    const res = await fetch(
-      `${API_BASE_URL}/public/online-orders/${encodeURIComponent(orderId)}/payment-status`,
-      { headers: { ...API_HEADERS } },
-    );
-    if (!res.ok) return null;
+    const res = await fetch(url, { headers: { ...API_HEADERS } });
+    if (!res.ok) {
+      console.error("Falha ao consultar status PIX publico:", {
+        orderId,
+        url,
+        httpStatus: res.status,
+      });
+      throw new PublicPaymentStatusError("Nao foi possivel consultar o pagamento.", {
+        orderId,
+        url,
+        status: res.status,
+      });
+    }
     return res.json() as Promise<PublicPaymentStatusResponse>;
-  } catch {
-    return null;
+  } catch (error) {
+    if (error instanceof PublicPaymentStatusError) throw error;
+    console.error("Falha ao consultar status PIX publico:", {
+      orderId,
+      url,
+      httpStatus: undefined,
+    });
+    throw new PublicPaymentStatusError("Nao foi possivel consultar o pagamento.", {
+      orderId,
+      url,
+    });
   }
 }

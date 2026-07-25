@@ -51,8 +51,8 @@ import {
   getPublicStore,
   getPublicStoreCustomerByPhone,
   createPublicStoreOrder,
-  getPublicOrderStatus,
   getPublicOnlineOrderPaymentStatus,
+  PublicPaymentStatusError,
   type PublicStore,
   type PublicStoreProduct,
   type PublicStoreCategory,
@@ -60,6 +60,7 @@ import {
   type PublicOrderCreated,
   type PublicOrderCreatedItem,
   type PublicOrderPaymentPreparation,
+  type PublicPaymentStatusResponse,
   type PublicCustomer,
   type PublicCustomerAddress,
   type PublicProductOptionGroup,
@@ -162,6 +163,46 @@ function pixCopyPaste(preparation?: PublicOrderPaymentPreparation | null): strin
 
 function pixQrBase64(preparation?: PublicOrderPaymentPreparation | null): string | undefined {
   return preparation?.qrCodeBase64 ?? preparation?.paymentTransaction?.qrCodeBase64;
+}
+
+function paymentStatusHasPixQr(status?: PublicPaymentStatusResponse | null): boolean {
+  return Boolean(status?.transaction?.qrCode || status?.transaction?.qrCodeBase64);
+}
+
+function mergePaymentStatusPreparation(
+  preparation: PublicOrderPaymentPreparation | undefined,
+  status: PublicPaymentStatusResponse,
+): PublicOrderPaymentPreparation {
+  const transaction = status.transaction;
+  return {
+    ...(preparation ?? { paymentStep: "pix_automatic" as const }),
+    paymentStep: preparation?.paymentStep ?? "pix_automatic",
+    isPaymentConfirmed:
+      status.paymentStatus === "PAID" ||
+      status.paymentStatus === "APPROVED" ||
+      preparation?.isPaymentConfirmed,
+    status: transaction?.status ?? preparation?.status ?? null,
+    paymentMethod: status.paymentMethod ?? preparation?.paymentMethod ?? null,
+    paymentStatus: status.paymentStatus ?? preparation?.paymentStatus ?? null,
+    providerStatus: transaction?.providerStatus ?? preparation?.providerStatus ?? null,
+    qrCode: transaction?.qrCode ?? preparation?.qrCode,
+    qrCodeBase64: transaction?.qrCodeBase64 ?? preparation?.qrCodeBase64,
+    ticketUrl: transaction?.ticketUrl ?? preparation?.ticketUrl,
+    expiresAt: transaction?.expiresAt ?? preparation?.expiresAt,
+    paymentTransaction: {
+      ...(preparation?.paymentTransaction ?? {}),
+      status: transaction?.status ?? preparation?.paymentTransaction?.status ?? "PENDING",
+      method: status.paymentMethod ?? preparation?.paymentTransaction?.method ?? "PIX",
+      qrCode: transaction?.qrCode ?? preparation?.paymentTransaction?.qrCode,
+      qrCodeBase64: transaction?.qrCodeBase64 ?? preparation?.paymentTransaction?.qrCodeBase64,
+      pixCopyPaste:
+        transaction?.qrCode ??
+        preparation?.paymentTransaction?.pixCopyPaste ??
+        preparation?.qrCode,
+      gatewayStatus: transaction?.providerStatus ?? preparation?.paymentTransaction?.gatewayStatus,
+      expiresAt: transaction?.expiresAt ?? preparation?.paymentTransaction?.expiresAt,
+    } as PublicOrderPaymentPreparation["paymentTransaction"],
+  };
 }
 
 /** Extract loose optional fields (badges, delivery time) without breaking types. */
@@ -2231,7 +2272,8 @@ function SuccessScreen({ order, storeName }: { order: PublicOrderCreated; storeN
     CARD_ON_DELIVERY: "Cartão na entrega",
     CASH: "Dinheiro",
   };
-  const preparation = order.paymentPreparation;
+  const [statusPreparation, setStatusPreparation] = useState<PublicOrderPaymentPreparation | undefined>(undefined);
+  const preparation = statusPreparation ?? order.paymentPreparation;
   const transaction = preparation?.paymentTransaction;
   const copyPasteCode = pixCopyPaste(preparation);
   const qrBase64 = pixQrBase64(preparation);
@@ -2242,6 +2284,7 @@ function SuccessScreen({ order, storeName }: { order: PublicOrderCreated; storeN
   const [paymentExpired, setPaymentExpired] = useState<boolean>(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
+  const status404Count = useRef(0);
 
   const isPixPending =
     (
@@ -2286,17 +2329,19 @@ function SuccessScreen({ order, storeName }: { order: PublicOrderCreated; storeN
   useEffect(() => {
     if (paymentConfirmed || paymentExpired) return;
     if (preparation?.paymentStep !== "pix_automatic") return;
-    const orderId = transaction?.onlineOrderId ?? transaction?.orderId ?? order.id;
+    const orderId = order.id;
     if (!orderId) return;
 
     let cancelled = false;
 
     const checkStatus = async () => {
       try {
-        const status =
-          await getPublicOnlineOrderPaymentStatus(orderId) ??
-          await getPublicOrderStatus(orderId);
+        const status = await getPublicOnlineOrderPaymentStatus(orderId);
         if (cancelled || !status?.paymentStatus) return;
+        status404Count.current = 0;
+        if (paymentStatusHasPixQr(status)) {
+          setStatusPreparation((current) => mergePaymentStatusPreparation(current ?? order.paymentPreparation, status));
+        }
         if (isPaidStatus(status.paymentStatus)) {
           setPaymentConfirmed(true);
           setPaymentError(null);
@@ -2323,7 +2368,15 @@ function SuccessScreen({ order, storeName }: { order: PublicOrderCreated; storeN
           setPaymentError("Pagamento não foi confirmado. Tente novamente ou refaça o pedido.");
         }
       } catch (err) {
-        console.error("Falha ao consultar status do pedido público:", err);
+        if (err instanceof PublicPaymentStatusError && err.details.status === 404) {
+          status404Count.current += 1;
+          if (status404Count.current >= 3) {
+            setPaymentError("Não foi possível consultar o pagamento. Tente novamente ou escolha outra forma de pagamento.");
+            cancelled = true;
+          }
+          return;
+        }
+        console.error("Falha ao consultar status do pedido publico:", err);
       }
     };
 
@@ -2333,7 +2386,7 @@ function SuccessScreen({ order, storeName }: { order: PublicOrderCreated; storeN
       cancelled = true;
       window.clearInterval(intervalId);
     };
-  }, [paymentConfirmed, paymentExpired, preparation?.paymentStep, transaction?.onlineOrderId, transaction?.orderId, order.id]);
+  }, [paymentConfirmed, paymentExpired, preparation?.paymentStep, order.id, order.paymentPreparation]);
 
   const copyCode = async (value: string) => {
     try {
