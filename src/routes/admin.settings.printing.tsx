@@ -1,13 +1,14 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
-import { Printer, Check, WifiOff } from "lucide-react";
+import { Printer, Check, FileText, WifiOff } from "lucide-react";
 import { AdminLayout } from "@/components/admin-layout";
 import { SettingsLayout } from "@/components/admin/settings/SettingsLayout";
 import { SettingsSection } from "@/components/admin/settings/SettingsSection";
 import { SettingsGroup } from "@/components/admin/settings/SettingsGroup";
 import { StickySaveBar } from "@/components/admin/settings/StickySaveBar";
 import { PageLoading, PageError } from "@/components/admin/page";
+import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
@@ -166,11 +167,19 @@ function PrintingInner() {
         title="Impressão"
         description="Comportamento global do sistema de impressão."
         actions={
-          source && (
-            <Badge variant="secondary" className="gap-1">
-              <Check className="h-3 w-3" /> {source}
-            </Badge>
-          )
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/admin/settings/printing/templates">
+                <FileText className="mr-2 h-4 w-4" />
+                Modelos de ficha
+              </Link>
+            </Button>
+            {source && (
+              <Badge variant="secondary" className="gap-1">
+                <Check className="h-3 w-3" /> {source}
+              </Badge>
+            )}
+          </div>
         }
       >
         <ToggleRow

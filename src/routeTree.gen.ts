@@ -53,6 +53,7 @@ import { Route as AdminSettingsBrandingRouteImport } from './routes/admin.settin
 import { Route as AdminEventsIdRouteImport } from './routes/admin.events.$id'
 import { Route as AdminDevicesIdRouteImport } from './routes/admin.devices.$id'
 import { Route as AdminCustomersIdRouteImport } from './routes/admin.customers.$id'
+import { Route as AdminSettingsPrintingTemplatesRouteImport } from './routes/admin.settings.printing.templates'
 import { Route as AdminSettingsDeliveryRulesRouteImport } from './routes/admin.settings.delivery.rules'
 import { Route as AdminEventsIdPrintingRouteImport } from './routes/admin.events.$id.printing'
 import { Route as AdminEventsIdPaymentsRouteImport } from './routes/admin.events.$id.payments'
@@ -282,6 +283,12 @@ const AdminCustomersIdRoute = AdminCustomersIdRouteImport.update({
   path: '/customers/$id',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminSettingsPrintingTemplatesRoute =
+  AdminSettingsPrintingTemplatesRouteImport.update({
+    id: '/templates',
+    path: '/templates',
+    getParentRoute: () => AdminSettingsPrintingRoute,
+  } as any)
 const AdminSettingsDeliveryRulesRoute =
   AdminSettingsDeliveryRulesRouteImport.update({
     id: '/rules',
@@ -337,7 +344,7 @@ export interface FileRoutesByFullPath {
   '/admin/settings/online-orders': typeof AdminSettingsOnlineOrdersRoute
   '/admin/settings/organization': typeof AdminSettingsOrganizationRoute
   '/admin/settings/payments': typeof AdminSettingsPaymentsRoute
-  '/admin/settings/printing': typeof AdminSettingsPrintingRoute
+  '/admin/settings/printing': typeof AdminSettingsPrintingRouteWithChildren
   '/chamada/evento/$slug': typeof ChamadaEventoSlugRoute
   '/chamada/loja/$slug': typeof ChamadaLojaSlugRoute
   '/e/$organizationSlug/$eventSlug': typeof EOrganizationSlugEventSlugRoute
@@ -347,6 +354,7 @@ export interface FileRoutesByFullPath {
   '/admin/events/$id/payments': typeof AdminEventsIdPaymentsRoute
   '/admin/events/$id/printing': typeof AdminEventsIdPrintingRoute
   '/admin/settings/delivery/rules': typeof AdminSettingsDeliveryRulesRoute
+  '/admin/settings/printing/templates': typeof AdminSettingsPrintingTemplatesRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -384,7 +392,7 @@ export interface FileRoutesByTo {
   '/admin/settings/online-orders': typeof AdminSettingsOnlineOrdersRoute
   '/admin/settings/organization': typeof AdminSettingsOrganizationRoute
   '/admin/settings/payments': typeof AdminSettingsPaymentsRoute
-  '/admin/settings/printing': typeof AdminSettingsPrintingRoute
+  '/admin/settings/printing': typeof AdminSettingsPrintingRouteWithChildren
   '/chamada/evento/$slug': typeof ChamadaEventoSlugRoute
   '/chamada/loja/$slug': typeof ChamadaLojaSlugRoute
   '/e/$organizationSlug/$eventSlug': typeof EOrganizationSlugEventSlugRoute
@@ -394,6 +402,7 @@ export interface FileRoutesByTo {
   '/admin/events/$id/payments': typeof AdminEventsIdPaymentsRoute
   '/admin/events/$id/printing': typeof AdminEventsIdPrintingRoute
   '/admin/settings/delivery/rules': typeof AdminSettingsDeliveryRulesRoute
+  '/admin/settings/printing/templates': typeof AdminSettingsPrintingTemplatesRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -434,7 +443,7 @@ export interface FileRoutesById {
   '/admin/settings/online-orders': typeof AdminSettingsOnlineOrdersRoute
   '/admin/settings/organization': typeof AdminSettingsOrganizationRoute
   '/admin/settings/payments': typeof AdminSettingsPaymentsRoute
-  '/admin/settings/printing': typeof AdminSettingsPrintingRoute
+  '/admin/settings/printing': typeof AdminSettingsPrintingRouteWithChildren
   '/chamada/evento/$slug': typeof ChamadaEventoSlugRoute
   '/chamada/loja/$slug': typeof ChamadaLojaSlugRoute
   '/e/$organizationSlug/$eventSlug': typeof EOrganizationSlugEventSlugRoute
@@ -444,6 +453,7 @@ export interface FileRoutesById {
   '/admin/events/$id/payments': typeof AdminEventsIdPaymentsRoute
   '/admin/events/$id/printing': typeof AdminEventsIdPrintingRoute
   '/admin/settings/delivery/rules': typeof AdminSettingsDeliveryRulesRoute
+  '/admin/settings/printing/templates': typeof AdminSettingsPrintingTemplatesRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -495,6 +505,7 @@ export interface FileRouteTypes {
     | '/admin/events/$id/payments'
     | '/admin/events/$id/printing'
     | '/admin/settings/delivery/rules'
+    | '/admin/settings/printing/templates'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -542,6 +553,7 @@ export interface FileRouteTypes {
     | '/admin/events/$id/payments'
     | '/admin/events/$id/printing'
     | '/admin/settings/delivery/rules'
+    | '/admin/settings/printing/templates'
   id:
     | '__root__'
     | '/'
@@ -591,6 +603,7 @@ export interface FileRouteTypes {
     | '/admin/events/$id/payments'
     | '/admin/events/$id/printing'
     | '/admin/settings/delivery/rules'
+    | '/admin/settings/printing/templates'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -915,6 +928,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminCustomersIdRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/settings/printing/templates': {
+      id: '/admin/settings/printing/templates'
+      path: '/templates'
+      fullPath: '/admin/settings/printing/templates'
+      preLoaderRoute: typeof AdminSettingsPrintingTemplatesRouteImport
+      parentRoute: typeof AdminSettingsPrintingRoute
+    }
     '/admin/settings/delivery/rules': {
       id: '/admin/settings/delivery/rules'
       path: '/rules'
@@ -964,6 +984,19 @@ const AdminSettingsDeliveryRouteWithChildren =
     AdminSettingsDeliveryRouteChildren,
   )
 
+interface AdminSettingsPrintingRouteChildren {
+  AdminSettingsPrintingTemplatesRoute: typeof AdminSettingsPrintingTemplatesRoute
+}
+
+const AdminSettingsPrintingRouteChildren: AdminSettingsPrintingRouteChildren = {
+  AdminSettingsPrintingTemplatesRoute: AdminSettingsPrintingTemplatesRoute,
+}
+
+const AdminSettingsPrintingRouteWithChildren =
+  AdminSettingsPrintingRoute._addFileChildren(
+    AdminSettingsPrintingRouteChildren,
+  )
+
 interface AdminSettingsRouteChildren {
   AdminSettingsBrandingRoute: typeof AdminSettingsBrandingRoute
   AdminSettingsBusinessHoursRoute: typeof AdminSettingsBusinessHoursRoute
@@ -974,7 +1007,7 @@ interface AdminSettingsRouteChildren {
   AdminSettingsOnlineOrdersRoute: typeof AdminSettingsOnlineOrdersRoute
   AdminSettingsOrganizationRoute: typeof AdminSettingsOrganizationRoute
   AdminSettingsPaymentsRoute: typeof AdminSettingsPaymentsRoute
-  AdminSettingsPrintingRoute: typeof AdminSettingsPrintingRoute
+  AdminSettingsPrintingRoute: typeof AdminSettingsPrintingRouteWithChildren
   AdminSettingsIndexRoute: typeof AdminSettingsIndexRoute
 }
 
@@ -988,7 +1021,7 @@ const AdminSettingsRouteChildren: AdminSettingsRouteChildren = {
   AdminSettingsOnlineOrdersRoute: AdminSettingsOnlineOrdersRoute,
   AdminSettingsOrganizationRoute: AdminSettingsOrganizationRoute,
   AdminSettingsPaymentsRoute: AdminSettingsPaymentsRoute,
-  AdminSettingsPrintingRoute: AdminSettingsPrintingRoute,
+  AdminSettingsPrintingRoute: AdminSettingsPrintingRouteWithChildren,
   AdminSettingsIndexRoute: AdminSettingsIndexRoute,
 }
 

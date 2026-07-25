@@ -739,7 +739,7 @@ export function VisaoGeralTab({
                     onClick={() => setDetailsOrder(o)}
                   >
                     <TableCell className="font-mono text-xs">
-                      #{o.number ?? o.code ?? o.id.slice(0, 8)}
+                      #{o.number ?? o.code ?? (typeof o.id === "string" && o.id ? o.id.slice(0, 8) : "------")}
                     </TableCell>
                     <TableCell>{o.customer?.name ?? "—"}</TableCell>
                     <TableCell>

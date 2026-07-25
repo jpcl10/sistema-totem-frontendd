@@ -287,9 +287,9 @@ export function orderLabel(o: Order): string {
     (extra.shortId as string | undefined) ??
     (extra.short_id as string | undefined);
   if (n !== undefined && n !== null && n !== "") return `#${n}`;
-  return `#${o.id.slice(-6).toUpperCase()}`;
+  return `#${typeof o.id === "string" && o.id ? o.id.slice(-6).toUpperCase() : "------"}`;
 }
 
 export function orderShortId(o: Order): string {
-  return o.id ? o.id.slice(0, 8).toUpperCase() : "—";
+  return typeof o.id === "string" && o.id ? o.id.slice(0, 8).toUpperCase() : "—";
 }
