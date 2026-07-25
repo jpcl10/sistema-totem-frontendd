@@ -36,9 +36,13 @@ export interface OrderDraft {
     neighborhood: string;
     complement?: string;
     reference?: string;
+    city?: string | null;
+    state?: string | null;
+    postalCode?: string | null;
   };
   paymentMethod: ManualSalePaymentMethod;
   cashReceived?: number; // in cents
+  allowOutsideBusinessHours?: boolean;
   notes?: string;
   fulfillmentType?: "PICKUP" | "DINE_IN" | "DELIVERY";
 }
@@ -64,7 +68,11 @@ export function EventOrderStrategy(eventId: string, eventName?: string): OrderCr
         customerName: draft.customerName,
         paymentMethod: draft.paymentMethod,
         paymentStatus,
-        items: draft.items.map((it) => ({ productId: it.productId, quantity: it.quantity })),
+        items: draft.items.map((it) => ({
+          productId: it.productId,
+          catalogProductId: it.productId,
+          quantity: it.quantity,
+        })),
       });
       return { id: order.id };
     },
@@ -102,6 +110,9 @@ export function StoreOrderStrategy(storeId: string, storeName?: string): OrderCr
                 address: draft.delivery.address,
                 number: draft.delivery.number,
                 neighborhood: draft.delivery.neighborhood,
+                city: draft.delivery.city ?? null,
+                state: draft.delivery.state ?? null,
+                postalCode: draft.delivery.postalCode ?? null,
                 complement: draft.delivery.complement ?? null,
                 reference: draft.delivery.reference ?? null,
               }
@@ -109,6 +120,7 @@ export function StoreOrderStrategy(storeId: string, storeName?: string): OrderCr
         paymentMethod,
         amountReceivedInCents:
           paymentMethod === "CASH" ? draft.cashReceived ?? null : undefined,
+        allowOutsideBusinessHours: draft.allowOutsideBusinessHours,
         notes: draft.notes ?? null,
 
         items: draft.items.map((it) => ({

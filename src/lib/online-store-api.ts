@@ -320,11 +320,15 @@ export interface StoreManualSaleInput {
     address: string;
     number: string;
     neighborhood: string;
+    city?: string | null;
+    state?: string | null;
+    postalCode?: string | null;
     complement?: string | null;
     reference?: string | null;
   };
   paymentMethod: StorePaymentMethod;
   amountReceivedInCents?: number | null;
+  allowOutsideBusinessHours?: boolean;
   notes?: string | null;
 }
 
@@ -382,6 +386,9 @@ export async function createStoreManualSale(
       address: input.delivery.address,
       number: input.delivery.number,
       neighborhood: input.delivery.neighborhood,
+      city: emptyToNull(input.delivery.city ?? undefined) ?? null,
+      state: emptyToNull(input.delivery.state ?? undefined) ?? null,
+      postalCode: emptyToNull(input.delivery.postalCode ?? undefined) ?? null,
       complement: emptyToNull(input.delivery.complement ?? undefined) ?? null,
       reference: emptyToNull(input.delivery.reference ?? undefined) ?? null,
     };
@@ -389,6 +396,9 @@ export async function createStoreManualSale(
 
   if (input.paymentMethod === "CASH" && typeof input.amountReceivedInCents === "number") {
     body.amountReceivedInCents = input.amountReceivedInCents;
+  }
+  if (input.allowOutsideBusinessHours === true) {
+    body.allowOutsideBusinessHours = true;
   }
   const notes = emptyToNull(input.notes ?? undefined);
   if (notes !== undefined) body.notes = notes;

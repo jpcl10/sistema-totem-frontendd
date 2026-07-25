@@ -57,6 +57,11 @@ const FRIENDLY_BY_CODE: Record<string, string> = {
   STORE_CLOSED: "O estabelecimento está fechado no momento.",
   MINIMUM_ORDER_NOT_MET: "Pedido mínimo não atingido.",
 
+  OUTSIDE_BUSINESS_HOURS: "A loja est\u00e1 fora do hor\u00e1rio de funcionamento.",
+  MANUALLY_CLOSED: "A loja est\u00e1 fechada manualmente.",
+  PRODUCT_NOT_FOUND: "Produto n\u00e3o encontrado neste cat\u00e1logo.",
+  PRODUCT_NOT_AVAILABLE: "O produto n\u00e3o est\u00e1 dispon\u00edvel para venda neste contexto.",
+
   // Upload
   FILE_INVALID: "Arquivo inválido. Envie uma imagem nos formatos JPG, PNG ou WEBP.",
   FILE_TOO_LARGE: "Imagem muito grande. O tamanho máximo permitido é 5 MB.",

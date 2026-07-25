@@ -276,7 +276,12 @@ export interface ManualSaleInput {
   customerName?: string;
   paymentMethod: ManualSalePaymentMethod;
   paymentStatus: "PAID" | "PENDING";
-  items: { productId: string; quantity: number }[];
+  items: {
+    productId: string;
+    catalogProductId?: string;
+    eventProductId?: string;
+    quantity: number;
+  }[];
 }
 
 export async function createManualSale(

@@ -38,7 +38,7 @@ import {
 import { listCatalogProductOptionGroups } from "@/lib/catalog-api";
 import type { ManualSalePaymentMethod } from "@/lib/orders-api";
 import { StoreOrderStrategy } from "@/lib/order-strategies";
-import { handleApiError } from "@/lib/api-error";
+import { ApiError, handleApiError } from "@/lib/api-error";
 import { useAuth } from "@/lib/auth-context";
 import { qk } from "@/lib/query-keys";
 import {
@@ -396,6 +396,43 @@ export function StoreManualSaleDrawer({
 
   /* --------------------------- Submit --------------------------- */
 
+  const submitOrder = async (allowOutsideBusinessHours = false) => {
+    const strategy = StoreOrderStrategy(storeId, storeName);
+    const savedAddressId =
+      addressSelection.mode === "saved" ? addressSelection.addressId : undefined;
+    const deliveryPayload =
+      fulfillment === "DELIVERY" && addressSelection.mode !== "none" && !savedAddressId
+        ? addressSelection.delivery
+        : undefined;
+
+    await strategy.createOrder(token, {
+      items: cart.map((l) => ({
+        productId: l.product.id,
+        quantity: l.quantity,
+        notes: l.notes || undefined,
+        selectedOptions: l.selectedOptions.flatMap((g) =>
+          g.optionIds.map((optionId) => ({
+            optionId,
+            groupId: g.optionGroupId,
+          })),
+        ),
+      })),
+      customerId: customer.id ?? undefined,
+      customerName: customer.name.trim() || undefined,
+      customerPhone: customer.phone.trim() || undefined,
+      customerAddressId: savedAddressId,
+      delivery: deliveryPayload,
+      paymentMethod,
+      cashReceived:
+        paymentMethod === "CASH" && cashReceivedCents > 0
+          ? cashReceivedCents
+          : undefined,
+      allowOutsideBusinessHours,
+      notes: notes.trim() || undefined,
+      fulfillmentType: fulfillment,
+    });
+  };
+
   const handleSubmit = async () => {
     if (!cart.length) {
       toast.error("Adicione ao menos um produto.");
@@ -453,6 +490,25 @@ export function StoreManualSaleDrawer({
       onOpenChange(false);
       onCreated?.();
     } catch (e) {
+      if (
+        e instanceof ApiError &&
+        (e.code === "OUTSIDE_BUSINESS_HOURS" || e.code === "MANUALLY_CLOSED") &&
+        window.confirm("A loja est\u00e1 fora do hor\u00e1rio. Deseja registrar uma venda administrativa mesmo assim?")
+      ) {
+        try {
+          await submitOrder(true);
+          toast.success("Pedido criado com override administrativo de hor\u00e1rio.");
+          if (orgId) {
+            void queryClient.invalidateQueries({ queryKey: qk.orders.all(orgId) });
+          }
+          onOpenChange(false);
+          onCreated?.();
+          return;
+        } catch (retryError) {
+          handleApiError(retryError, "N\u00e3o foi poss\u00edvel criar o pedido.");
+          return;
+        }
+      }
       handleApiError(e, "Não foi possível criar o pedido.");
     } finally {
       setSubmitting(false);
@@ -471,7 +527,7 @@ export function StoreManualSaleDrawer({
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent
           side="right"
-          className="flex h-full w-full flex-col gap-0 p-0 sm:max-w-none md:w-[880px] md:max-w-[92vw]"
+          className="flex h-dvh max-h-dvh w-[min(96vw,1440px)] max-w-[96vw] flex-col gap-0 overflow-hidden p-0 sm:max-w-[96vw]"
         >
           <SheetHeader className="shrink-0 border-b border-border bg-background px-5 py-3">
             <div className="flex items-center gap-2">
@@ -505,9 +561,9 @@ export function StoreManualSaleDrawer({
           </SheetHeader>
 
           {step === "cart" ? (
-            <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[1fr_360px]">
+            <div className="grid min-h-0 flex-1 grid-cols-1 overflow-x-hidden lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]">
               {/* Catalog */}
-              <div className="flex min-h-0 flex-col border-r border-border">
+              <div className="flex min-h-0 min-w-0 flex-col border-r border-border">
                 <div className="shrink-0 space-y-3 border-b border-border p-3">
                   <form
                     onSubmit={(e) => {
@@ -554,7 +610,7 @@ export function StoreManualSaleDrawer({
                   )}
                 </div>
                 <ScrollArea className="flex-1">
-                  <div className="grid grid-cols-2 gap-2.5 p-3 sm:grid-cols-3">
+                  <div className="grid grid-cols-2 gap-2.5 p-3 sm:grid-cols-[repeat(auto-fill,minmax(150px,1fr))]">
                     {loading && (
                       <div className="col-span-full flex items-center justify-center py-16 text-sm text-muted-foreground">
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -620,7 +676,7 @@ export function StoreManualSaleDrawer({
               </div>
 
               {/* Cart */}
-              <div className="flex min-h-0 flex-col bg-muted/30">
+              <div className="flex min-h-0 min-w-0 flex-col bg-muted/30">
                 <div className="shrink-0 border-b border-border px-4 py-3">
                   <div className="flex items-center justify-between">
                     <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">

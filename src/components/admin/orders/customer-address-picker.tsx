@@ -15,6 +15,9 @@ export type PickedDelivery = {
   address: string;
   number: string;
   neighborhood: string;
+  city?: string | null;
+  state?: string | null;
+  postalCode?: string | null;
   complement?: string;
   reference?: string;
 };
@@ -36,6 +39,9 @@ function toDelivery(a: CustomerAddress): PickedDelivery {
     address: a.street,
     number: a.number ?? "",
     neighborhood: a.neighborhood ?? "",
+    city: a.city ?? null,
+    state: a.state ?? null,
+    postalCode: a.postalCode ?? null,
     complement: a.complement ?? undefined,
     reference: a.reference ?? undefined,
   };
@@ -67,6 +73,9 @@ export function CustomerAddressPicker({
     address: "",
     number: "",
     neighborhood: "",
+    city: "",
+    state: "",
+    postalCode: "",
     complement: "",
     reference: "",
   });
@@ -111,12 +120,24 @@ export function CustomerAddressPicker({
         street: draft.address.trim(),
         number: draft.number.trim(),
         neighborhood: draft.neighborhood.trim(),
+        city: draft.city?.trim() || null,
+        state: draft.state?.trim() || null,
+        postalCode: draft.postalCode?.trim() || null,
         complement: draft.complement?.trim() || null,
         reference: draft.reference?.trim() || null,
       });
       setAddresses((prev) => [...prev, created]);
       setCreating(false);
-      setDraft({ address: "", number: "", neighborhood: "", complement: "", reference: "" });
+      setDraft({
+        address: "",
+        number: "",
+        neighborhood: "",
+        city: "",
+        state: "",
+        postalCode: "",
+        complement: "",
+        reference: "",
+      });
       onChange({
         mode: "saved",
         addressId: created.id,
@@ -228,6 +249,27 @@ export function CustomerAddressPicker({
               className="h-9"
             />
           </div>
+          <div className="grid grid-cols-[1fr_76px] gap-2">
+            <Input
+              placeholder="Cidade"
+              value={draft.city ?? ""}
+              onChange={(e) => setDraft((d) => ({ ...d, city: e.target.value }))}
+              className="h-9"
+            />
+            <Input
+              placeholder="UF"
+              value={draft.state ?? ""}
+              onChange={(e) => setDraft((d) => ({ ...d, state: e.target.value.toUpperCase() }))}
+              className="h-9"
+              maxLength={2}
+            />
+          </div>
+          <Input
+            placeholder="CEP (opcional)"
+            value={draft.postalCode ?? ""}
+            onChange={(e) => setDraft((d) => ({ ...d, postalCode: e.target.value }))}
+            className="h-9"
+          />
           <Input
             placeholder="Complemento (opcional)"
             value={draft.complement ?? ""}

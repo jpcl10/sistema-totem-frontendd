@@ -23,8 +23,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { ProductImage } from "@/components/ProductImage";
 import { cn } from "@/lib/utils";
 import {
+  listAvailableCatalogProducts,
   listEventCatalogProducts,
   listCatalogCategories,
+  type AvailableCatalogProduct,
   type EventCatalogProduct,
   type CatalogCategory,
 } from "@/lib/catalog-api";
@@ -33,9 +35,11 @@ import { handleApiError } from "@/lib/api-error";
 
 type ProductItem = {
   id: string;
+  eventProductId?: string;
   name: string;
   imageUrl?: string;
   priceInCents: number;
+  priceSource?: "CATALOG" | "EVENT";
   categoryId?: string;
   soldOut?: boolean;
   active: boolean;
@@ -47,14 +51,36 @@ function normalizeProduct(ep: EventCatalogProduct): ProductItem {
   const cp = ep.catalogProduct ?? ep.product;
   const cat = cp?.catalogCategory ?? cp?.category;
   return {
-    id: ep.id,
+    id: ep.catalogProductId ?? cp?.id ?? ep.id,
+    eventProductId: ep.id,
     name: cp?.name ?? ep.name ?? "Sem nome",
     imageUrl: cp?.imageUrl ?? ep.imageUrl,
     priceInCents: ep.priceInCents ?? 0,
-    categoryId: cat?.id ?? cp?.catalogCategoryId ?? cp?.categoryId,
+    priceSource: ep.priceSource,
+    categoryId: ep.category?.id ?? cat?.id ?? cp?.catalogCategoryId ?? cp?.categoryId,
     soldOut: ep.soldOut === true,
     active: ep.active !== false && (ep.status ?? "ACTIVE").toUpperCase() !== "INACTIVE",
   };
+}
+
+function normalizeAvailableProduct(product: AvailableCatalogProduct): ProductItem {
+  return {
+    id: product.id,
+    name: product.name ?? "Sem nome",
+    imageUrl: product.imageUrl,
+    priceInCents: product.priceInCents ?? product.catalogPriceInCents ?? 0,
+    priceSource: "CATALOG",
+    categoryId:
+      product.category?.id ??
+      product.catalogCategory?.id ??
+      product.catalogCategoryId ??
+      product.categoryId,
+    active: product.active !== false,
+  };
+}
+
+function categoryNameFromList(cats: CatalogCategory[], categoryId?: string): string {
+  return cats.find((category) => category.id === categoryId)?.name ?? "";
 }
 
 type Props = {
@@ -113,9 +139,31 @@ export function ManualSaleDrawer({ open, onOpenChange, eventId, token, onCreated
   useEffect(() => {
     if (!open || !eventId || !token) return;
     setLoadingCatalog(true);
-    Promise.all([listEventCatalogProducts(token, eventId), listCatalogCategories(token)])
-      .then(([eps, cats]) => {
-        const normalized = eps.map(normalizeProduct).filter((p) => p.active && !p.soldOut);
+    Promise.all([
+      listEventCatalogProducts(token, eventId),
+      listAvailableCatalogProducts(token, eventId, { limit: 500 }),
+      listCatalogCategories(token),
+    ])
+      .then(([eps, available, cats]) => {
+        const byCatalogId = new Map<string, ProductItem>();
+        for (const product of available) {
+          const normalized = normalizeAvailableProduct(product);
+          if (normalized.active && !normalized.soldOut) {
+            byCatalogId.set(normalized.id, normalized);
+          }
+        }
+        for (const eventProduct of eps) {
+          const normalized = normalizeProduct(eventProduct);
+          if (normalized.active && !normalized.soldOut) {
+            byCatalogId.set(normalized.id, normalized);
+          } else {
+            byCatalogId.delete(normalized.id);
+          }
+        }
+        const normalized = Array.from(byCatalogId.values()).sort((a, b) =>
+          categoryNameFromList(cats, a.categoryId).localeCompare(categoryNameFromList(cats, b.categoryId)) ||
+          a.name.localeCompare(b.name),
+        );
         setProducts(normalized);
         setCategories(cats.map((c: CatalogCategory) => ({ id: c.id, name: c.name })));
       })
@@ -173,7 +221,12 @@ export function ManualSaleDrawer({ open, onOpenChange, eventId, token, onCreated
         customerName: customerName.trim() || undefined,
         paymentMethod,
         paymentStatus,
-        items: cart.map((l) => ({ productId: l.product.id, quantity: l.quantity })),
+        items: cart.map((l) => ({
+          productId: l.product.id,
+          catalogProductId: l.product.id,
+          eventProductId: l.product.eventProductId,
+          quantity: l.quantity,
+        })),
       });
       const label =
         (order.number ?? order.orderNumber ?? order.code) !== undefined
@@ -199,7 +252,7 @@ export function ManualSaleDrawer({ open, onOpenChange, eventId, token, onCreated
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="flex h-full w-full flex-col gap-0 p-0 sm:max-w-none md:w-[820px] md:max-w-[90vw]"
+        className="flex h-dvh max-h-dvh w-[min(96vw,1440px)] max-w-[96vw] flex-col gap-0 overflow-hidden p-0 sm:max-w-[96vw]"
       >
         <SheetHeader className="border-b border-border px-6 py-4">
           <div className="flex items-center justify-between gap-3">
@@ -212,9 +265,9 @@ export function ManualSaleDrawer({ open, onOpenChange, eventId, token, onCreated
           </div>
         </SheetHeader>
 
-        <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[1fr_340px]">
+        <div className="grid min-h-0 flex-1 grid-cols-1 overflow-x-hidden lg:grid-cols-[minmax(0,1fr)_minmax(320px,380px)]">
           {/* LEFT — catalog */}
-          <div className="flex min-h-0 flex-col border-r border-border">
+          <div className="flex min-h-0 min-w-0 flex-col border-r border-border">
             <div className="space-y-3 border-b border-border p-4">
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -258,7 +311,7 @@ export function ManualSaleDrawer({ open, onOpenChange, eventId, token, onCreated
               )}
             </div>
             <ScrollArea className="flex-1">
-              <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3">
+              <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-[repeat(auto-fill,minmax(150px,1fr))]">
                 {loadingCatalog && (
                   <div className="col-span-full flex items-center justify-center py-12 text-sm text-muted-foreground">
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Carregando produtos...
@@ -283,6 +336,9 @@ export function ManualSaleDrawer({ open, onOpenChange, eventId, token, onCreated
                         <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
                           {categoryName(p.categoryId ?? "")}
                         </div>
+                        <div className="text-[10px] text-muted-foreground">
+                          Pre\u00e7o: {p.priceSource === "EVENT" ? "evento" : "cat\u00e1logo"}
+                        </div>
                         <div className="mt-auto text-sm font-semibold text-primary">
                           {brl(priceCents(p))}
                         </div>
@@ -294,7 +350,7 @@ export function ManualSaleDrawer({ open, onOpenChange, eventId, token, onCreated
           </div>
 
           {/* RIGHT — cart + payment */}
-          <div className="flex min-h-0 flex-col bg-muted/30">
+          <div className="flex min-h-0 min-w-0 flex-col bg-muted/30">
             <div className="border-b border-border px-4 py-3">
               <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                 Cliente (opcional)

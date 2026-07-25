@@ -87,6 +87,7 @@ export interface EventCatalogProduct {
 /** Produto do catálogo com marcação de vínculo já existente ao evento. */
 export interface AvailableCatalogProduct extends CatalogProduct {
   alreadyLinked?: boolean;
+  catalogPriceInCents?: number;
   optionGroups?: CatalogOptionGroup[];
   category?: CatalogCategory;
 }
