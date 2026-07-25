@@ -1420,17 +1420,17 @@ export function PublicMenuPage({
       {!pixExpired &&
         confirmation &&
         confirmation.pix &&
-        paymentStep === "pix_automatic" && (
+        (paymentStep === "pix_automatic" || paymentStep === "loading") && (
           <div className="fixed inset-0 z-[100] bg-background animate-in fade-in duration-300 flex flex-col items-center px-4 py-4 text-center overflow-hidden">
             <div className="w-full max-w-xl flex flex-col items-center flex-1 min-h-0">
               <h2
                 className="text-2xl sm:text-3xl font-black leading-tight"
                 style={{ color: primary }}
               >
-                Pague com PIX
+                {paymentStep === "loading" ? "Iniciando PIX" : "Pague com PIX"}
               </h2>
               <p className="text-base sm:text-lg font-bold mt-1" style={{ color: primary }}>
-                Pedido #{confirmation.number} ? {formatBRL(confirmation.totalInCents || 0)}
+                Pedido #{confirmation.number} · {formatBRL(confirmation.totalInCents || 0)}
               </p>
               {confirmation.customerName && (
                 <p className="text-sm text-muted-foreground font-medium mt-0.5">
@@ -1444,7 +1444,7 @@ export function PublicMenuPage({
                     className={`text-xs font-bold uppercase tracking-widest ${remainingSeconds < 30 ? "text-red-600" : remainingSeconds < 60 ? "text-amber-600" : "text-muted-foreground"}`}
                   >
                     {remainingSeconds < 60
-                      ? "Aten??o: Menos de 1 minuto restante"
+                      ? "Atenção: Menos de 1 minuto restante"
                       : "Tempo restante para pagamento"}
                   </div>
                   <div
@@ -1491,7 +1491,7 @@ export function PublicMenuPage({
                 )}
               </div>
 
-              {confirmation.transaction.pixCopyPaste && (
+              {confirmation.transaction?.pixCopyPaste && (
                 <Button
                   variant="secondary"
                   className="mt-3 h-11 px-5 font-bold rounded-xl gap-2 text-sm shadow-sm"
@@ -1529,7 +1529,7 @@ export function PublicMenuPage({
         )}
 
       {confirmation &&
-        !(confirmation.pix && paymentStep === "pix_automatic") && (
+        !(confirmation.pix && (paymentStep === "pix_automatic" || paymentStep === "loading")) && (
           <div className="fixed inset-0 z-[100] bg-background animate-in fade-in duration-300 flex flex-col items-center p-6 text-center overflow-y-auto">
             <div className="max-w-2xl w-full my-auto flex flex-col items-center py-10">
               <div

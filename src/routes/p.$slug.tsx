@@ -2345,6 +2345,22 @@ function SuccessScreen({ order, storeName }: { order: PublicOrderCreated; storeN
               <p className="text-sm font-semibold text-destructive">{paymentError}</p>
             ) : null}
           </div>
+        ) : preparation?.paymentStep === "pix_automatic" ? (
+          <div className="space-y-4 rounded-2xl border border-border/70 bg-muted/40 p-4 text-sm">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-bold">PIX automático</p>
+                <p className="text-xs text-muted-foreground">Aguardando a geração do pagamento PIX.</p>
+              </div>
+              <div className="rounded-full bg-amber-100 px-3 py-1 text-[11px] font-semibold text-amber-800">
+                Aguardando pagamento
+              </div>
+            </div>
+            <div className="py-8 text-center">
+              <Loader2 className="mx-auto h-10 w-10 animate-spin text-muted-foreground" />
+              <p className="mt-3 text-sm text-muted-foreground">Gerando QR code PIX. Aguarde alguns segundos e mantenha esta tela aberta.</p>
+            </div>
+          </div>
         ) : null}
 
         {showPixManual ? (
