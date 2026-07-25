@@ -31,7 +31,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ProductImage } from "@/components/ProductImage";
 import { cn } from "@/lib/utils";
 import {
-  getOnlineStoreDetail,
+  getStoreManualSaleCatalog,
   type OnlineCategory,
   type OnlineProduct,
 } from "@/lib/online-store-api";
@@ -198,17 +198,10 @@ export function StoreManualSaleDrawer({
   useEffect(() => {
     if (!open || !storeId || !token) return;
     setLoading(true);
-    getOnlineStoreDetail(token, storeId)
+    getStoreManualSaleCatalog(token, storeId)
       .then((d) => {
-        const nested = (d.categories ?? []).flatMap((c) => {
-          const rec = c as unknown as { products?: OnlineProduct[] };
-          return Array.isArray(rec.products)
-            ? rec.products.map((p) => ({ ...p, categoryId: p.categoryId ?? c.id }))
-            : [];
-        });
-        const merged: OnlineProduct[] = [...(d.products ?? []), ...nested];
         const seen = new Set<string>();
-        const unique = merged.filter((p) => {
+        const unique = (d.products ?? []).filter((p) => {
           if (!p?.id || seen.has(p.id)) return false;
           seen.add(p.id);
           return p.active !== false;

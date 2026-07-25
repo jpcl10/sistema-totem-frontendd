@@ -42,6 +42,12 @@ export interface OnlineStoreDetail {
   products: OnlineProduct[];
 }
 
+export interface StoreManualSaleCatalogResponse {
+  store?: OnlineStore;
+  categories: OnlineCategory[];
+  products: OnlineProduct[];
+}
+
 export type StoreManualOverrideMode = "AUTO" | "FORCE_OPEN" | "FORCE_CLOSED";
 
 export interface OnlineStoreAvailability {
@@ -149,6 +155,23 @@ export async function getOnlineStoreDetail(
   }
 
   return { store, categories, products };
+}
+
+export async function getStoreManualSaleCatalog(
+  token: string,
+  storeId: string,
+): Promise<StoreManualSaleCatalogResponse> {
+  const res = await apiFetch(
+    `${API_BASE_URL}/online-stores/${encodeURIComponent(storeId)}/orders/manual-sale/catalog`,
+    { headers: authHeaders(token) },
+  );
+  const data = await handle<unknown>(res, "N\u00e3o foi poss\u00edvel carregar o cat\u00e1logo da loja.");
+  const obj = (data && typeof data === "object" ? data : {}) as Record<string, unknown>;
+  return {
+    store: obj.store as OnlineStore | undefined,
+    categories: unwrapList<OnlineCategory>(data, "categories"),
+    products: unwrapList<OnlineProduct>(data, "products"),
+  };
 }
 
 export async function getOnlineStoreAvailability(

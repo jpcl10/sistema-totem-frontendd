@@ -284,6 +284,63 @@ export interface ManualSaleInput {
   }[];
 }
 
+export interface ManualSaleCatalogCategory {
+  id: string;
+  name: string;
+  slug?: string;
+  sector?: string;
+  sortOrder?: number;
+  active?: boolean;
+  [k: string]: unknown;
+}
+
+export interface ManualSaleCatalogProduct {
+  id: string;
+  catalogProductId: string;
+  eventProductId?: string | null;
+  name: string;
+  slug?: string;
+  description?: string | null;
+  imageUrl?: string | null;
+  categoryId?: string;
+  catalogCategoryId?: string;
+  category?: ManualSaleCatalogCategory;
+  catalogCategory?: ManualSaleCatalogCategory;
+  priceInCents: number;
+  catalogPriceInCents?: number;
+  eventPriceInCents?: number | null;
+  priceSource?: "CATALOG" | "EVENT" | string;
+  active?: boolean;
+  soldOut?: boolean;
+  trackStock?: boolean;
+  stockQuantity?: number | null;
+  optionGroups?: unknown[];
+  [k: string]: unknown;
+}
+
+export interface EventManualSaleCatalogResponse {
+  event?: { id: string; name?: string; [k: string]: unknown };
+  categories: ManualSaleCatalogCategory[];
+  products: ManualSaleCatalogProduct[];
+}
+
+export async function getEventManualSaleCatalog(
+  token: string,
+  eventId: string,
+): Promise<EventManualSaleCatalogResponse> {
+  const res = await apiFetch(
+    `${API_BASE_URL}/events/${encodeURIComponent(eventId)}/orders/manual-sale/catalog`,
+    { headers: authHeaders(token) },
+  );
+  const data = await handle<unknown>(res);
+  const obj = (data && typeof data === "object" ? data : {}) as Record<string, unknown>;
+  return {
+    event: obj.event as EventManualSaleCatalogResponse["event"],
+    categories: unwrap<ManualSaleCatalogCategory>(data, "categories"),
+    products: unwrap<ManualSaleCatalogProduct>(data, "products"),
+  };
+}
+
 export async function createManualSale(
   token: string,
   eventId: string,

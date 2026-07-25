@@ -23,14 +23,12 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { ProductImage } from "@/components/ProductImage";
 import { cn } from "@/lib/utils";
 import {
-  listAvailableCatalogProducts,
-  listEventCatalogProducts,
-  listCatalogCategories,
-  type AvailableCatalogProduct,
-  type EventCatalogProduct,
-  type CatalogCategory,
-} from "@/lib/catalog-api";
-import { createManualSale, type ManualSalePaymentMethod } from "@/lib/orders-api";
+  createManualSale,
+  getEventManualSaleCatalog,
+  type ManualSaleCatalogCategory,
+  type ManualSaleCatalogProduct,
+  type ManualSalePaymentMethod,
+} from "@/lib/orders-api";
 import { handleApiError } from "@/lib/api-error";
 
 type ProductItem = {
@@ -47,39 +45,22 @@ type ProductItem = {
 
 type CategoryItem = { id: string; name: string };
 
-function normalizeProduct(ep: EventCatalogProduct): ProductItem {
-  const cp = ep.catalogProduct ?? ep.product;
-  const cat = cp?.catalogCategory ?? cp?.category;
+function normalizeProduct(product: ManualSaleCatalogProduct): ProductItem {
+  const cat = product.catalogCategory ?? product.category;
   return {
-    id: ep.catalogProductId ?? cp?.id ?? ep.id,
-    eventProductId: ep.id,
-    name: cp?.name ?? ep.name ?? "Sem nome",
-    imageUrl: cp?.imageUrl ?? ep.imageUrl,
-    priceInCents: ep.priceInCents ?? 0,
-    priceSource: ep.priceSource,
-    categoryId: ep.category?.id ?? cat?.id ?? cp?.catalogCategoryId ?? cp?.categoryId,
-    soldOut: ep.soldOut === true,
-    active: ep.active !== false && (ep.status ?? "ACTIVE").toUpperCase() !== "INACTIVE",
-  };
-}
-
-function normalizeAvailableProduct(product: AvailableCatalogProduct): ProductItem {
-  return {
-    id: product.id,
+    id: product.catalogProductId ?? product.id,
+    eventProductId: product.eventProductId ?? undefined,
     name: product.name ?? "Sem nome",
-    imageUrl: product.imageUrl,
+    imageUrl: product.imageUrl ?? undefined,
     priceInCents: product.priceInCents ?? product.catalogPriceInCents ?? 0,
-    priceSource: "CATALOG",
-    categoryId:
-      product.category?.id ??
-      product.catalogCategory?.id ??
-      product.catalogCategoryId ??
-      product.categoryId,
+    priceSource: product.priceSource === "EVENT" ? "EVENT" : "CATALOG",
+    categoryId: product.categoryId ?? product.catalogCategoryId ?? cat?.id,
+    soldOut: product.soldOut === true,
     active: product.active !== false,
   };
 }
 
-function categoryNameFromList(cats: CatalogCategory[], categoryId?: string): string {
+function categoryNameFromList(cats: ManualSaleCatalogCategory[], categoryId?: string): string {
   return cats.find((category) => category.id === categoryId)?.name ?? "";
 }
 
@@ -139,33 +120,18 @@ export function ManualSaleDrawer({ open, onOpenChange, eventId, token, onCreated
   useEffect(() => {
     if (!open || !eventId || !token) return;
     setLoadingCatalog(true);
-    Promise.all([
-      listEventCatalogProducts(token, eventId),
-      listAvailableCatalogProducts(token, eventId, { limit: 500 }),
-      listCatalogCategories(token),
-    ])
-      .then(([eps, available, cats]) => {
-        const byCatalogId = new Map<string, ProductItem>();
-        for (const product of available) {
-          const normalized = normalizeAvailableProduct(product);
-          if (normalized.active && !normalized.soldOut) {
-            byCatalogId.set(normalized.id, normalized);
-          }
-        }
-        for (const eventProduct of eps) {
-          const normalized = normalizeProduct(eventProduct);
-          if (normalized.active && !normalized.soldOut) {
-            byCatalogId.set(normalized.id, normalized);
-          } else {
-            byCatalogId.delete(normalized.id);
-          }
-        }
-        const normalized = Array.from(byCatalogId.values()).sort((a, b) =>
-          categoryNameFromList(cats, a.categoryId).localeCompare(categoryNameFromList(cats, b.categoryId)) ||
-          a.name.localeCompare(b.name),
-        );
+    getEventManualSaleCatalog(token, eventId)
+      .then((catalog) => {
+        const cats = catalog.categories ?? [];
+        const normalized = (catalog.products ?? [])
+          .map(normalizeProduct)
+          .filter((product) => product.active && !product.soldOut)
+          .sort((a, b) =>
+            categoryNameFromList(cats, a.categoryId).localeCompare(categoryNameFromList(cats, b.categoryId)) ||
+            a.name.localeCompare(b.name),
+          );
         setProducts(normalized);
-        setCategories(cats.map((c: CatalogCategory) => ({ id: c.id, name: c.name })));
+        setCategories(cats.map((c) => ({ id: c.id, name: c.name })));
       })
       .catch((e) => handleApiError(e, "Não foi possível carregar o catálogo do evento."))
       .finally(() => setLoadingCatalog(false));
