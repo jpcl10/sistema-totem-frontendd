@@ -2240,6 +2240,7 @@ function SuccessScreen({ order, storeName }: { order: PublicOrderCreated; storeN
   };
 
   const showPixQr = preparation?.paymentStep === "pix_automatic" && transaction;
+  const showPixManual = preparation?.paymentStep === "pix_manual" && preparation?.manualPix?.enabled;
 
   return (
     <div className="flex flex-col">
@@ -2304,6 +2305,46 @@ function SuccessScreen({ order, storeName }: { order: PublicOrderCreated; storeN
             {paymentError ? (
               <p className="text-sm font-semibold text-destructive">{paymentError}</p>
             ) : null}
+          </div>
+        ) : null}
+
+        {showPixManual ? (
+          <div className="space-y-4 rounded-2xl border border-border/70 bg-muted/40 p-4 text-sm">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-bold">PIX manual</p>
+                <p className="text-xs text-muted-foreground">Copie a chave e pague pelo seu app.</p>
+              </div>
+              <div className="rounded-full bg-amber-100 px-3 py-1 text-[11px] font-semibold text-amber-800">
+                Aguarde pagamento
+              </div>
+            </div>
+            <div className="space-y-3 rounded-3xl border border-border/60 bg-background/90 p-4 text-left text-sm">
+              {preparation?.manualPix?.pixKey ? (
+                <div className="rounded-2xl border border-border/60 bg-card p-3 text-xs tracking-tight">
+                  <p className="font-semibold">Chave PIX</p>
+                  <p className="break-words">{preparation.manualPix.pixKey}</p>
+                </div>
+              ) : null}
+              {preparation?.manualPix?.receiverName ? (
+                <div className="text-xs">
+                  <p className="font-semibold">Recebedor</p>
+                  <p>{preparation.manualPix.receiverName}</p>
+                </div>
+              ) : null}
+              {preparation?.manualPix?.city ? (
+                <div className="text-xs">
+                  <p className="font-semibold">Cidade</p>
+                  <p>{preparation.manualPix.city}</p>
+                </div>
+              ) : null}
+              {preparation?.manualPix?.instructions ? (
+                <div className="rounded-2xl border border-border/60 bg-card p-3 text-xs tracking-tight">
+                  <p className="font-semibold">Instruções</p>
+                  <p>{preparation.manualPix.instructions}</p>
+                </div>
+              ) : null}
+            </div>
           </div>
         ) : null}
 

@@ -134,6 +134,13 @@ export interface PublicOrderPaymentPreparation {
   paymentStep: "pix_automatic" | "pix_manual" | "pix_unavailable" | "operator" | "paid" | "non_payment_method" | "payment_error";
   isPaymentConfirmed?: boolean;
   paymentTransaction?: PaymentTransaction | null;
+  manualPix?: {
+    enabled: boolean;
+    pixKey?: string;
+    receiverName?: string;
+    city?: string;
+    instructions?: string;
+  };
   message?: string;
 }
 
