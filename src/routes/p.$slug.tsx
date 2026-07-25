@@ -21,6 +21,7 @@ import {
   Tag,
   UtensilsCrossed,
   ChevronRight,
+  Copy,
 } from "lucide-react";
 import {
   Sheet,
@@ -42,6 +43,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { QRCodeSVG } from "qrcode.react";
 import { resolveAssetUrl } from "@/lib/auth";
 import { handleApiError } from "@/lib/api-error";
 import { qk } from "@/lib/query-keys";
@@ -49,11 +51,14 @@ import {
   getPublicStore,
   getPublicStoreCustomerByPhone,
   createPublicStoreOrder,
+  getPublicOrderStatus,
   type PublicStore,
   type PublicStoreProduct,
   type PublicStoreCategory,
   type PublicPaymentMethod,
   type PublicOrderCreated,
+  type PublicOrderCreatedItem,
+  type PublicOrderPaymentPreparation,
   type PublicCustomer,
   type PublicCustomerAddress,
   type PublicProductOptionGroup,
@@ -2176,6 +2181,66 @@ function SuccessScreen({ order, storeName }: { order: PublicOrderCreated; storeN
     CARD_ON_DELIVERY: "Cartão na entrega",
     CASH: "Dinheiro",
   };
+  const preparation = order.paymentPreparation;
+  const transaction = preparation?.paymentTransaction;
+  const [paymentConfirmed, setPaymentConfirmed] = useState<boolean>(preparation?.isPaymentConfirmed ?? false);
+  const [paymentExpired, setPaymentExpired] = useState<boolean>(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+
+  const isPaidStatus = (status?: string): boolean =>
+    status === "PAID" || status === "NOT_REQUIRED";
+
+  useEffect(() => {
+    if (paymentConfirmed || paymentExpired) return;
+    if (preparation?.paymentStep !== "pix_automatic") return;
+    const orderId = transaction?.orderId ?? order.id;
+    if (!orderId) return;
+
+    let cancelled = false;
+
+    const checkStatus = async () => {
+      try {
+        const status = await getPublicOrderStatus(orderId);
+        if (cancelled || !status?.paymentStatus) return;
+        if (isPaidStatus(status.paymentStatus)) {
+          setPaymentConfirmed(true);
+          setPaymentError(null);
+          toast.success("Pagamento PIX confirmado!");
+          return;
+        }
+        if (
+          status.paymentStatus === "CANCELLED" ||
+          status.paymentStatus === "EXPIRED" ||
+          status.paymentStatus === "FAILED" ||
+          status.paymentStatus === "REJECTED"
+        ) {
+          setPaymentExpired(true);
+          setPaymentError("Pagamento não foi confirmado. Tente novamente ou refaça o pedido.");
+        }
+      } catch (err) {
+        console.error("Falha ao consultar status do pedido público:", err);
+      }
+    };
+
+    checkStatus();
+    const intervalId = window.setInterval(checkStatus, 3000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [paymentConfirmed, paymentExpired, preparation?.paymentStep, transaction]);
+
+  const copyCode = async (value: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      toast.success("Código PIX copiado");
+    } catch {
+      toast.error("Não foi possível copiar o código PIX.");
+    }
+  };
+
+  const showPixQr = preparation?.paymentStep === "pix_automatic" && transaction;
+
   return (
     <div className="flex flex-col">
       <div className="relative overflow-hidden bg-gradient-to-br from-primary via-primary to-primary-glow px-6 py-10 text-center text-primary-foreground">
@@ -2192,6 +2257,56 @@ function SuccessScreen({ order, storeName }: { order: PublicOrderCreated; storeN
         </div>
       </div>
       <div className="space-y-4 p-5">
+        {showPixQr && transaction ? (
+          <div className="space-y-4 rounded-2xl border border-border/70 bg-muted/40 p-4 text-sm">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-bold">PIX automático</p>
+                <p className="text-xs text-muted-foreground">Use o QR code abaixo para pagar.</p>
+              </div>
+              <div className="rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-semibold text-emerald-800">
+                {paymentConfirmed ? "Pagamento confirmado" : paymentExpired ? "Pagamento expirado" : "Aguardando confirmação"}
+              </div>
+            </div>
+            <div className="grid gap-3 rounded-3xl border border-border/60 bg-background/90 p-4 text-center">
+              {transaction.qrCodeBase64 ? (
+                <img src={`data:image/png;base64,${transaction.qrCodeBase64}`} alt="QR code PIX" className="mx-auto h-52 w-52" />
+              ) : transaction.qrCode ? (
+                <QRCodeSVG value={transaction.qrCode} size={220} level="M" />
+              ) : null}
+              {transaction.pixCopyPaste ? (
+                <div className="space-y-2">
+                  <div className="rounded-2xl border border-border/60 bg-card p-3 text-left text-xs tracking-tight">
+                    <p className="break-words">{transaction.pixCopyPaste}</p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => copyCode(transaction.pixCopyPaste ?? "")}
+                  >
+                    <Copy className="mr-2 h-4 w-4" /> Copiar código PIX
+                  </Button>
+                </div>
+              ) : null}
+            </div>
+            {paymentExpired ? (
+              <div className="rounded-2xl border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+                <p className="font-semibold">Pagamento expirou ou foi rejeitado.</p>
+                <p className="mt-1 text-xs">
+                  Se você já pagou, aguarde alguns instantes. Caso contrário, refaça o pedido.
+                </p>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Aguarde a confirmação automática do pagamento. Não feche esta tela até concluir o PIX.
+              </p>
+            )}
+            {paymentError ? (
+              <p className="text-sm font-semibold text-destructive">{paymentError}</p>
+            ) : null}
+          </div>
+        ) : null}
+
         <div className="rounded-2xl border border-border/70 bg-muted/40 p-4 text-sm">
           {order.paymentMethod && (
             <div className="mb-2 flex items-center justify-between">

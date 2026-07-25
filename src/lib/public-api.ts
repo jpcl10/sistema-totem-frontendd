@@ -130,8 +130,15 @@ export interface PaymentTransaction {
   [k: string]: unknown;
 }
 
+export interface PublicOrderPaymentPreparation {
+  paymentStep: "pix_automatic" | "pix_manual" | "pix_unavailable" | "operator" | "paid" | "non_payment_method" | "payment_error";
+  isPaymentConfirmed?: boolean;
+  paymentTransaction?: PaymentTransaction | null;
+  message?: string;
+}
+
 export interface CheckoutPaymentResponse {
-  paymentStep: "pix_automatic" | "pix_manual" | "pix_unavailable" | "operator" | "paid";
+  paymentStep: "pix_automatic" | "pix_manual" | "pix_unavailable" | "operator" | "paid" | "non_payment_method" | "payment_error" | "cancelled";
   order: PublicOrderResponse;
   manualPix?: {
     enabled: boolean;
@@ -1197,6 +1204,7 @@ export interface PublicOrderCreated {
   totalInCents?: number;
   paymentMethod?: string;
   status?: string;
+  paymentPreparation?: PublicOrderPaymentPreparation;
   items?: PublicOrderCreatedItem[];
   [k: string]: unknown;
 }
@@ -1216,9 +1224,16 @@ export async function createPublicStoreOrder(
   );
   const data = await handle<unknown>(res);
   const obj = (data && typeof data === "object" ? data : {}) as Record<string, unknown>;
-  return (
-    (obj.order as PublicOrderCreated) ??
-    (obj.data as PublicOrderCreated) ??
-    (data as PublicOrderCreated)
-  );
+  const baseOrder =
+    ((obj.order as PublicOrderCreated) as PublicOrderCreated) ??
+    ((obj.data as PublicOrderCreated) as PublicOrderCreated) ??
+    (data as PublicOrderCreated);
+  const paymentPreparation =
+    (obj.paymentPreparation as PublicOrderPaymentPreparation | undefined) ??
+    baseOrder.paymentPreparation;
+
+  return {
+    ...baseOrder,
+    paymentPreparation
+  };
 }
