@@ -685,8 +685,8 @@ export async function payWithNfcBalanceCanonical(
 }
 
 export interface CreatePublicOrderInput {
-  customerName: string;
-  items: { productId: string; quantity: number }[];
+  customerName?: string;
+  items: CreatePublicOrderItem[];
   checkoutContext?: "TOTEM" | "PUBLIC_EVENT";
   paymentMethod?: "PIX" | "CARD" | "PIX_AUTOMATIC" | "CREDIT_CARD" | "DEBIT_CARD" | string;
   paymentStatus?: "PENDING" | "PAID" | string;

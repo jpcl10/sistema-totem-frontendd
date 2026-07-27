@@ -104,6 +104,18 @@ function isLegacyPixEnabled(event?: PublicEvent | null): boolean {
   return false;
 }
 
+function hasTotemBridge(): boolean {
+  if (typeof window === "undefined") return false;
+  const bridge = (window as unknown as { TotemBridge?: { getContext?: () => string } }).TotemBridge;
+  if (typeof bridge?.getContext !== "function") return false;
+  try {
+    const context = JSON.parse(bridge.getContext()) as { mode?: string };
+    return context.mode === "totem";
+  } catch {
+    return true;
+  }
+}
+
 export const Route = createFileRoute("/e/$slug")({
   component: LegacyPublicMenuRoute,
 });
@@ -437,6 +449,7 @@ export function PublicMenuPage({
     setCartOpen(false);
     setPixOpen(false);
     setPaymentMethod("PIX");
+    setShowWelcome(true);
   };
 
   const showPixExpiredScreen = () => {
@@ -445,12 +458,14 @@ export function PublicMenuPage({
     setRemainingSeconds(0);
   };
 
-  // Detect Kiosk Mode
-  const isKioskMode = useMemo(() => {
+  const runtime = useMemo(() => {
     if (typeof window === "undefined") return false;
-    const search = window.location.search;
-    return search.includes("mode=kiosk");
+    const params = new URLSearchParams(window.location.search);
+    const mode = params.get("mode")?.toLowerCase();
+    return mode === "totem" || mode === "kiosk" || params.get("totem") === "1" || hasTotemBridge();
   }, []);
+  const isTotemMode = runtime === true;
+  const isKioskMode = isTotemMode;
 
   useEffect(() => {
     if (confirmation) {
@@ -459,17 +474,21 @@ export function PublicMenuPage({
         paymentStep === "paid" ||
         (!confirmation.pix && paymentStep !== "card_waiting" && paymentStep !== "loading")
       ) {
-        const timeout = isKioskMode ? 10000 : 15000;
+        const timeout = isTotemMode ? 3000 : 15000;
         const timer = setTimeout(() => {
-          setConfirmation(null);
-          setPaymentStep(null);
+          if (isTotemMode) {
+            resetTotem();
+          } else {
+            setConfirmation(null);
+            setPaymentStep(null);
+          }
         }, timeout);
         return () => clearTimeout(timer);
       }
       // If it's PIX PENDING, we NEVER auto-reset.
       // The user must click "Novo pedido" or "Voltar ao início".
     }
-  }, [confirmation, paymentStep, isKioskMode]);
+  }, [confirmation, paymentStep, isTotemMode]);
 
   // PIX countdown timer based on paymentTransaction.expiresAt
   useEffect(() => {
@@ -769,6 +788,7 @@ export function PublicMenuPage({
       return;
     }
     setProductNotes("");
+    setCartOpen(false);
     setAddingProduct(product);
   };
 
@@ -868,12 +888,14 @@ export function PublicMenuPage({
       toast.error("Adicione itens ao pedido antes de finalizar");
       return false;
     }
-    const err = validateName(customerName);
-    if (err) {
-      setNameError(err);
-      setCartOpen(true);
-      toast.error(err);
-      return false;
+    if (!isTotemMode) {
+      const err = validateName(customerName);
+      if (err) {
+        setNameError(err);
+        setCartOpen(true);
+        toast.error(err);
+        return false;
+      }
     }
     setNameError(null);
     try {
@@ -922,7 +944,6 @@ export function PublicMenuPage({
 
   const buildOrderPayload = (method: "PIX" | "CARD"): Parameters<typeof createPublicOrder>[1] => {
     const payload: Parameters<typeof createPublicOrder>[1] = {
-      customerName: customerName.trim(),
       checkoutContext: "TOTEM",
       paymentMethod: method,
       items: cart.map((c) => ({
@@ -936,6 +957,10 @@ export function PublicMenuPage({
         selectedFlavorProductIds: c.selectedFlavorProductIds,
       })),
     };
+    const trimmedCustomerName = customerName.trim();
+    if (!isTotemMode && trimmedCustomerName) {
+      payload.customerName = trimmedCustomerName;
+    }
     payload.paymentStatus = "PENDING";
     payload.status = method === "PIX" ? "PENDING" : "CONFIRMED";
     return payload;
@@ -954,7 +979,7 @@ export function PublicMenuPage({
       number: num,
       pix: method === "PIX",
       totalInCents: order.totalInCents || totalCents,
-      customerName: customerName.trim(),
+      customerName: isTotemMode ? undefined : customerName.trim(),
       transaction: null,
       error: null,
       checkoutSettings: undefined,
@@ -1097,6 +1122,7 @@ export function PublicMenuPage({
     setCart([]);
     setCustomerName("");
     setCartOpen(false);
+    setAddingProduct(null);
     setPixOpen(false);
   };
 
@@ -1316,7 +1342,10 @@ export function PublicMenuPage({
         <div className="fixed inset-x-0 bottom-0 z-40 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
           <div className="mx-auto flex max-w-3xl items-center gap-3 rounded-2xl bg-gradient-to-r from-primary to-primary-glow p-3 text-primary-foreground shadow-2xl shadow-primary/30 ring-1 ring-primary/30">
             <button
-              onClick={() => setCartOpen(true)}
+              onClick={() => {
+                setAddingProduct(null);
+                setCartOpen(true);
+              }}
               className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-2 py-2 text-left font-semibold transition-all active:scale-[0.99]"
               aria-label="Ver carrinho"
             >
@@ -1336,8 +1365,11 @@ export function PublicMenuPage({
               </div>
             </button>
 
-            <Button
-              onClick={() => setCartOpen(true)}
+              <Button
+              onClick={() => {
+                setAddingProduct(null);
+                setCartOpen(true);
+              }}
               className="h-14 shrink-0 rounded-xl bg-background px-5 text-base font-black text-primary shadow-lg transition-all active:scale-[0.98] sm:px-8 sm:text-lg"
             >
               Finalizar
@@ -1348,7 +1380,7 @@ export function PublicMenuPage({
 
       {/* Product modal */}
       <Dialog
-        open={!!addingProduct}
+        open={!!addingProduct && !cartOpen && !confirmation && !pixExpired}
         onOpenChange={(open) => {
           if (!open) {
             setAddingProduct(null);
@@ -1392,6 +1424,7 @@ export function PublicMenuPage({
           primary={primary}
           secondary={secondary}
           isKioskMode={isKioskMode}
+          requireCustomerName={!isTotemMode}
           paymentMethod={paymentMethod}
           setPaymentMethod={setPaymentMethod}
           pixAvailable={totemPixAvailable}
@@ -1404,7 +1437,7 @@ export function PublicMenuPage({
 
       {/* PIX payment dialog */}
       <Dialog
-        open={pixOpen}
+        open={pixOpen && !cartOpen && !addingProduct && !confirmation}
         onOpenChange={(o) => {
           if (submitting) return;
           setPixOpen(o);
@@ -1557,8 +1590,7 @@ export function PublicMenuPage({
                 variant="outline"
                 className="mt-auto mb-2 h-12 px-6 font-black rounded-2xl border-2"
                 onClick={() => {
-                  setConfirmation(null);
-                  setPaymentStep(null);
+                  resetTotem();
                 }}
               >
                 Cancelar pedido
@@ -1787,8 +1819,7 @@ export function PublicMenuPage({
                     className={`flex-1 ${isKioskMode ? "h-20 text-xl" : "h-16 text-lg"} font-black rounded-3xl shadow-xl transition-all active:scale-95`}
                     style={{ background: primary, color: "#fff" }}
                     onClick={() => {
-                      setConfirmation(null);
-                      setPaymentStep(null);
+                      resetTotem();
                     }}
                   >
                     Novo pedido
@@ -1799,8 +1830,7 @@ export function PublicMenuPage({
                   variant="outline"
                   className={`flex-1 ${isKioskMode ? "h-20 text-xl" : "h-16 text-lg"} font-black rounded-3xl transition-all active:scale-95 border-2`}
                   onClick={() => {
-                    setConfirmation(null);
-                    setPaymentStep(null);
+                    resetTotem();
                   }}
                 >
                   {confirmation.pix && paymentStep !== "paid"
@@ -2332,6 +2362,7 @@ function CartSheet({
   primary,
   secondary,
   isKioskMode,
+  requireCustomerName,
   paymentMethod,
   setPaymentMethod,
   pixAvailable,
@@ -2353,6 +2384,7 @@ function CartSheet({
   primary: string;
   secondary: string;
   isKioskMode: boolean;
+  requireCustomerName: boolean;
   paymentMethod: "PIX" | "CARD";
   setPaymentMethod: (m: "PIX" | "CARD") => void;
   pixAvailable: boolean;
@@ -2479,24 +2511,26 @@ function CartSheet({
       </div>
 
       <div className="border-t p-5 pb-8 space-y-4 bg-white shadow-[0_-10px_40px_rgba(0,0,0,0.05)] flex-shrink-0">
-        <div className="space-y-2">
-          <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">
-            Seu Nome
-          </label>
-          <Input
-            value={customerName}
-            onChange={(e) => setCustomerName(e.target.value)}
-            placeholder="Ex.: João Silva"
-            maxLength={60}
-            className={`${isKioskMode ? "h-16" : "h-14"} text-lg font-bold rounded-xl border-2 focus-visible:ring-primary/20`}
-            aria-invalid={!!nameError}
-          />
-          {nameError && (
-            <p className="text-[10px] text-destructive font-bold flex items-center gap-1 ml-1">
-              <X className="size-3" /> {nameError}
-            </p>
-          )}
-        </div>
+        {requireCustomerName && (
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">
+              Seu Nome
+            </label>
+            <Input
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              placeholder="Ex.: João Silva"
+              maxLength={60}
+              className={`${isKioskMode ? "h-16" : "h-14"} text-lg font-bold rounded-xl border-2 focus-visible:ring-primary/20`}
+              aria-invalid={!!nameError}
+            />
+            {nameError && (
+              <p className="text-[10px] text-destructive font-bold flex items-center gap-1 ml-1">
+                <X className="size-3" /> {nameError}
+              </p>
+            )}
+          </div>
+        )}
 
         <div className="space-y-2">
           <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">
