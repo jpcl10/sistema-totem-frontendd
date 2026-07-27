@@ -530,6 +530,9 @@ function CatalogPage() {
                         </span>
                         <SectorBadge sector={c.sector} />
                         <span className="rounded-md border border-border/60 bg-muted/40 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                          Ordem {Number(c.sortOrder ?? 0)}
+                        </span>
+                        <span className="rounded-md border border-border/60 bg-muted/40 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
                           {count} {count === 1 ? "produto" : "produtos"}
                         </span>
                       </div>

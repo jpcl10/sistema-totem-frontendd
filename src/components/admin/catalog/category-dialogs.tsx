@@ -42,6 +42,7 @@ export function NewCategoryDialog({
   const [slugDirty, setSlugDirty] = useState(false);
   const [description, setDescription] = useState("");
   const [sector, setSector] = useState<CategorySector>("BAR");
+  const [sortOrderInput, setSortOrderInput] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -66,11 +67,16 @@ export function NewCategoryDialog({
     setSubmitting(true);
     setErr(null);
     try {
+      const sortOrderNum = sortOrderInput.trim() ? Number(sortOrderInput) : null;
       const c = await createCatalogCategory(token, {
         name: trimmed,
         slug: finalSlug,
         sector,
         description: description.trim() || undefined,
+        sortOrder:
+          sortOrderNum != null && Number.isFinite(sortOrderNum)
+            ? sortOrderNum
+            : undefined,
       }, organizationId);
       toast.success("Categoria criada com sucesso");
       onCreated(c);
@@ -79,6 +85,7 @@ export function NewCategoryDialog({
       setSlugDirty(false);
       setDescription("");
       setSector("BAR");
+      setSortOrderInput("");
     } catch (e2) {
       setErr(describeError(e2, "Não foi possível criar a categoria."));
     } finally {
@@ -136,6 +143,20 @@ export function NewCategoryDialog({
           </p>
         </div>
         <div className="space-y-2">
+          <Label htmlFor="cat-sort-order">Ordem</Label>
+          <Input
+            id="cat-sort-order"
+            type="number"
+            inputMode="numeric"
+            min={0}
+            step={1}
+            value={sortOrderInput}
+            onChange={(e) => setSortOrderInput(e.target.value)}
+            placeholder="0"
+            disabled={submitting}
+          />
+        </div>
+        <div className="space-y-2">
           <Label htmlFor="cat-desc">Descrição (opcional)</Label>
           <Textarea
             id="cat-desc"
@@ -191,6 +212,9 @@ export function EditCategoryDialog({
   const [description, setDescription] = useState(category.description ?? "");
   const [sector, setSector] = useState<CategorySector>((category.sector as CategorySector) ?? "BAR");
   const [active, setActive] = useState<boolean>(category.active !== false);
+  const [sortOrderInput, setSortOrderInput] = useState(
+    typeof category.sortOrder === "number" ? String(category.sortOrder) : "",
+  );
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -210,12 +234,16 @@ export function EditCategoryDialog({
     setSubmitting(true);
     setErr(null);
     try {
+      const sortOrderNum = sortOrderInput.trim() ? Number(sortOrderInput) : null;
       const updated = await updateCatalogCategory(token, category.id, {
         name: trimmed,
         slug: finalSlug,
         sector,
         active,
         description: description.trim() || undefined,
+        ...(sortOrderNum != null && Number.isFinite(sortOrderNum)
+          ? { sortOrder: sortOrderNum }
+          : {}),
       }, organizationId);
       toast.success("Categoria atualizada");
       onSaved({ ...category, ...updated });
@@ -284,6 +312,20 @@ export function EditCategoryDialog({
               </SelectContent>
             </Select>
           </div>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="ecat-sort-order">Ordem</Label>
+          <Input
+            id="ecat-sort-order"
+            type="number"
+            inputMode="numeric"
+            min={0}
+            step={1}
+            value={sortOrderInput}
+            onChange={(e) => setSortOrderInput(e.target.value)}
+            placeholder="0"
+            disabled={submitting}
+          />
         </div>
         <div className="space-y-2">
           <Label htmlFor="ecat-desc">Descrição (opcional)</Label>

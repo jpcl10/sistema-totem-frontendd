@@ -10,6 +10,7 @@ export interface CatalogCategory {
   description?: string;
   active?: boolean;
   sector?: CategorySector;
+  sortOrder?: number;
   [k: string]: unknown;
 }
 
@@ -134,7 +135,7 @@ export async function listCatalogCategories(token: string, organizationId?: stri
 
 export async function createCatalogCategory(
   token: string,
-  input: { name: string; slug: string; description?: string; sector?: CategorySector },
+  input: { name: string; slug: string; description?: string; sector?: CategorySector; sortOrder?: number },
   organizationId?: string | null,
 ): Promise<CatalogCategory> {
   const res = await apiFetch(`${API_BASE_URL}/catalog/categories`, {
@@ -356,7 +357,7 @@ export async function deleteEventCatalogProduct(
 export async function updateCatalogCategory(
   token: string,
   id: string,
-  patch: Partial<{ name: string; slug: string; description: string; active: boolean; sector: CategorySector }>,
+  patch: Partial<{ name: string; slug: string; description: string; active: boolean; sector: CategorySector; sortOrder: number }>,
   organizationId?: string | null,
 ): Promise<CatalogCategory> {
   const res = await apiFetch(`${API_BASE_URL}/catalog/categories/${encodeURIComponent(id)}`, {
