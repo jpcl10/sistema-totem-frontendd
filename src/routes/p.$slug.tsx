@@ -291,12 +291,7 @@ function PublicStorePage() {
 
   const store = q.data?.store;
   const categories = useMemo<PublicStoreCategory[]>(() => {
-    const list = q.data?.categories ?? [];
-    return [...list].sort(
-      (a, b) =>
-        (a.sortOrder ?? a.order ?? 0) - (b.sortOrder ?? b.order ?? 0) ||
-        a.name.localeCompare(b.name),
-    );
+    return q.data?.categories ?? [];
   }, [q.data]);
   const products = useMemo<PublicStoreProduct[]>(() => {
     return (q.data?.products ?? []).filter((p) => p.active !== false);
@@ -412,11 +407,6 @@ function PublicStorePage() {
       if (p.categoryId && map.has(p.categoryId)) map.get(p.categoryId)!.push(p);
       else noCat.push(p);
     }
-    // Sort products within each category by sortOrder then name.
-    const cmp = (a: PublicStoreProduct, b: PublicStoreProduct) =>
-      (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name);
-    for (const list of map.values()) list.sort(cmp);
-    noCat.sort(cmp);
     return { map, noCat };
   }, [products, categories, search]);
 

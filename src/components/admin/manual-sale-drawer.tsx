@@ -39,11 +39,12 @@ type ProductItem = {
   priceInCents: number;
   priceSource?: "CATALOG" | "EVENT";
   categoryId?: string;
+  sortOrder?: number;
   soldOut?: boolean;
   active: boolean;
 };
 
-type CategoryItem = { id: string; name: string };
+type CategoryItem = { id: string; name: string; sortOrder?: number };
 
 function normalizeProduct(product: ManualSaleCatalogProduct): ProductItem {
   const cat = product.catalogCategory ?? product.category;
@@ -55,13 +56,10 @@ function normalizeProduct(product: ManualSaleCatalogProduct): ProductItem {
     priceInCents: product.priceInCents ?? product.catalogPriceInCents ?? 0,
     priceSource: product.priceSource === "EVENT" ? "EVENT" : "CATALOG",
     categoryId: product.categoryId ?? product.catalogCategoryId ?? cat?.id,
+    sortOrder: product.sortOrder,
     soldOut: product.soldOut === true,
     active: product.active !== false,
   };
-}
-
-function categoryNameFromList(cats: ManualSaleCatalogCategory[], categoryId?: string): string {
-  return cats.find((category) => category.id === categoryId)?.name ?? "";
 }
 
 type Props = {
@@ -125,13 +123,9 @@ export function ManualSaleDrawer({ open, onOpenChange, eventId, token, onCreated
         const cats = catalog.categories ?? [];
         const normalized = (catalog.products ?? [])
           .map(normalizeProduct)
-          .filter((product) => product.active && !product.soldOut)
-          .sort((a, b) =>
-            categoryNameFromList(cats, a.categoryId).localeCompare(categoryNameFromList(cats, b.categoryId)) ||
-            a.name.localeCompare(b.name),
-          );
+          .filter((product) => product.active && !product.soldOut);
         setProducts(normalized);
-        setCategories(cats.map((c) => ({ id: c.id, name: c.name })));
+        setCategories(cats.map((c) => ({ id: c.id, name: c.name, sortOrder: c.sortOrder })));
       })
       .catch((e) => handleApiError(e, "Não foi possível carregar o catálogo do evento."))
       .finally(() => setLoadingCatalog(false));
