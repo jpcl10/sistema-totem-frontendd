@@ -1,5 +1,6 @@
 .tv2-root {
   min-height: 100dvh;
+  width: 100%;
   background: #f6f4ef;
   color: #201c18;
   font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -65,16 +66,18 @@
 }
 
 .tv2-screen {
-  width: min(100%, 1280px);
-  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 100dvh;
+  margin: 0;
   padding: clamp(18px, 3vw, 36px);
+  overflow: hidden;
 }
 
 .tv2-centered {
-  display: grid;
-  min-height: calc(100dvh - 96px);
-  align-content: center;
-  justify-items: center;
+  align-items: center;
+  justify-content: center;
   gap: 18px;
   text-align: center;
 }
@@ -114,7 +117,9 @@
 }
 
 .tv2-catalog-screen {
-  padding-bottom: 138px;
+  --tv2-cart-bar-height: 112px;
+  overflow-y: auto;
+  padding-bottom: calc(var(--tv2-cart-bar-height) + 24px);
 }
 
 .tv2-tabs {
@@ -143,6 +148,8 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: clamp(14px, 2vw, 24px);
+  width: min(100%, 1280px);
+  margin: 0 auto;
 }
 
 .tv2-product-card {
@@ -265,6 +272,9 @@
   grid-template-columns: minmax(260px, 0.82fr) minmax(0, 1.18fr);
   gap: clamp(18px, 3vw, 36px);
   align-items: start;
+  width: min(100%, 1280px);
+  margin: 0 auto;
+  overflow-y: auto;
 }
 
 .tv2-detail-image {
@@ -358,13 +368,14 @@
 .tv2-payment-method-screen,
 .tv2-pix-screen,
 .tv2-card-screen {
-  display: grid;
   gap: 24px;
+  background: #fffdf8;
 }
 
 .tv2-cart-list {
   display: grid;
   gap: 14px;
+  overflow-y: auto;
 }
 
 .tv2-cart-item {
@@ -423,8 +434,18 @@
 }
 
 .tv2-pix-screen {
-  justify-items: center;
+  align-items: stretch;
   text-align: center;
+  background: #ffffff;
+}
+
+.tv2-pix-main {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  gap: 18px;
+  padding: 24px;
+  overflow: hidden;
 }
 
 .tv2-pix-meta {
@@ -440,7 +461,7 @@
 .tv2-qr-box {
   display: grid;
   place-items: center;
-  width: min(70vw, 520px);
+  width: min(68vw, 460px);
   aspect-ratio: 1;
   padding: 18px;
   border: 1px solid #d8cec0;
@@ -452,6 +473,13 @@
   width: 100%;
   height: 100%;
   object-fit: contain;
+  display: block;
+}
+
+.tv2-pix-footer {
+  display: flex;
+  justify-content: center;
+  padding: 16px 0 0;
 }
 
 .tv2-countdown {

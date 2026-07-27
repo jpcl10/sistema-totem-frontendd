@@ -9,6 +9,7 @@
     "build:dev": "vite build --mode development",
     "branding:generate": "node scripts/generate-branding-assets.mjs",
     "preview": "vite preview",
+    "test": "node --import ../backend/node_modules/tsx/dist/esm/index.mjs --test \"src/**/*.test.tsx\"",
     "lint": "eslint .",
     "format": "prettier --write ."
   },

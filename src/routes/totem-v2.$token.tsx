@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { TotemV2App } from "@/totem-v2/totem-v2-components";
+import "@/totem-v2/totem-v2.css";
 
 export const Route = createFileRoute("/totem-v2/$token")({
   component: TotemV2Route,
