@@ -116,6 +116,20 @@ function hasTotemBridge(): boolean {
   }
 }
 
+type PublicExperienceContext = "DELIVERY" | "STORE" | "TOTEM" | "EVENT";
+
+function resolvePublicExperienceContext(): PublicExperienceContext {
+  if (typeof window === "undefined") return "EVENT";
+  const params = new URLSearchParams(window.location.search);
+  const mode = params.get("mode")?.toLowerCase();
+  if (mode === "totem" || mode === "kiosk" || params.get("totem") === "1" || hasTotemBridge()) {
+    return "TOTEM";
+  }
+  if (mode === "delivery") return "DELIVERY";
+  if (mode === "store" || mode === "loja") return "STORE";
+  return "EVENT";
+}
+
 export const Route = createFileRoute("/e/$slug")({
   component: LegacyPublicMenuRoute,
 });
@@ -458,13 +472,8 @@ export function PublicMenuPage({
     setRemainingSeconds(0);
   };
 
-  const runtime = useMemo(() => {
-    if (typeof window === "undefined") return false;
-    const params = new URLSearchParams(window.location.search);
-    const mode = params.get("mode")?.toLowerCase();
-    return mode === "totem" || mode === "kiosk" || params.get("totem") === "1" || hasTotemBridge();
-  }, []);
-  const isTotemMode = runtime === true;
+  const experienceContext = useMemo(() => resolvePublicExperienceContext(), []);
+  const isTotemMode = experienceContext === "TOTEM";
   const isKioskMode = false;
 
   useEffect(() => {
@@ -474,7 +483,7 @@ export function PublicMenuPage({
         paymentStep === "paid" ||
         (!confirmation.pix && paymentStep !== "card_waiting" && paymentStep !== "loading")
       ) {
-        const timeout = isTotemMode ? 3000 : 15000;
+        const timeout = isTotemMode ? 23000 : 15000;
         const timer = setTimeout(() => {
           if (isTotemMode) {
             resetTotem();
@@ -1195,6 +1204,57 @@ export function PublicMenuPage({
 
   const cartHasItems = totalItems > 0;
 
+  if (isTotemMode) {
+    return (
+      <TotemModeExperience
+        event={event}
+        eventName={eventName}
+        menu={menu}
+        activeCat={activeCat}
+        setActiveCat={setActiveCat}
+        productsByCat={productsByCat}
+        hasAnyProducts={hasAnyProducts}
+        cart={cart}
+        totalItems={totalItems}
+        totalCents={totalCents}
+        addingProduct={addingProduct}
+        setAddingProduct={setAddingProduct}
+        productNotes={productNotes}
+        setProductNotes={setProductNotes}
+        cartOpen={cartOpen}
+        setCartOpen={setCartOpen}
+        showWelcome={showWelcome}
+        setShowWelcome={setShowWelcome}
+        confirmation={confirmation}
+        paymentStep={paymentStep}
+        pixExpired={pixExpired}
+        remainingSeconds={remainingSeconds}
+        submitting={submitting}
+        paymentMethod={paymentMethod}
+        setPaymentMethod={setPaymentMethod}
+        totemPixAvailable={totemPixAvailable}
+        totemCardAvailable={totemCardAvailable}
+        checkoutSettings={checkoutSettings}
+        checkoutSettingsLoading={checkoutSettingsLoading}
+        primary={primary}
+        secondary={secondary}
+        banner={banner}
+        bannerMobile={bannerMobile}
+        logo={logo}
+        defaultProductImageUrl={defaultProductImageUrl}
+        brandGradient={brandGradient}
+        brandingCssVars={branding.cssVars}
+        addToCart={addToCart}
+        addConfiguredToCart={addConfiguredToCart}
+        inc={inc}
+        dec={dec}
+        remove={remove}
+        submitOrder={submitOrder}
+        resetTotem={resetTotem}
+      />
+    );
+  }
+
   if (showWelcome) {
     return (
       <TotemWelcomeScreen
@@ -1847,6 +1907,912 @@ export function PublicMenuPage({
             </div>
           </div>
         )}
+    </div>
+  );
+}
+
+type TotemLayer = "menu" | "product" | "cart" | "payment";
+
+function TotemModeExperience({
+  event,
+  eventName,
+  menu,
+  activeCat,
+  setActiveCat,
+  productsByCat,
+  hasAnyProducts,
+  cart,
+  totalItems,
+  totalCents,
+  addingProduct,
+  setAddingProduct,
+  productNotes,
+  setProductNotes,
+  cartOpen,
+  setCartOpen,
+  showWelcome,
+  setShowWelcome,
+  confirmation,
+  paymentStep,
+  pixExpired,
+  remainingSeconds,
+  submitting,
+  paymentMethod,
+  setPaymentMethod,
+  totemPixAvailable,
+  totemCardAvailable,
+  checkoutSettings,
+  checkoutSettingsLoading,
+  primary,
+  secondary,
+  banner,
+  bannerMobile,
+  logo,
+  defaultProductImageUrl,
+  brandGradient,
+  brandingCssVars,
+  addToCart,
+  addConfiguredToCart,
+  inc,
+  dec,
+  remove,
+  submitOrder,
+  resetTotem,
+}: {
+  event: PublicEvent | undefined;
+  eventName: string;
+  menu: PublicMenu;
+  activeCat: string | null;
+  setActiveCat: (id: string) => void;
+  productsByCat: Record<string, PublicProduct[]>;
+  hasAnyProducts: boolean;
+  cart: CartItem[];
+  totalItems: number;
+  totalCents: number;
+  addingProduct: PublicProduct | null;
+  setAddingProduct: (product: PublicProduct | null) => void;
+  productNotes: string;
+  setProductNotes: (value: string) => void;
+  cartOpen: boolean;
+  setCartOpen: (open: boolean) => void;
+  showWelcome: boolean;
+  setShowWelcome: (show: boolean) => void;
+  confirmation: {
+    id?: string;
+    number: string;
+    pix: boolean;
+    totalInCents?: number;
+    customerName?: string;
+    transaction?: PaymentTransaction | null;
+    error?: string | null;
+    checkoutSettings?: CheckoutPaymentSettings;
+    message?: string;
+  } | null;
+  paymentStep:
+    | "loading"
+    | "pix_automatic"
+    | "pix_unavailable"
+    | "card_waiting"
+    | "card_declined"
+    | "operator"
+    | "paid"
+    | null;
+  pixExpired: boolean;
+  remainingSeconds: number | null;
+  submitting: boolean;
+  paymentMethod: "PIX" | "CARD";
+  setPaymentMethod: (method: "PIX" | "CARD") => void;
+  totemPixAvailable: boolean;
+  totemCardAvailable: boolean;
+  checkoutSettings: CheckoutPaymentSettings | null;
+  checkoutSettingsLoading: boolean;
+  primary: string;
+  secondary: string;
+  banner?: string | null;
+  bannerMobile?: string | null;
+  logo?: string | null;
+  defaultProductImageUrl?: string | null;
+  brandGradient: string;
+  brandingCssVars: CSSProperties;
+  addToCart: (product: PublicProduct) => void;
+  addConfiguredToCart: (payload: {
+    product: PublicProduct;
+    quantity: number;
+    unitPriceInCents: number;
+    notes?: string;
+    selectedOptions: NonNullable<CartItem["selectedOptions"]>;
+    selectedFlavorProductIds: string[];
+    displayFlavors: NonNullable<CartItem["displayFlavors"]>;
+  }) => void;
+  inc: (id: string) => void;
+  dec: (id: string) => void;
+  remove: (id: string) => void;
+  submitOrder: () => void;
+  resetTotem: () => void;
+}) {
+  const activeLayer: TotemLayer = confirmation || pixExpired ? "payment" : cartOpen ? "cart" : addingProduct ? "product" : "menu";
+
+  useEffect(() => {
+    document.documentElement.classList.add("totem-mode-active");
+    document.body.classList.add("totem-mode-active");
+    return () => {
+      document.documentElement.classList.remove("totem-mode-active");
+      document.body.classList.remove("totem-mode-active");
+    };
+  }, []);
+
+  useEffect(() => {
+    if (activeLayer !== "product") setProductNotes("");
+  }, [activeLayer, setProductNotes]);
+
+  if (showWelcome) {
+    return (
+      <TotemWelcomeScreen
+        event={event}
+        onStart={() => {
+          setShowWelcome(false);
+          setAddingProduct(null);
+          setCartOpen(false);
+        }}
+      />
+    );
+  }
+
+  return (
+    <div
+      className="totem-mode min-h-[100dvh] overflow-x-hidden bg-background pb-40 text-foreground"
+      style={{
+        ...brandingCssVars,
+        ["--brand-primary" as string]: primary,
+        ["--brand-secondary" as string]: secondary,
+        ["--primary" as string]: primary,
+        ["--primary-glow" as string]: secondary,
+        overscrollBehaviorX: "none",
+      }}
+    >
+      <TotemModeHeader
+        eventName={eventName}
+        welcomeMessage={event?.totemWelcomeMessage}
+        banner={banner}
+        bannerMobile={bannerMobile}
+        logo={logo}
+        brandGradient={brandGradient}
+      />
+
+      {menu.categories.length > 0 && (
+        <nav className="sticky top-0 z-30 border-b border-border/60 bg-background/95 backdrop-blur-xl">
+          <div className="mx-auto max-w-6xl overflow-x-auto px-5 py-3">
+            <div className="flex gap-3">
+              {menu.categories.map((category) => {
+                const hasProducts = (productsByCat[category.id]?.length ?? 0) > 0;
+                if (!hasProducts) return null;
+                const selected = activeCat === category.id;
+                return (
+                  <button
+                    key={category.id}
+                    type="button"
+                    onClick={() => {
+                      setActiveCat(category.id);
+                      document
+                        .getElementById(`totem-cat-${category.id}`)
+                        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                    }}
+                    className={`min-h-14 shrink-0 rounded-2xl px-6 text-base font-black transition active:scale-[0.98] ${
+                      selected
+                        ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25"
+                        : "bg-card text-muted-foreground ring-1 ring-border/70"
+                    }`}
+                  >
+                    {category.name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </nav>
+      )}
+
+      <main className="mx-auto w-full max-w-6xl space-y-10 px-5 py-6 pb-44">
+        {!hasAnyProducts ? (
+          <div className="rounded-2xl border border-dashed border-border bg-card p-12 text-center">
+            <UtensilsCrossed className="mx-auto mb-4 h-16 w-16 text-muted-foreground/60" />
+            <h2 className="text-3xl font-black">Cardápio em preparação</h2>
+            <p className="mt-3 text-lg text-muted-foreground">Volte em instantes.</p>
+          </div>
+        ) : (
+          menu.categories.map((category) => (
+            <TotemCategorySection
+              key={category.id}
+              category={category}
+              products={productsByCat[category.id] ?? []}
+              cart={cart}
+              onAdd={addToCart}
+              inc={inc}
+              dec={dec}
+              defaultProductImageUrl={defaultProductImageUrl}
+            />
+          ))
+        )}
+      </main>
+
+      {totalItems > 0 && activeLayer === "menu" && (
+        <div className="fixed inset-x-0 bottom-0 z-40 bg-background/80 px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 backdrop-blur-xl">
+          <div className="mx-auto flex max-w-5xl items-center gap-4 rounded-2xl bg-gradient-to-r from-primary to-primary-glow p-4 text-primary-foreground shadow-2xl shadow-primary/25">
+            <button
+              type="button"
+              onClick={() => {
+                setAddingProduct(null);
+                setCartOpen(true);
+              }}
+              className="flex min-h-20 min-w-0 flex-1 items-center gap-4 rounded-xl px-2 text-left active:scale-[0.99]"
+            >
+              <div className="relative">
+                <ShoppingCart className="h-10 w-10" />
+                <span className="absolute -right-3 -top-3 flex h-8 w-8 items-center justify-center rounded-full bg-background text-sm font-black text-primary">
+                  {totalItems}
+                </span>
+              </div>
+              <div>
+                <div className="text-sm font-black uppercase tracking-widest opacity-80">Total</div>
+                <div className="text-3xl font-black">{formatBRL(totalCents)}</div>
+              </div>
+            </button>
+            <Button
+              type="button"
+              onClick={() => {
+                setAddingProduct(null);
+                setCartOpen(true);
+              }}
+              className="h-20 rounded-2xl bg-background px-10 text-2xl font-black text-primary shadow-lg"
+            >
+              Finalizar
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {addingProduct && activeLayer === "product" && (
+        <TotemFullscreenLayer>
+          <TotemProductPanel
+            product={addingProduct}
+            defaultProductImageUrl={defaultProductImageUrl}
+            onClose={() => {
+              setAddingProduct(null);
+              setProductNotes("");
+            }}
+            onAdd={(payload) => {
+              addConfiguredToCart({ ...payload, notes: productNotes.trim() || undefined });
+              setAddingProduct(null);
+              setProductNotes("");
+            }}
+          />
+        </TotemFullscreenLayer>
+      )}
+
+      {activeLayer === "cart" && (
+        <TotemFullscreenLayer>
+          <TotemCartPanel
+            cart={cart}
+            totalCents={totalCents}
+            totalItems={totalItems}
+            paymentMethod={paymentMethod}
+            setPaymentMethod={setPaymentMethod}
+            pixAvailable={totemPixAvailable}
+            cardAvailable={totemCardAvailable}
+            paymentSettingsLoading={checkoutSettingsLoading}
+            pixUnavailableReason={checkoutSettings?.totem?.unavailablePixReason ?? null}
+            submitting={submitting}
+            primary={primary}
+            secondary={secondary}
+            defaultProductImageUrl={defaultProductImageUrl}
+            inc={inc}
+            dec={dec}
+            remove={remove}
+            onClose={() => setCartOpen(false)}
+            submit={submitOrder}
+          />
+        </TotemFullscreenLayer>
+      )}
+
+      {activeLayer === "payment" && (
+        <TotemPaymentOverlay
+          confirmation={confirmation}
+          paymentStep={paymentStep}
+          pixExpired={pixExpired}
+          remainingSeconds={remainingSeconds}
+          primary={primary}
+          secondary={secondary}
+          resetTotem={resetTotem}
+        />
+      )}
+    </div>
+  );
+}
+
+function TotemFullscreenLayer({ children }: { children: JSX.Element | JSX.Element[] }) {
+  return (
+    <div className="fixed inset-0 z-[120] flex bg-background/96 p-4 backdrop-blur-sm animate-in fade-in duration-150">
+      <div className="mx-auto flex h-full w-full max-w-6xl overflow-hidden rounded-2xl bg-background shadow-2xl ring-1 ring-border">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function TotemModeHeader({
+  eventName,
+  welcomeMessage,
+  banner,
+  bannerMobile,
+  logo,
+  brandGradient,
+}: {
+  eventName: string;
+  welcomeMessage?: string | null;
+  banner?: string | null;
+  bannerMobile?: string | null;
+  logo?: string | null;
+  brandGradient: string;
+}) {
+  return (
+    <header className="relative">
+      <div className="relative h-56 min-h-56 w-full overflow-hidden md:h-72">
+        {banner || bannerMobile ? (
+          <>
+            <picture className="block h-full w-full">
+              {bannerMobile && <source srcSet={bannerMobile} media="(orientation: portrait)" />}
+              <img src={banner ?? bannerMobile ?? ""} alt="" aria-hidden className="h-full w-full object-cover object-center" />
+            </picture>
+            <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent" />
+          </>
+        ) : (
+          <>
+            <div className="h-full w-full" style={{ backgroundImage: brandGradient }} />
+            <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
+          </>
+        )}
+      </div>
+      <div className="mx-auto -mt-14 flex max-w-6xl items-end gap-5 px-5">
+        {logo ? (
+          <img src={logo} alt={eventName} className="h-32 w-32 shrink-0 rounded-2xl border-4 border-background bg-card object-cover shadow-xl" />
+        ) : (
+          <div className="flex h-32 w-32 shrink-0 items-center justify-center rounded-2xl border-4 border-background bg-primary text-5xl font-black text-primary-foreground shadow-xl">
+            {eventName.charAt(0).toUpperCase()}
+          </div>
+        )}
+        <div className="min-w-0 pb-2">
+          <div className="mb-2 inline-flex rounded-full bg-primary/10 px-4 py-1.5 text-xs font-black uppercase tracking-widest text-primary">
+            Totem Defumar
+          </div>
+          <h1 className="line-clamp-2 break-words text-5xl font-black leading-tight text-foreground">
+            {eventName}
+          </h1>
+          {welcomeMessage && <p className="mt-2 line-clamp-2 text-xl font-semibold text-muted-foreground">{welcomeMessage}</p>}
+        </div>
+      </div>
+    </header>
+  );
+}
+
+function TotemCategorySection({
+  category,
+  products,
+  cart,
+  onAdd,
+  inc,
+  dec,
+  defaultProductImageUrl,
+}: {
+  category: PublicCategory;
+  products: PublicProduct[];
+  cart: CartItem[];
+  onAdd: (product: PublicProduct) => void;
+  inc: (key: string) => void;
+  dec: (key: string) => void;
+  defaultProductImageUrl?: string | null;
+}) {
+  if (products.length === 0) return null;
+  return (
+    <section id={`totem-cat-${category.id}`} className="scroll-mt-28">
+      <div className="mb-4 flex items-end justify-between gap-4">
+        <div>
+          <h2 className="text-4xl font-black tracking-tight">{category.name}</h2>
+          {category.description && <p className="mt-1 max-w-3xl text-lg font-medium text-muted-foreground">{category.description}</p>}
+        </div>
+        <span className="rounded-full bg-muted px-4 py-2 text-sm font-black uppercase tracking-widest text-muted-foreground">
+          {products.length} {products.length === 1 ? "item" : "itens"}
+        </span>
+      </div>
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+        {products.map((product) => {
+          const item = cart.find((cartItem) => cartItem.product.id === product.id);
+          const img = resolveAssetUrl(product.imageUrl) || defaultProductImageUrl || null;
+          const badges = productBadges(product);
+          return (
+            <article
+              key={product.id}
+              className="group grid min-h-56 grid-cols-[1fr_184px] overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm transition active:scale-[0.99]"
+            >
+              <button type="button" onClick={() => onAdd(product)} className="flex min-w-0 flex-col p-5 text-left">
+                {badges.length > 0 && (
+                  <div className="mb-3 flex flex-wrap gap-2">
+                    {badges.map((badge) => (
+                      <Badge key={badge.label} tone={badge.tone}>
+                        {badge.label}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+                <h3 className="line-clamp-2 text-2xl font-black leading-tight">{product.name}</h3>
+                {product.description && <p className="mt-2 line-clamp-3 text-base font-medium leading-snug text-muted-foreground">{product.description}</p>}
+                <div className="mt-auto pt-5 text-3xl font-black text-primary">{formatBRL(getPrice(product))}</div>
+              </button>
+              <div className="relative">
+                <button type="button" onClick={() => onAdd(product)} className="h-full w-full bg-muted">
+                  {img ? (
+                    <ProductImage src={img} alt={product.name} size="lg" rounded="rounded-none" className="h-full w-full object-cover transition duration-300 group-active:scale-105" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-muted-foreground/50">
+                      <UtensilsCrossed className="h-16 w-16" />
+                    </div>
+                  )}
+                </button>
+                {item ? (
+                  <div className="absolute bottom-4 right-4 flex items-center gap-2 rounded-2xl bg-background p-2 shadow-xl ring-1 ring-border">
+                    <button type="button" onClick={() => dec(item.key)} className="flex h-14 w-14 items-center justify-center rounded-xl bg-muted text-primary active:scale-95">
+                      <Minus className="h-7 w-7" />
+                    </button>
+                    <span className="w-10 text-center text-2xl font-black">{item.quantity}</span>
+                    <button type="button" onClick={() => inc(item.key)} className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary text-primary-foreground active:scale-95">
+                      <Plus className="h-7 w-7" />
+                    </button>
+                  </div>
+                ) : (
+                  <button type="button" onClick={() => onAdd(product)} className="absolute bottom-4 right-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-xl shadow-primary/30 active:scale-95">
+                    <Plus className="h-8 w-8" />
+                  </button>
+                )}
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function TotemProductPanel({
+  product,
+  defaultProductImageUrl,
+  onClose,
+  onAdd,
+}: {
+  product: PublicProduct;
+  defaultProductImageUrl?: string | null;
+  onClose: () => void;
+  onAdd: (payload: {
+    product: PublicProduct;
+    quantity: number;
+    unitPriceInCents: number;
+    notes?: string;
+    selectedOptions: NonNullable<CartItem["selectedOptions"]>;
+    selectedFlavorProductIds: string[];
+    displayFlavors: NonNullable<CartItem["displayFlavors"]>;
+  }) => void;
+}) {
+  const [qty, setQty] = useState(1);
+  const groups = useMemo(() => sortedGroups(getProductOptionGroups(product)), [product]);
+  const [selectedByGroup, setSelectedByGroup] = useState<Record<string, string[]>>({});
+  const img = resolveAssetUrl(product.imageUrl) || defaultProductImageUrl || null;
+
+  useEffect(() => {
+    const init: Record<string, string[]> = {};
+    for (const group of groups) init[group.id] = [];
+    setSelectedByGroup(init);
+    setQty(1);
+  }, [groups, product.id]);
+
+  const addonTotal = groups.reduce((sum, group) => {
+    const ids = selectedByGroup[group.id] ?? [];
+    for (const id of ids) {
+      const option = group.options.find((candidate) => candidate.id === id);
+      if (option) sum += option.priceDeltaInCents ?? 0;
+    }
+    return sum;
+  }, 0);
+  const unitPrice = getPrice(product) + addonTotal;
+  const validation = groups.find((group) => {
+    const selected = selectedByGroup[group.id]?.length ?? 0;
+    const min = group.required ? Math.max(1, group.minSelections || 1) : group.minSelections || 0;
+    return selected < min;
+  });
+
+  function toggle(group: PublicProductOptionGroup, optionId: string) {
+    setSelectedByGroup((prev) => {
+      const current = prev[group.id] ?? [];
+      const selected = current.includes(optionId);
+      const max = Math.max(1, group.maxSelections || 1);
+      if (max === 1) return { ...prev, [group.id]: selected ? [] : [optionId] };
+      if (selected) return { ...prev, [group.id]: current.filter((id) => id !== optionId) };
+      if (current.length >= max) return prev;
+      return { ...prev, [group.id]: [...current, optionId] };
+    });
+  }
+
+  function handleAdd() {
+    if (validation) {
+      toast.error(`Escolha uma opção em "${validation.name}".`);
+      return;
+    }
+    const selectedOptions = groups
+      .map((group) => {
+        const optionIds = selectedByGroup[group.id] ?? [];
+        if (optionIds.length === 0) return null;
+        return {
+          optionGroupId: group.id,
+          optionIds,
+          displayOptions: optionIds.map((id) => {
+            const option = group.options.find((candidate) => candidate.id === id);
+            return {
+              groupName: group.name,
+              optionName: option?.name ?? "",
+              priceDeltaInCents: option?.priceDeltaInCents ?? 0,
+            };
+          }),
+        };
+      })
+      .filter((value): value is NonNullable<CartItem["selectedOptions"]>[number] => value !== null);
+    onAdd({
+      product,
+      quantity: qty,
+      unitPriceInCents: unitPrice,
+      selectedOptions,
+      selectedFlavorProductIds: [],
+      displayFlavors: [],
+    });
+  }
+
+  return (
+    <div className="grid h-full w-full grid-cols-[42%_1fr] max-[760px]:grid-cols-1">
+      <div className="relative bg-muted max-[760px]:h-64">
+        {img ? (
+          <ProductImage src={img} alt={product.name} size="lg" rounded="rounded-none" className="h-full w-full object-cover" />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-muted-foreground/50">
+            <UtensilsCrossed className="h-24 w-24" />
+          </div>
+        )}
+        <button type="button" onClick={onClose} className="absolute left-5 top-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-background text-foreground shadow-xl">
+          <X className="h-8 w-8" />
+        </button>
+      </div>
+      <div className="flex min-h-0 flex-col">
+        <div className="border-b border-border/60 p-8">
+          <h2 className="text-4xl font-black leading-tight">{product.name}</h2>
+          {product.description && <p className="mt-3 text-xl font-medium leading-relaxed text-muted-foreground">{product.description}</p>}
+          <div className="mt-4 text-4xl font-black text-primary">{formatBRL(unitPrice)}</div>
+        </div>
+        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-8">
+          {groups.length === 0 ? (
+            <div className="rounded-2xl bg-muted p-6 text-xl font-bold text-muted-foreground">Produto pronto para adicionar.</div>
+          ) : (
+            groups.map((group) => {
+              const selected = selectedByGroup[group.id] ?? [];
+              return (
+                <section key={group.id} className="rounded-2xl border border-border/70 bg-card">
+                  <div className="flex items-center justify-between border-b border-border/60 px-5 py-4">
+                    <h3 className="text-2xl font-black">{group.name}</h3>
+                    {group.required && <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-black uppercase tracking-widest text-primary">Obrigatório</span>}
+                  </div>
+                  <div className="grid gap-3 p-5">
+                    {sortedOptions(group.options).map((option) => {
+                      const checked = selected.includes(option.id);
+                      return (
+                        <button
+                          key={option.id}
+                          type="button"
+                          onClick={() => toggle(group, option.id)}
+                          className={`flex min-h-16 items-center justify-between gap-5 rounded-2xl border-2 px-5 text-left text-xl font-black transition active:scale-[0.98] ${
+                            checked ? "border-primary bg-primary/10" : "border-border bg-background"
+                          }`}
+                        >
+                          <span>{option.name}</span>
+                          <span className="text-primary">{option.priceDeltaInCents > 0 ? `+ ${formatBRL(option.priceDeltaInCents)}` : "Incluso"}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>
+              );
+            })
+          )}
+        </div>
+        <div className="flex items-center gap-5 border-t border-border/60 bg-background p-6">
+          <div className="flex items-center rounded-2xl bg-muted p-2">
+            <button type="button" onClick={() => setQty((value) => Math.max(1, value - 1))} className="flex h-16 w-16 items-center justify-center rounded-xl bg-card text-primary shadow-sm">
+              <Minus className="h-8 w-8" />
+            </button>
+            <span className="w-16 text-center text-3xl font-black">{qty}</span>
+            <button type="button" onClick={() => setQty((value) => value + 1)} className="flex h-16 w-16 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+              <Plus className="h-8 w-8" />
+            </button>
+          </div>
+          <Button type="button" onClick={handleAdd} className="h-20 flex-1 rounded-2xl text-2xl font-black">
+            Adicionar · {formatBRL(unitPrice * qty)}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TotemCartPanel({
+  cart,
+  totalCents,
+  totalItems,
+  paymentMethod,
+  setPaymentMethod,
+  pixAvailable,
+  cardAvailable,
+  paymentSettingsLoading,
+  pixUnavailableReason,
+  submitting,
+  primary,
+  secondary,
+  defaultProductImageUrl,
+  inc,
+  dec,
+  remove,
+  onClose,
+  submit,
+}: {
+  cart: CartItem[];
+  totalCents: number;
+  totalItems: number;
+  paymentMethod: "PIX" | "CARD";
+  setPaymentMethod: (method: "PIX" | "CARD") => void;
+  pixAvailable: boolean;
+  cardAvailable: boolean;
+  paymentSettingsLoading: boolean;
+  pixUnavailableReason?: string | null;
+  submitting: boolean;
+  primary: string;
+  secondary: string;
+  defaultProductImageUrl?: string | null;
+  inc: (key: string) => void;
+  dec: (key: string) => void;
+  remove: (key: string) => void;
+  onClose: () => void;
+  submit: () => void;
+}) {
+  const selectedAvailable = paymentMethod === "PIX" ? pixAvailable : cardAvailable;
+  useEffect(() => {
+    if (paymentMethod === "PIX" && !pixAvailable && cardAvailable) setPaymentMethod("CARD");
+    if (paymentMethod === "CARD" && !cardAvailable && pixAvailable) setPaymentMethod("PIX");
+  }, [paymentMethod, pixAvailable, cardAvailable, setPaymentMethod]);
+
+  return (
+    <div className="flex h-full w-full flex-col">
+      <div className="flex items-center justify-between border-b border-border/60 p-6" style={{ background: primary, color: "#fff" }}>
+        <div>
+          <h2 className="text-4xl font-black text-white">Meu pedido</h2>
+          <p className="mt-1 text-lg font-bold text-white/80">{totalItems} {totalItems === 1 ? "item selecionado" : "itens selecionados"}</p>
+        </div>
+        <button type="button" onClick={onClose} className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/15 text-white active:scale-95">
+          <X className="h-8 w-8" />
+        </button>
+      </div>
+      <div className="grid min-h-0 flex-1 grid-cols-[1fr_380px] max-[760px]:grid-cols-1 max-[760px]:overflow-y-auto">
+        <div className="min-h-0 overflow-y-auto p-6">
+          {cart.length === 0 ? (
+            <div className="flex h-full flex-col items-center justify-center text-center text-muted-foreground">
+              <ShoppingCart className="mb-4 h-20 w-20" />
+              <p className="text-3xl font-black">Carrinho vazio</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {cart.map((item) => {
+                const img = resolveAssetUrl(item.product.imageUrl) || defaultProductImageUrl || null;
+                return (
+                  <div key={item.key} className="flex gap-5 rounded-2xl border border-border/70 bg-card p-5 shadow-sm">
+                    <div className="h-28 w-28 shrink-0 overflow-hidden rounded-2xl bg-muted">
+                      <ProductImage src={img} alt={item.product.name} size="sm" rounded="rounded-2xl" className="h-full w-full object-cover" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-4">
+                        <h3 className="line-clamp-2 text-2xl font-black">{item.product.name}</h3>
+                        <span className="shrink-0 text-2xl font-black">{formatBRL(item.unitPriceInCents * item.quantity)}</span>
+                      </div>
+                      {(item.displayFlavors?.length || item.selectedOptions?.length) && (
+                        <div className="mt-2 space-y-1 text-base font-medium text-muted-foreground">
+                          {item.displayFlavors?.length ? <p>Sabores: {item.displayFlavors.map((flavor) => flavor.name).join(" + ")}</p> : null}
+                          {item.selectedOptions?.flatMap((group) => group.displayOptions.map((option) => `${option.groupName}: ${option.optionName}`)).map((label) => (
+                            <p key={label}>{label}</p>
+                          ))}
+                        </div>
+                      )}
+                      <div className="mt-4 flex items-center justify-between">
+                        <div className="flex items-center gap-2 rounded-2xl bg-muted p-2">
+                          <button type="button" onClick={() => dec(item.key)} className="flex h-14 w-14 items-center justify-center rounded-xl bg-card text-primary shadow-sm">
+                            <Minus className="h-7 w-7" />
+                          </button>
+                          <span className="w-12 text-center text-2xl font-black">{item.quantity}</span>
+                          <button type="button" onClick={() => inc(item.key)} className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+                            <Plus className="h-7 w-7" />
+                          </button>
+                        </div>
+                        <button type="button" onClick={() => remove(item.key)} className="flex h-14 w-14 items-center justify-center rounded-2xl text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
+                          <Trash2 className="h-7 w-7" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+        <aside className="flex flex-col border-l border-border/60 bg-card p-6 max-[760px]:border-l-0 max-[760px]:border-t">
+          <h3 className="text-3xl font-black">Pagamento</h3>
+          <div className="mt-6 grid gap-4">
+            <button
+              type="button"
+              onClick={() => setPaymentMethod("PIX")}
+              disabled={!pixAvailable || paymentSettingsLoading}
+              className={`min-h-28 rounded-2xl border-2 p-5 text-left transition active:scale-[0.98] ${
+                paymentMethod === "PIX" ? "border-emerald-500 bg-emerald-50" : "border-border bg-background"
+              } ${!pixAvailable || paymentSettingsLoading ? "cursor-not-allowed opacity-40" : ""}`}
+            >
+              <div className="flex items-center gap-3 text-2xl font-black text-emerald-700">
+                <QrCode className="h-8 w-8" />
+                PIX
+              </div>
+              <p className="mt-2 text-base font-bold text-muted-foreground">{pixAvailable ? "QR Code automático" : "Indisponível"}</p>
+            </button>
+            <button
+              type="button"
+              onClick={() => setPaymentMethod("CARD")}
+              disabled={!cardAvailable || paymentSettingsLoading}
+              className={`min-h-28 rounded-2xl border-2 p-5 text-left transition active:scale-[0.98] ${
+                paymentMethod === "CARD" ? "border-sky-500 bg-sky-50" : "border-border bg-background"
+              } ${!cardAvailable || paymentSettingsLoading ? "cursor-not-allowed opacity-40" : ""}`}
+            >
+              <div className="flex items-center gap-3 text-2xl font-black text-sky-700">
+                <CreditCard className="h-8 w-8" />
+                Cartão
+              </div>
+              <p className="mt-2 text-base font-bold text-muted-foreground">{cardAvailable ? "Terminal do totem" : "Indisponível"}</p>
+            </button>
+          </div>
+          {!pixAvailable && pixUnavailableReason && <p className="mt-4 text-sm font-semibold text-muted-foreground">{pixUnavailableReason}</p>}
+          <div className="mt-auto space-y-5">
+            <div className="flex items-center justify-between border-t border-border/60 pt-6">
+              <span className="text-lg font-black text-muted-foreground">Total</span>
+              <span className="text-4xl font-black" style={{ color: primary }}>{formatBRL(totalCents)}</span>
+            </div>
+            <Button
+              type="button"
+              onClick={submit}
+              disabled={submitting || cart.length === 0 || paymentSettingsLoading || !selectedAvailable}
+              className="h-20 w-full rounded-2xl text-2xl font-black shadow-xl"
+              style={paymentMethod === "PIX" ? { background: secondary, color: primary } : { background: primary, color: "#fff" }}
+            >
+              {submitting ? <><Loader2 className="mr-3 h-7 w-7 animate-spin" /> Processando...</> : paymentMethod === "PIX" ? "Gerar PIX" : "Pagar no cartão"}
+            </Button>
+          </div>
+        </aside>
+      </div>
+    </div>
+  );
+}
+
+function TotemPaymentOverlay({
+  confirmation,
+  paymentStep,
+  pixExpired,
+  remainingSeconds,
+  primary,
+  secondary,
+  resetTotem,
+}: {
+  confirmation: {
+    id?: string;
+    number: string;
+    pix: boolean;
+    totalInCents?: number;
+    transaction?: PaymentTransaction | null;
+    error?: string | null;
+    message?: string;
+  } | null;
+  paymentStep:
+    | "loading"
+    | "pix_automatic"
+    | "pix_unavailable"
+    | "card_waiting"
+    | "card_declined"
+    | "operator"
+    | "paid"
+    | null;
+  pixExpired: boolean;
+  remainingSeconds: number | null;
+  primary: string;
+  secondary: string;
+  resetTotem: () => void;
+}) {
+  const tx = confirmation?.transaction ?? null;
+  const code = pixCode(tx);
+  const qrSrc = pixImageSrc(tx?.qrCodeBase64);
+  const isPixWaiting = !pixExpired && confirmation?.pix && (paymentStep === "loading" || paymentStep === "pix_automatic");
+  const title = pixExpired
+    ? "PIX expirado"
+    : paymentStep === "paid"
+      ? "Pagamento confirmado"
+      : paymentStep === "card_waiting"
+        ? "Aguardando cartão"
+        : paymentStep === "card_declined"
+          ? "Pagamento não aprovado"
+          : paymentStep === "pix_unavailable"
+            ? "PIX indisponível"
+            : paymentStep === "operator"
+              ? "Chame o operador"
+              : isPixWaiting
+                ? "Pague com PIX"
+                : "Processando pedido";
+
+  return (
+    <div className="fixed inset-0 z-[140] flex bg-background p-6 text-center animate-in fade-in duration-150">
+      <div className="mx-auto flex h-full w-full max-w-5xl flex-col items-center justify-center">
+        <div className="mb-6 flex h-28 w-28 items-center justify-center rounded-full shadow-xl" style={{ background: secondary, color: primary }}>
+          {paymentStep === "paid" ? <PartyPopper className="h-16 w-16" /> : isPixWaiting ? <QrCode className="h-16 w-16" /> : paymentStep === "card_waiting" ? <CreditCard className="h-16 w-16" /> : <Clock className="h-16 w-16" />}
+        </div>
+        <h2 className="text-5xl font-black leading-tight" style={{ color: primary }}>{title}</h2>
+        {confirmation && (
+          <p className="mt-3 text-2xl font-black text-muted-foreground">
+            Pedido #{confirmation.number} · {formatBRL(confirmation.totalInCents || 0)}
+          </p>
+        )}
+        {remainingSeconds !== null && isPixWaiting && (
+          <div className="mt-4 text-4xl font-black tabular-nums" style={{ color: remainingSeconds < 60 ? "#dc2626" : primary }}>
+            {String(Math.floor(remainingSeconds / 60)).padStart(2, "0")}:{String(remainingSeconds % 60).padStart(2, "0")}
+          </div>
+        )}
+        {isPixWaiting && (
+          <div className="mt-6 flex min-h-0 w-full max-w-3xl flex-col items-center">
+            <div className="rounded-2xl border-2 bg-white p-4 shadow-sm">
+              {qrSrc ? (
+                <img src={qrSrc} alt="QR Code PIX" className="h-[min(48dvh,440px)] w-[min(48dvh,440px)]" />
+              ) : code ? (
+                <QRCodeSVG value={code} size={420} />
+              ) : (
+                <div className="flex h-80 w-80 items-center justify-center">
+                  <Loader2 className="h-16 w-16 animate-spin text-muted-foreground" />
+                </div>
+              )}
+            </div>
+            {code && (
+              <Button type="button" variant="secondary" className="mt-5 h-16 rounded-2xl px-8 text-xl font-black" onClick={() => navigator.clipboard.writeText(code)}>
+                <Copy className="mr-3 h-6 w-6" />
+                Copiar PIX
+              </Button>
+            )}
+            <p className="mt-5 text-xl font-bold text-muted-foreground">Após pagar, aguarde a confirmação automática.</p>
+          </div>
+        )}
+        {!isPixWaiting && (
+          <p className="mt-6 max-w-2xl text-2xl font-bold text-muted-foreground">
+            {pixExpired
+              ? "O tempo para pagamento terminou. Voltando para o início."
+              : paymentStep === "paid"
+                ? "Ficha em impressão. A tela voltará para o início automaticamente."
+                : confirmation?.error ?? confirmation?.message ?? "Aguarde a confirmação no terminal."}
+          </p>
+        )}
+        {(pixExpired || paymentStep === "card_declined" || paymentStep === "operator" || paymentStep === "pix_unavailable") && (
+          <Button type="button" onClick={resetTotem} className="mt-8 h-[4.5rem] rounded-2xl px-10 text-2xl font-black" style={{ background: primary, color: "#fff" }}>
+            Voltar ao início
+          </Button>
+        )}
+      </div>
     </div>
   );
 }

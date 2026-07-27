@@ -169,6 +169,21 @@
     -webkit-tap-highlight-color: transparent;
   }
 
+  html.totem-mode-active,
+  body.totem-mode-active {
+    overscroll-behavior: none;
+    touch-action: pan-y;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body.totem-mode-active {
+    user-select: none;
+  }
+
+  body.totem-mode-active * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
   .pb-safe {
     padding-bottom: env(safe-area-inset-bottom);
   }
