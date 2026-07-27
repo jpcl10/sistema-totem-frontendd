@@ -154,7 +154,17 @@ export async function prepareTotemV2Payment(
   return handle<TotemV2PaymentPreparation>(res);
 }
 
-export async function getTotemV2OrderStatus(orderId: string): Promise<{ paymentStatus?: string } | null> {
+export async function getTotemV2OrderStatus(orderId: string): Promise<{
+  paymentStatus?: string;
+  printJobs?: Array<{
+    id: string;
+    status: string;
+    deviceId?: string | null;
+    printedAt?: string | null;
+    attempts?: number;
+    errorMessage?: string | null;
+  }>;
+} | null> {
   const res = await fetch(`${API_BASE_URL}/public/orders/${encodeURIComponent(orderId)}`, {
     headers: { ...API_HEADERS },
   });
@@ -163,5 +173,6 @@ export async function getTotemV2OrderStatus(orderId: string): Promise<{ paymentS
   const order = data.order ?? data;
   return {
     paymentStatus: order.paymentStatus,
+    printJobs: order.printJobs ?? [],
   };
 }

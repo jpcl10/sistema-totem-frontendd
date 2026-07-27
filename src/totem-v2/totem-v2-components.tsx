@@ -24,6 +24,8 @@ export type TotemStep =
   | "PAYMENT_METHOD"
   | "PIX_PAYMENT"
   | "CARD_PAYMENT"
+  | "PRINTING"
+  | "PRINT_ERROR"
   | "SUCCESS"
   | "ERROR";
 
@@ -95,18 +97,24 @@ function cartCount(cart: CartItem[]) {
 function logTotemViewport(reason: string) {
   if (typeof window === "undefined") return;
 
-  console.info("[TOTEM_VIEWPORT]", {
+  console.info("[TOTEM_ENV]", {
     reason,
     build: TOTEM_V2_BUILD,
     innerWidth: window.innerWidth,
     innerHeight: window.innerHeight,
+    outerWidth: window.outerWidth,
+    outerHeight: window.outerHeight,
     dpr: window.devicePixelRatio,
+    devicePixelRatio: window.devicePixelRatio,
     screenWidth: window.screen.width,
     screenHeight: window.screen.height,
-    visualWidth: window.visualViewport?.width,
-    visualHeight: window.visualViewport?.height,
     clientWidth: document.documentElement.clientWidth,
     clientHeight: document.documentElement.clientHeight,
+    visualWidth: window.visualViewport?.width,
+    visualHeight: window.visualViewport?.height,
+    visualViewportWidth: window.visualViewport?.width,
+    visualViewportHeight: window.visualViewport?.height,
+    visualViewportScale: window.visualViewport?.scale,
     userAgent: window.navigator.userAgent,
   });
 }
@@ -146,6 +154,28 @@ export function TotemV2App({ token }: { token: string }) {
   useEffect(() => {
     console.info("[TOTEM_V2_STEP]", step);
   }, [step]);
+
+  useEffect(() => {
+    if (step !== "PRINTING" || !currentOrder?.id) return;
+
+    const timer = window.setInterval(async () => {
+      const { getTotemV2OrderStatus } = await import("@/lib/totem-v2-api");
+      const status = await getTotemV2OrderStatus(currentOrder.id);
+      const printJobs = status?.printJobs ?? [];
+      const hasFailedPrint = printJobs.some((job) => job.status === "ERROR" || job.status === "FAILED");
+      const hasCompletedPrint =
+        printJobs.length > 0 &&
+        printJobs.every((job) => job.status === "PRINTED" || job.status === "COMPLETED");
+
+      if (hasFailedPrint) {
+        setStep("PRINT_ERROR");
+      } else if (hasCompletedPrint) {
+        markSuccess();
+      }
+    }, 2000);
+
+    return () => window.clearInterval(timer);
+  }, [currentOrder?.id, step]);
 
   const clearPaymentState = () => {
     if (resetTimersRef.current) clearTimeout(resetTimersRef.current);
@@ -283,7 +313,7 @@ export function TotemV2App({ token }: { token: string }) {
 
   const markSuccess = () => {
     setStep("SUCCESS");
-    resetTimersRef.current = setTimeout(resetTotemSession, 5000);
+    resetTimersRef.current = setTimeout(resetTotemSession, 3000);
   };
 
   return (
@@ -309,6 +339,8 @@ export function TotemV2App({ token }: { token: string }) {
       onCard={startCardPayment}
       onCancelPayment={cancelPayment}
       onPaid={markSuccess}
+      onPrinting={() => setStep("PRINTING")}
+      onPrintFailed={() => setStep("PRINT_ERROR")}
       onReset={resetTotemSession}
     />
   );
@@ -336,6 +368,8 @@ export function TotemV2StepView({
   onCard,
   onCancelPayment,
   onPaid,
+  onPrinting,
+  onPrintFailed,
   onReset,
 }: {
   step: TotemStep;
@@ -359,6 +393,8 @@ export function TotemV2StepView({
   onCard: () => void;
   onCancelPayment: () => void;
   onPaid: () => void;
+  onPrinting: () => void;
+  onPrintFailed: () => void;
   onReset: () => void;
 }) {
   switch (step) {
@@ -414,12 +450,18 @@ export function TotemV2StepView({
           totalInCents={cartTotal(cart)}
           onCancel={onCancelPayment}
           onPaid={onPaid}
+          onPrinting={onPrinting}
+          onPrintFailed={onPrintFailed}
         />
       );
     case "CARD_PAYMENT":
       return <CardPaymentScreen context={context} onCancel={onCancelPayment} />;
     case "SUCCESS":
       return <SuccessScreen context={context} onDone={onReset} />;
+    case "PRINTING":
+      return <PrintingScreen context={context} />;
+    case "PRINT_ERROR":
+      return <PrintErrorScreen onReset={onReset} />;
     case "ERROR":
     default:
       return <ErrorScreen message={error ?? "Erro inesperado."} onReset={onReset} />;
@@ -442,7 +484,7 @@ export function TotemV2Header({ context }: { context: TotemV2Context | null }) {
       <div className="tv2-header-text">
         <strong>{context?.displayName ?? "Totem V2"}</strong>
         <span>Autoatendimento</span>
-        <small className="tv2-build">TOTEM V2 BUILD: {TOTEM_V2_BUILD}</small>
+        <small className="tv2-build">TOTEM BUILD: {TOTEM_V2_BUILD}</small>
       </div>
     </header>
   );
@@ -753,6 +795,8 @@ function PixPaymentScreen({
   totalInCents,
   onCancel,
   onPaid,
+  onPrinting,
+  onPrintFailed,
 }: {
   context: TotemV2Context | null;
   busy: boolean;
@@ -761,6 +805,8 @@ function PixPaymentScreen({
   totalInCents: number;
   onCancel: () => void;
   onPaid: () => void;
+  onPrinting: () => void;
+  onPrintFailed: () => void;
 }) {
   const [remaining, setRemaining] = useState<number | null>(null);
   const paidRef = useRef(false);
@@ -783,12 +829,28 @@ function PixPaymentScreen({
       const { getTotemV2OrderStatus } = await import("@/lib/totem-v2-api");
       const status = await getTotemV2OrderStatus(order.id);
       if (status?.paymentStatus === "PAID") {
+        const printJobs = status.printJobs ?? [];
+        const hasFailedPrint = printJobs.some((job) => job.status === "ERROR" || job.status === "FAILED");
+        const hasCompletedPrint =
+          printJobs.length > 0 &&
+          printJobs.every((job) => job.status === "PRINTED" || job.status === "COMPLETED");
+
+        if (hasFailedPrint) {
+          paidRef.current = true;
+          onPrintFailed();
+          return;
+        }
+
         paidRef.current = true;
-        onPaid();
+        onPrinting();
+
+        if (hasCompletedPrint) {
+          onPaid();
+        }
       }
     }, 3000);
     return () => window.clearInterval(timer);
-  }, [order?.id, onPaid]);
+  }, [order?.id, onPaid, onPrintFailed, onPrinting]);
 
   const qr = payment?.qrCode ?? payment?.paymentTransaction?.qrCode ?? payment?.paymentTransaction?.pixCopyPaste;
 
@@ -842,10 +904,36 @@ function SuccessScreen({ context, onDone }: { context: TotemV2Context | null; on
       <ScreenLifecycleLog name="SuccessScreen" />
       <TotemV2Header context={context} />
       <CheckCircle2 className="tv2-success-icon" />
-      <h1>Pagamento confirmado</h1>
-      <p>Pedido enviado para impressao.</p>
+      <h1>Retire sua ficha</h1>
+      <p>Impressao concluida.</p>
       <button type="button" className="tv2-primary" onClick={onDone}>
         Novo pedido
+      </button>
+    </main>
+  );
+}
+
+function PrintingScreen({ context }: { context: TotemV2Context | null }) {
+  return (
+    <main className="tv2-root tv2-screen tv2-centered" data-testid="totem-printing-screen">
+      <ScreenLifecycleLog name="PrintingScreen" />
+      <TotemV2Header context={context} />
+      <div className="tv2-loader" />
+      <h1>Imprimindo ficha</h1>
+      <p>Aguarde a ficha sair no Totem.</p>
+    </main>
+  );
+}
+
+function PrintErrorScreen({ onReset }: { onReset: () => void }) {
+  return (
+    <main className="tv2-root tv2-screen tv2-centered" data-testid="totem-print-error-screen">
+      <ScreenLifecycleLog name="PrintErrorScreen" />
+      <XCircle className="tv2-error-icon" />
+      <h1>Nao foi possivel imprimir.</h1>
+      <p>Chamando operador.</p>
+      <button type="button" className="tv2-primary" onClick={onReset}>
+        Tentar novamente
       </button>
     </main>
   );
