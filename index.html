@@ -24,6 +24,36 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
     <title>Defumar Events</title>
+    <script>
+      (function () {
+        var retryKey = "defumar:asset-reload-at";
+
+        window.addEventListener(
+          "error",
+          function (event) {
+            var target = event.target;
+            var url =
+              target && (target.tagName === "SCRIPT" || target.tagName === "LINK")
+                ? target.src || target.href || ""
+                : "";
+
+            if (!url || url.indexOf("/assets/") === -1) return;
+
+            var lastRetry = Number(sessionStorage.getItem(retryKey) || "0");
+            var now = Date.now();
+
+            if (now - lastRetry < 30000) return;
+
+            sessionStorage.setItem(retryKey, String(now));
+
+            var reloadUrl = new URL(window.location.href);
+            reloadUrl.searchParams.set("_assetReload", String(now));
+            window.location.replace(reloadUrl.toString());
+          },
+          true,
+        );
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
