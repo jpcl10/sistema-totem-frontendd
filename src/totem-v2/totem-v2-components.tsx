@@ -9,6 +9,13 @@ import type {
   TotemV2Product,
 } from "@/lib/totem-v2-api";
 
+declare const __TOTEM_V2_BUILD__: string;
+
+const TOTEM_V2_BUILD =
+  typeof __TOTEM_V2_BUILD__ === "string" && __TOTEM_V2_BUILD__
+    ? __TOTEM_V2_BUILD__
+    : "dev";
+
 export type TotemStep =
   | "WELCOME"
   | "CATALOG"
@@ -85,6 +92,25 @@ function cartCount(cart: CartItem[]) {
   return cart.reduce((sum, item) => sum + item.quantity, 0);
 }
 
+function logTotemViewport(reason: string) {
+  if (typeof window === "undefined") return;
+
+  console.info("[TOTEM_VIEWPORT]", {
+    reason,
+    build: TOTEM_V2_BUILD,
+    innerWidth: window.innerWidth,
+    innerHeight: window.innerHeight,
+    dpr: window.devicePixelRatio,
+    screenWidth: window.screen.width,
+    screenHeight: window.screen.height,
+    visualWidth: window.visualViewport?.width,
+    visualHeight: window.visualViewport?.height,
+    clientWidth: document.documentElement.clientWidth,
+    clientHeight: document.documentElement.clientHeight,
+    userAgent: window.navigator.userAgent,
+  });
+}
+
 export function TotemV2App({ token }: { token: string }) {
   const [step, setStep] = useState<TotemStep>("WELCOME");
   const [context, setContext] = useState<TotemV2Context | null>(null);
@@ -96,6 +122,26 @@ export function TotemV2App({ token }: { token: string }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const resetTimersRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    console.info("[TOTEM_V2_ROUTE]", {
+      build: TOTEM_V2_BUILD,
+      tokenReceived: Boolean(token),
+      tokenLength: token.length,
+    });
+    logTotemViewport("mount");
+
+    const timeout = window.setTimeout(() => logTotemViewport("after-layout"), 1000);
+    const onResize = () => logTotemViewport("resize");
+    window.visualViewport?.addEventListener("resize", onResize);
+    window.addEventListener("resize", onResize);
+
+    return () => {
+      window.clearTimeout(timeout);
+      window.visualViewport?.removeEventListener("resize", onResize);
+      window.removeEventListener("resize", onResize);
+    };
+  }, [token]);
 
   useEffect(() => {
     console.info("[TOTEM_V2_STEP]", step);
@@ -396,6 +442,7 @@ export function TotemV2Header({ context }: { context: TotemV2Context | null }) {
       <div className="tv2-header-text">
         <strong>{context?.displayName ?? "Totem V2"}</strong>
         <span>Autoatendimento</span>
+        <small className="tv2-build">TOTEM V2 BUILD: {TOTEM_V2_BUILD}</small>
       </div>
     </header>
   );
