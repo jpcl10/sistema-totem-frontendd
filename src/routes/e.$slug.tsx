@@ -1,5 +1,6 @@
 ﻿import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { createPortal } from "react-dom";
 import {
   Minus,
   Plus,
@@ -183,21 +184,21 @@ function TotemWelcomeScreen({
           )}
         </div>
 
-        <div className="mx-auto -mt-14 flex w-full max-w-5xl items-end gap-4 px-4 sm:-mt-16 sm:px-6 lg:px-8">
+        <div className="mx-auto flex w-full max-w-5xl items-center gap-4 px-4 pt-6 sm:px-6 lg:px-8">
           <div className="relative shrink-0">
             {logoUrl ? (
               <img
                 src={logoUrl}
                 alt={name}
                 draggable={false}
-                className="h-24 w-24 rounded-2xl border-4 border-background bg-card object-cover shadow-xl ring-1 ring-border/40 sm:h-32 sm:w-32"
+                className="h-24 w-24 rounded-2xl border border-border bg-card object-cover shadow-xl ring-1 ring-border/40 sm:h-32 sm:w-32"
                 onError={(e) => {
                   (e.currentTarget as HTMLImageElement).style.display = "none";
                 }}
               />
             ) : (
               <div
-                className="flex h-24 w-24 items-center justify-center rounded-2xl border-4 border-background bg-gradient-to-br from-primary to-primary-glow text-3xl font-black text-primary-foreground shadow-xl ring-1 ring-border/40 sm:h-32 sm:w-32 sm:text-4xl"
+                className="flex h-24 w-24 items-center justify-center rounded-2xl border border-border bg-gradient-to-br from-primary to-primary-glow text-3xl font-black text-primary-foreground shadow-xl ring-1 ring-border/40 sm:h-32 sm:w-32 sm:text-4xl"
                 style={{ color: primaryColor }}
               >
                 {name.charAt(0).toUpperCase()}
@@ -2080,7 +2081,7 @@ function TotemModeExperience({
       />
 
       {menu.categories.length > 0 && (
-        <nav className="sticky top-0 z-30 border-b border-border/60 bg-background/95 backdrop-blur-xl">
+        <nav className="border-b border-border/60 bg-background">
           <div className="mx-auto max-w-6xl overflow-x-auto px-5 py-3">
             <div className="flex gap-3">
               {menu.categories.map((category) => {
@@ -2172,7 +2173,7 @@ function TotemModeExperience({
       )}
 
       {addingProduct && activeLayer === "product" && (
-        <TotemFullscreenLayer>
+        <TotemPortalLayer variant="modal">
           <TotemProductPanel
             product={addingProduct}
             defaultProductImageUrl={defaultProductImageUrl}
@@ -2186,11 +2187,11 @@ function TotemModeExperience({
               setProductNotes("");
             }}
           />
-        </TotemFullscreenLayer>
+        </TotemPortalLayer>
       )}
 
       {activeLayer === "cart" && (
-        <TotemFullscreenLayer>
+        <TotemPortalLayer variant="screen">
           <TotemCartPanel
             cart={cart}
             totalCents={totalCents}
@@ -2211,7 +2212,7 @@ function TotemModeExperience({
             onClose={() => setCartOpen(false)}
             submit={submitOrder}
           />
-        </TotemFullscreenLayer>
+        </TotemPortalLayer>
       )}
 
       {activeLayer === "payment" && (
@@ -2229,14 +2230,29 @@ function TotemModeExperience({
   );
 }
 
-function TotemFullscreenLayer({ children }: { children: JSX.Element | JSX.Element[] }) {
-  return (
-    <div className="fixed inset-0 z-[120] flex bg-background/96 p-4 backdrop-blur-sm animate-in fade-in duration-150">
-      <div className="mx-auto flex h-full w-full max-w-6xl overflow-hidden rounded-2xl bg-background shadow-2xl ring-1 ring-border">
-        {children}
+function TotemPortalLayer({
+  children,
+  variant,
+}: {
+  children: JSX.Element | JSX.Element[];
+  variant: "modal" | "screen";
+}) {
+  if (typeof document === "undefined") return null;
+  const content =
+    variant === "modal" ? (
+      <div className="fixed inset-0 z-[1000] grid place-items-center bg-black/55 p-5 animate-in fade-in duration-150">
+        <div className="w-[min(90vw,720px)] max-h-[85dvh] overflow-hidden rounded-2xl bg-background shadow-2xl ring-1 ring-border">
+          {children}
+        </div>
       </div>
-    </div>
-  );
+    ) : (
+      <div className="fixed inset-0 z-[1000] bg-background p-5 animate-in fade-in duration-150">
+        <div className="mx-auto flex h-full w-full max-w-6xl overflow-hidden rounded-2xl bg-background shadow-2xl ring-1 ring-border">
+          {children}
+        </div>
+      </div>
+    );
+  return createPortal(content, document.body);
 }
 
 function TotemModeHeader({
@@ -2255,39 +2271,39 @@ function TotemModeHeader({
   brandGradient: string;
 }) {
   return (
-    <header className="relative">
-      <div className="relative h-56 min-h-56 w-full overflow-hidden md:h-72">
+    <header className="relative h-[140px] overflow-hidden border-b border-border/60 bg-card">
+      <div className="absolute inset-0">
         {banner || bannerMobile ? (
           <>
             <picture className="block h-full w-full">
               {bannerMobile && <source srcSet={bannerMobile} media="(orientation: portrait)" />}
               <img src={banner ?? bannerMobile ?? ""} alt="" aria-hidden className="h-full w-full object-cover object-center" />
             </picture>
-            <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent" />
+            <div className="absolute inset-0 bg-background/82" />
           </>
         ) : (
           <>
             <div className="h-full w-full" style={{ backgroundImage: brandGradient }} />
-            <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
+            <div className="absolute inset-0 bg-background/20" />
           </>
         )}
       </div>
-      <div className="mx-auto -mt-14 flex max-w-6xl items-end gap-5 px-5">
+      <div className="relative z-10 mx-auto flex h-full max-w-6xl items-center gap-5 px-5">
         {logo ? (
-          <img src={logo} alt={eventName} className="h-32 w-32 shrink-0 rounded-2xl border-4 border-background bg-card object-cover shadow-xl" />
+          <img src={logo} alt={eventName} className="h-24 w-24 shrink-0 rounded-2xl border border-border bg-card object-cover shadow-lg" />
         ) : (
-          <div className="flex h-32 w-32 shrink-0 items-center justify-center rounded-2xl border-4 border-background bg-primary text-5xl font-black text-primary-foreground shadow-xl">
+          <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-2xl bg-primary text-4xl font-black text-primary-foreground shadow-lg">
             {eventName.charAt(0).toUpperCase()}
           </div>
         )}
-        <div className="min-w-0 pb-2">
+        <div className="min-w-0">
           <div className="mb-2 inline-flex rounded-full bg-primary/10 px-4 py-1.5 text-xs font-black uppercase tracking-widest text-primary">
             Totem Defumar
           </div>
-          <h1 className="line-clamp-2 break-words text-5xl font-black leading-tight text-foreground">
+          <h1 className="line-clamp-1 break-words text-4xl font-black leading-tight text-foreground">
             {eventName}
           </h1>
-          {welcomeMessage && <p className="mt-2 line-clamp-2 text-xl font-semibold text-muted-foreground">{welcomeMessage}</p>}
+          {welcomeMessage && <p className="mt-1 line-clamp-1 text-lg font-semibold text-muted-foreground">{welcomeMessage}</p>}
         </div>
       </div>
     </header>
@@ -2331,7 +2347,7 @@ function TotemCategorySection({
           return (
             <article
               key={product.id}
-              className="group grid min-h-56 grid-cols-[1fr_184px] overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm transition active:scale-[0.99]"
+              className="grid min-h-[220px] grid-cols-[1fr_176px] overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm max-[760px]:grid-cols-[1fr_132px]"
             >
               <button type="button" onClick={() => onAdd(product)} className="flex min-w-0 flex-col p-5 text-left">
                 {badges.length > 0 && (
@@ -2347,29 +2363,29 @@ function TotemCategorySection({
                 {product.description && <p className="mt-2 line-clamp-3 text-base font-medium leading-snug text-muted-foreground">{product.description}</p>}
                 <div className="mt-auto pt-5 text-3xl font-black text-primary">{formatBRL(getPrice(product))}</div>
               </button>
-              <div className="relative">
+              <div className="flex flex-col border-l border-border/60 bg-muted/40">
                 <button type="button" onClick={() => onAdd(product)} className="h-full w-full bg-muted">
                   {img ? (
-                    <ProductImage src={img} alt={product.name} size="lg" rounded="rounded-none" className="h-full w-full object-cover transition duration-300 group-active:scale-105" />
+                    <ProductImage src={img} alt={product.name} size="lg" rounded="rounded-none" className="h-full w-full object-cover" />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center text-muted-foreground/50">
-                      <UtensilsCrossed className="h-16 w-16" />
+                      <UtensilsCrossed className="h-10 w-10" />
                     </div>
                   )}
                 </button>
                 {item ? (
-                  <div className="absolute bottom-4 right-4 flex items-center gap-2 rounded-2xl bg-background p-2 shadow-xl ring-1 ring-border">
+                  <div className="grid grid-cols-[56px_1fr_56px] items-center gap-1 border-t border-border/60 bg-background p-2">
                     <button type="button" onClick={() => dec(item.key)} className="flex h-14 w-14 items-center justify-center rounded-xl bg-muted text-primary active:scale-95">
-                      <Minus className="h-7 w-7" />
+                      <Minus className="h-6 w-6" />
                     </button>
-                    <span className="w-10 text-center text-2xl font-black">{item.quantity}</span>
+                    <span className="text-center text-2xl font-black">{item.quantity}</span>
                     <button type="button" onClick={() => inc(item.key)} className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary text-primary-foreground active:scale-95">
-                      <Plus className="h-7 w-7" />
+                      <Plus className="h-6 w-6" />
                     </button>
                   </div>
                 ) : (
-                  <button type="button" onClick={() => onAdd(product)} className="absolute bottom-4 right-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-xl shadow-primary/30 active:scale-95">
-                    <Plus className="h-8 w-8" />
+                  <button type="button" onClick={() => onAdd(product)} className="min-h-16 border-t border-border/60 bg-primary text-lg font-black text-primary-foreground active:scale-[0.98]">
+                    Adicionar
                   </button>
                 )}
               </div>
@@ -2473,8 +2489,8 @@ function TotemProductPanel({
   }
 
   return (
-    <div className="grid h-full w-full grid-cols-[42%_1fr] max-[760px]:grid-cols-1">
-      <div className="relative bg-muted max-[760px]:h-64">
+    <div className="flex max-h-[85dvh] flex-col">
+      <div className="relative h-56 shrink-0 bg-muted">
         {img ? (
           <ProductImage src={img} alt={product.name} size="lg" rounded="rounded-none" className="h-full w-full object-cover" />
         ) : (
@@ -2486,61 +2502,59 @@ function TotemProductPanel({
           <X className="h-8 w-8" />
         </button>
       </div>
-      <div className="flex min-h-0 flex-col">
-        <div className="border-b border-border/60 p-8">
-          <h2 className="text-4xl font-black leading-tight">{product.name}</h2>
-          {product.description && <p className="mt-3 text-xl font-medium leading-relaxed text-muted-foreground">{product.description}</p>}
-          <div className="mt-4 text-4xl font-black text-primary">{formatBRL(unitPrice)}</div>
+      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-6">
+        <div>
+          <h2 className="text-3xl font-black leading-tight">{product.name}</h2>
+          {product.description && <p className="mt-2 text-lg font-medium leading-relaxed text-muted-foreground">{product.description}</p>}
+          <div className="mt-3 text-3xl font-black text-primary">{formatBRL(unitPrice)}</div>
         </div>
-        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-8">
-          {groups.length === 0 ? (
-            <div className="rounded-2xl bg-muted p-6 text-xl font-bold text-muted-foreground">Produto pronto para adicionar.</div>
-          ) : (
-            groups.map((group) => {
-              const selected = selectedByGroup[group.id] ?? [];
-              return (
-                <section key={group.id} className="rounded-2xl border border-border/70 bg-card">
-                  <div className="flex items-center justify-between border-b border-border/60 px-5 py-4">
-                    <h3 className="text-2xl font-black">{group.name}</h3>
-                    {group.required && <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-black uppercase tracking-widest text-primary">Obrigatório</span>}
-                  </div>
-                  <div className="grid gap-3 p-5">
-                    {sortedOptions(group.options).map((option) => {
-                      const checked = selected.includes(option.id);
-                      return (
-                        <button
-                          key={option.id}
-                          type="button"
-                          onClick={() => toggle(group, option.id)}
-                          className={`flex min-h-16 items-center justify-between gap-5 rounded-2xl border-2 px-5 text-left text-xl font-black transition active:scale-[0.98] ${
-                            checked ? "border-primary bg-primary/10" : "border-border bg-background"
-                          }`}
-                        >
-                          <span>{option.name}</span>
-                          <span className="text-primary">{option.priceDeltaInCents > 0 ? `+ ${formatBRL(option.priceDeltaInCents)}` : "Incluso"}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </section>
-              );
-            })
-          )}
+        {groups.length === 0 ? (
+          <div className="rounded-2xl bg-muted p-5 text-lg font-bold text-muted-foreground">Produto pronto para adicionar.</div>
+        ) : (
+          groups.map((group) => {
+            const selected = selectedByGroup[group.id] ?? [];
+            return (
+              <section key={group.id} className="rounded-2xl border border-border/70 bg-card">
+                <div className="flex items-center justify-between gap-3 border-b border-border/60 px-5 py-4">
+                  <h3 className="text-xl font-black">{group.name}</h3>
+                  {group.required && <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-black uppercase tracking-widest text-primary">Obrigatório</span>}
+                </div>
+                <div className="grid gap-3 p-4">
+                  {sortedOptions(group.options).map((option) => {
+                    const checked = selected.includes(option.id);
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() => toggle(group, option.id)}
+                        className={`flex min-h-16 items-center justify-between gap-4 rounded-2xl border-2 px-4 text-left text-lg font-black transition active:scale-[0.98] ${
+                          checked ? "border-primary bg-primary/10" : "border-border bg-background"
+                        }`}
+                      >
+                        <span className="min-w-0 break-words">{option.name}</span>
+                        <span className="shrink-0 text-primary">{option.priceDeltaInCents > 0 ? `+ ${formatBRL(option.priceDeltaInCents)}` : "Incluso"}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            );
+          })
+        )}
+      </div>
+      <div className="flex shrink-0 items-center gap-4 border-t border-border/60 bg-background p-5">
+        <div className="flex items-center rounded-2xl bg-muted p-1.5">
+          <button type="button" onClick={() => setQty((value) => Math.max(1, value - 1))} className="flex h-14 w-14 items-center justify-center rounded-xl bg-card text-primary shadow-sm">
+            <Minus className="h-7 w-7" />
+          </button>
+          <span className="w-14 text-center text-2xl font-black">{qty}</span>
+          <button type="button" onClick={() => setQty((value) => value + 1)} className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+            <Plus className="h-7 w-7" />
+          </button>
         </div>
-        <div className="flex items-center gap-5 border-t border-border/60 bg-background p-6">
-          <div className="flex items-center rounded-2xl bg-muted p-2">
-            <button type="button" onClick={() => setQty((value) => Math.max(1, value - 1))} className="flex h-16 w-16 items-center justify-center rounded-xl bg-card text-primary shadow-sm">
-              <Minus className="h-8 w-8" />
-            </button>
-            <span className="w-16 text-center text-3xl font-black">{qty}</span>
-            <button type="button" onClick={() => setQty((value) => value + 1)} className="flex h-16 w-16 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
-              <Plus className="h-8 w-8" />
-            </button>
-          </div>
-          <Button type="button" onClick={handleAdd} className="h-20 flex-1 rounded-2xl text-2xl font-black">
-            Adicionar · {formatBRL(unitPrice * qty)}
-          </Button>
-        </div>
+        <Button type="button" onClick={handleAdd} className="h-16 flex-1 rounded-2xl text-xl font-black">
+          Adicionar · {formatBRL(unitPrice * qty)}
+        </Button>
       </div>
     </div>
   );
