@@ -465,7 +465,7 @@ export function PublicMenuPage({
     return mode === "totem" || mode === "kiosk" || params.get("totem") === "1" || hasTotemBridge();
   }, []);
   const isTotemMode = runtime === true;
-  const isKioskMode = isTotemMode;
+  const isKioskMode = false;
 
   useEffect(() => {
     if (confirmation) {
