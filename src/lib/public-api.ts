@@ -82,7 +82,7 @@ export interface LegacyPublicEventResolution {
 }
 
 export interface CheckoutPaymentSettings {
-  context?: "TOTEM" | "PUBLIC_CHECKOUT";
+  context?: "TOTEM" | "TABLET" | "PUBLIC_CHECKOUT";
   mercadoPago: {
     pixAutomaticAvailable: boolean;
     cardEnabled?: boolean;
@@ -687,7 +687,7 @@ export async function payWithNfcBalanceCanonical(
 export interface CreatePublicOrderInput {
   customerName?: string;
   items: CreatePublicOrderItem[];
-  checkoutContext?: "TOTEM" | "PUBLIC_EVENT";
+  checkoutContext?: "TOTEM" | "TABLET" | "PUBLIC_EVENT";
   paymentMethod?: "PIX" | "CARD" | "PIX_AUTOMATIC" | "CREDIT_CARD" | "DEBIT_CARD" | string;
   paymentStatus?: "PENDING" | "PAID" | string;
   status?: "PENDING" | "CONFIRMED" | string;
@@ -707,12 +707,17 @@ export interface PublicOrderResponse {
 export async function createPublicOrder(
   slug: string,
   input: CreatePublicOrderInput,
+  options: { deviceToken?: string } = {},
 ): Promise<PublicOrderResponse> {
   const res = await publicApiFetch(
     `${API_BASE_URL}/public/events/${encodeURIComponent(slug)}/orders`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json", ...API_HEADERS },
+      headers: {
+        "Content-Type": "application/json",
+        ...API_HEADERS,
+        ...(options.deviceToken ? { Authorization: `Bearer ${options.deviceToken}` } : {}),
+      },
       body: JSON.stringify(input),
     },
     { eventSlug: slug, payload: input },
@@ -729,12 +734,17 @@ export async function createPublicOrderCanonical(
   organizationSlug: string,
   eventSlug: string,
   input: CreatePublicOrderInput,
+  options: { deviceToken?: string } = {},
 ): Promise<PublicOrderResponse> {
   const res = await publicApiFetch(
     `${API_BASE_URL}${encodeEventPath({ organizationSlug, eventSlug })}/orders`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json", ...API_HEADERS },
+      headers: {
+        "Content-Type": "application/json",
+        ...API_HEADERS,
+        ...(options.deviceToken ? { Authorization: `Bearer ${options.deviceToken}` } : {}),
+      },
       body: JSON.stringify(input),
     },
     { organizationSlug, eventSlug, payload: input },
@@ -749,7 +759,7 @@ export async function createPublicOrderCanonical(
 
 export async function getCheckoutPaymentSettings(
   eventId: string,
-  context: "TOTEM" | "PUBLIC_CHECKOUT" = "PUBLIC_CHECKOUT",
+  context: "TOTEM" | "TABLET" | "PUBLIC_CHECKOUT" = "PUBLIC_CHECKOUT",
   diagnostics: { organizationSlug?: string | null; eventSlug?: string | null } = {},
 ): Promise<CheckoutPaymentSettings> {
   const res = await publicApiFetch(
@@ -774,7 +784,7 @@ export async function createPixAutomaticPayment(orderId: string): Promise<Paymen
 
 export async function checkoutPayment(
   orderId: string,
-  input: { context?: "TOTEM" | "PUBLIC_CHECKOUT"; paymentMethod?: "PIX" | "CARD" } = {},
+  input: { context?: "TOTEM" | "TABLET" | "PUBLIC_CHECKOUT"; paymentMethod?: "PIX" | "CARD" } = {},
   diagnostics: { organizationSlug?: string | null; eventSlug?: string | null } = {},
 ): Promise<CheckoutPaymentResponse> {
   const url = `${API_BASE_URL}/public/orders/${encodeURIComponent(orderId)}/checkout-payment`;

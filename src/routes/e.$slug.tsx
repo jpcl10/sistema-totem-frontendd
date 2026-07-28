@@ -117,7 +117,7 @@ function hasTotemBridge(): boolean {
   }
 }
 
-type PublicExperienceContext = "DELIVERY" | "STORE" | "TOTEM" | "EVENT";
+type PublicExperienceContext = "DELIVERY" | "STORE" | "TOTEM" | "TABLET" | "EVENT";
 
 function resolvePublicExperienceContext(): PublicExperienceContext {
   if (typeof window === "undefined") return "EVENT";
@@ -401,9 +401,13 @@ function maxQty(p: PublicProduct): number {
 export function PublicMenuPage({
   organizationSlug: organizationSlugProp,
   eventSlug: eventSlugProp,
+  deviceToken,
+  forceExperienceContext,
 }: {
   organizationSlug?: string;
   eventSlug?: string;
+  deviceToken?: string;
+  forceExperienceContext?: PublicExperienceContext;
 } = {}) {
   const slug = eventSlugProp ?? "";
   const organizationSlug = organizationSlugProp ?? null;
@@ -473,8 +477,11 @@ export function PublicMenuPage({
     setRemainingSeconds(0);
   };
 
-  const experienceContext = useMemo(() => resolvePublicExperienceContext(), []);
+  const resolvedExperienceContext = useMemo(() => resolvePublicExperienceContext(), []);
+  const experienceContext = forceExperienceContext ?? resolvedExperienceContext;
   const isTotemMode = experienceContext === "TOTEM";
+  const isTabletMode = experienceContext === "TABLET";
+  const isSelfServiceMode = isTotemMode || isTabletMode;
   const isKioskMode = false;
 
   useEffect(() => {
@@ -484,9 +491,9 @@ export function PublicMenuPage({
         paymentStep === "paid" ||
         (!confirmation.pix && paymentStep !== "card_waiting" && paymentStep !== "loading")
       ) {
-        const timeout = isTotemMode ? 23000 : 15000;
+        const timeout = isSelfServiceMode ? 23000 : 15000;
         const timer = setTimeout(() => {
-          if (isTotemMode) {
+          if (isSelfServiceMode) {
             resetTotem();
           } else {
             setConfirmation(null);
@@ -498,7 +505,7 @@ export function PublicMenuPage({
       // If it's PIX PENDING, we NEVER auto-reset.
       // The user must click "Novo pedido" or "Voltar ao início".
     }
-  }, [confirmation, paymentStep, isTotemMode]);
+  }, [confirmation, paymentStep, isSelfServiceMode]);
 
   // PIX countdown timer based on paymentTransaction.expiresAt
   useEffect(() => {
@@ -898,7 +905,7 @@ export function PublicMenuPage({
       toast.error("Adicione itens ao pedido antes de finalizar");
       return false;
     }
-    if (!isTotemMode) {
+    if (!isSelfServiceMode) {
       const err = validateName(customerName);
       if (err) {
         setNameError(err);
@@ -954,7 +961,7 @@ export function PublicMenuPage({
 
   const buildOrderPayload = (method: "PIX" | "CARD"): Parameters<typeof createPublicOrder>[1] => {
     const payload: Parameters<typeof createPublicOrder>[1] = {
-      checkoutContext: "TOTEM",
+      checkoutContext: isTabletMode ? "TABLET" : "TOTEM",
       paymentMethod: method,
       items: cart.map((c) => ({
         productId: c.product.id,
@@ -968,7 +975,7 @@ export function PublicMenuPage({
       })),
     };
     const trimmedCustomerName = customerName.trim();
-    if (!isTotemMode && trimmedCustomerName) {
+    if (!isSelfServiceMode && trimmedCustomerName) {
       payload.customerName = trimmedCustomerName;
     }
     payload.paymentStatus = "PENDING";
@@ -989,7 +996,7 @@ export function PublicMenuPage({
       number: num,
       pix: method === "PIX",
       totalInCents: order.totalInCents || totalCents,
-      customerName: isTotemMode ? undefined : customerName.trim(),
+      customerName: isSelfServiceMode ? undefined : customerName.trim(),
       transaction: null,
       error: null,
       checkoutSettings: undefined,
@@ -1000,7 +1007,7 @@ export function PublicMenuPage({
         const checkoutResponse = await Promise.race([
           checkoutPayment(
             order.id,
-            { context: "TOTEM", paymentMethod: "PIX" },
+            { context: isTabletMode ? "TABLET" : "TOTEM", paymentMethod: "PIX" },
             { organizationSlug, eventSlug: slug },
           ),
           new Promise<never>((_, reject) =>
@@ -1046,7 +1053,7 @@ export function PublicMenuPage({
                   missingPixQr
                     ? "Nao foi possivel gerar o QR Code PIX. Tente novamente ou escolha outra forma de pagamento."
                     : nextPaymentStep === "pix_unavailable"
-                    ? checkoutResponse.message ?? "PIX indisponível neste totem."
+                    ? checkoutResponse.message ?? (isTabletMode ? "PIX indisponível neste tablet." : "PIX indisponível neste totem.")
                     : prev.error,
               }
             : null,
@@ -1055,7 +1062,11 @@ export function PublicMenuPage({
         logTotemPublicApiError("Falha ao iniciar pagamento do checkout", err, {
           eventSlug: slug,
           organizationSlug,
-          payload: { orderId: order.id, context: "TOTEM", paymentMethod: "PIX" },
+          payload: {
+            orderId: order.id,
+            context: isTabletMode ? "TABLET" : "TOTEM",
+            paymentMethod: "PIX",
+          },
         });
         const isTimeout = (err as Error)?.message === "CHECKOUT_TIMEOUT";
         setPaymentStep("operator");
@@ -1086,6 +1097,27 @@ export function PublicMenuPage({
               }
             : null,
         );
+        return;
+      }
+
+      if (isTabletMode) {
+        setPaymentStep("operator");
+        setConfirmation((prev) =>
+          prev
+            ? {
+                ...prev,
+                pix: false,
+                message: "Realize o pagamento na maquininha e chame o operador para confirmar.",
+                error: null,
+              }
+            : null,
+        );
+        toast.info("Aguardando confirmação do operador.");
+        setCart([]);
+        setCustomerName("");
+        setCartOpen(false);
+        setAddingProduct(null);
+        setPixOpen(false);
         return;
       }
 
@@ -1142,8 +1174,8 @@ export function PublicMenuPage({
     try {
       payload = buildOrderPayload(method);
       const order = organizationSlug
-        ? await createPublicOrderCanonical(organizationSlug, slug, payload)
-        : await createPublicOrder(slug, payload);
+        ? await createPublicOrderCanonical(organizationSlug, slug, payload, { deviceToken })
+        : await createPublicOrder(slug, payload, { deviceToken });
       await handleOrderCreated(order, method);
     } catch (e) {
       logTotemPublicApiError("Falha ao criar pedido do totem", e, {
@@ -1205,7 +1237,7 @@ export function PublicMenuPage({
 
   const cartHasItems = totalItems > 0;
 
-  if (isTotemMode) {
+  if (isSelfServiceMode) {
     return (
       <TotemModeExperience
         event={event}
@@ -1485,7 +1517,7 @@ export function PublicMenuPage({
           primary={primary}
           secondary={secondary}
           isKioskMode={isKioskMode}
-          requireCustomerName={!isTotemMode}
+          requireCustomerName={!isSelfServiceMode}
           paymentMethod={paymentMethod}
           setPaymentMethod={setPaymentMethod}
           pixAvailable={totemPixAvailable}
