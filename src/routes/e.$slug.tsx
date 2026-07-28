@@ -1481,7 +1481,7 @@ export function PublicMenuPage({
           }
         }}
       >
-        <DialogContent className="w-[min(94vw,760px)] gap-0 overflow-hidden rounded-3xl p-0">
+        <DialogContent className="flex max-h-[90dvh] w-[calc(100vw-24px)] max-w-2xl flex-col gap-0 overflow-hidden rounded-3xl p-0 sm:w-[calc(100vw-32px)] md:max-w-[760px]">
           {addingProduct && (
             <TotemProductModalBody
               product={addingProduct}
@@ -2272,14 +2272,14 @@ function TotemPortalLayer({
   if (typeof document === "undefined") return null;
   const content =
     variant === "modal" ? (
-      <div className="fixed inset-0 z-[1000] grid place-items-center bg-black/55 p-5 animate-in fade-in duration-150">
-        <div className="w-[min(90vw,720px)] max-h-[85dvh] overflow-hidden rounded-2xl bg-background shadow-2xl ring-1 ring-border">
+      <div className="fixed inset-0 z-[1000] grid place-items-center bg-black/55 px-3 py-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] animate-in fade-in duration-150 sm:px-5">
+        <div className="flex max-h-[90dvh] w-[calc(100vw-24px)] max-w-2xl flex-col overflow-hidden rounded-2xl bg-background shadow-2xl ring-1 ring-border sm:w-[calc(100vw-32px)] md:max-w-[760px]">
           {children}
         </div>
       </div>
     ) : (
-      <div className="fixed inset-0 z-[1000] bg-background p-5 animate-in fade-in duration-150">
-        <div className="mx-auto flex h-full w-full max-w-6xl overflow-hidden rounded-2xl bg-background shadow-2xl ring-1 ring-border">
+      <div className="fixed inset-0 z-[1000] bg-background px-3 py-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] animate-in fade-in duration-150 sm:px-5">
+        <div className="mx-auto flex h-full w-full max-w-screen-xl overflow-hidden rounded-2xl bg-background shadow-2xl ring-1 ring-border">
           {children}
         </div>
       </div>
@@ -2521,24 +2521,24 @@ function TotemProductPanel({
   }
 
   return (
-    <div className="flex max-h-[85dvh] flex-col">
-      <div className="relative h-56 shrink-0 bg-muted">
+    <div className="flex max-h-[90dvh] min-h-0 flex-col overflow-hidden">
+      <div className={`relative shrink-0 bg-muted ${img ? "aspect-[16/9] max-h-60" : "h-36 sm:h-44"}`}>
         {img ? (
           <ProductImage src={img} alt={product.name} size="lg" rounded="rounded-none" className="h-full w-full object-cover" />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-muted-foreground/50">
-            <UtensilsCrossed className="h-24 w-24" />
+            <UtensilsCrossed className="h-14 w-14 sm:h-16 sm:w-16" />
           </div>
         )}
-        <button type="button" onClick={onClose} className="absolute left-5 top-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-background text-foreground shadow-xl">
-          <X className="h-8 w-8" />
+        <button type="button" onClick={onClose} className="absolute left-3 top-3 flex h-11 w-11 items-center justify-center rounded-xl bg-background text-foreground shadow-xl sm:left-5 sm:top-5 sm:h-12 sm:w-12">
+          <X className="h-5 w-5 sm:h-6 sm:w-6" />
         </button>
       </div>
-      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-6">
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 sm:space-y-5 sm:p-6">
         <div>
-          <h2 className="text-3xl font-black leading-tight">{product.name}</h2>
-          {product.description && <p className="mt-2 text-lg font-medium leading-relaxed text-muted-foreground">{product.description}</p>}
-          <div className="mt-3 text-3xl font-black text-primary">{formatBRL(unitPrice)}</div>
+          <h2 className="break-words text-2xl font-black leading-tight sm:text-3xl">{product.name}</h2>
+          {product.description && <p className="mt-2 text-base font-medium leading-relaxed text-muted-foreground sm:text-lg">{product.description}</p>}
+          <div className="mt-3 text-2xl font-black text-primary sm:text-3xl">{formatBRL(unitPrice)}</div>
         </div>
         {groups.length === 0 ? (
           <div className="rounded-2xl bg-muted p-5 text-lg font-bold text-muted-foreground">Produto pronto para adicionar.</div>
@@ -2574,18 +2574,19 @@ function TotemProductPanel({
           })
         )}
       </div>
-      <div className="flex shrink-0 items-center gap-4 border-t border-border/60 bg-background p-5">
-        <div className="flex items-center rounded-2xl bg-muted p-1.5">
-          <button type="button" onClick={() => setQty((value) => Math.max(1, value - 1))} className="flex h-14 w-14 items-center justify-center rounded-xl bg-card text-primary shadow-sm">
-            <Minus className="h-7 w-7" />
+      <div className="grid shrink-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-3 border-t border-border/60 bg-background p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:gap-4 sm:p-5">
+        <div className="flex items-center rounded-2xl bg-muted p-1">
+          <button type="button" onClick={() => setQty((value) => Math.max(1, value - 1))} className="flex h-11 w-11 items-center justify-center rounded-xl bg-card text-primary shadow-sm sm:h-14 sm:w-14">
+            <Minus className="h-5 w-5 sm:h-7 sm:w-7" />
           </button>
-          <span className="w-14 text-center text-2xl font-black">{qty}</span>
-          <button type="button" onClick={() => setQty((value) => value + 1)} className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
-            <Plus className="h-7 w-7" />
+          <span className="w-9 text-center text-xl font-black sm:w-14 sm:text-2xl">{qty}</span>
+          <button type="button" onClick={() => setQty((value) => value + 1)} className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm sm:h-14 sm:w-14">
+            <Plus className="h-5 w-5 sm:h-7 sm:w-7" />
           </button>
         </div>
-        <Button type="button" onClick={handleAdd} className="h-16 flex-1 rounded-2xl text-xl font-black">
-          Adicionar · {formatBRL(unitPrice * qty)}
+        <Button type="button" onClick={handleAdd} className="min-w-0 truncate h-14 w-full rounded-2xl px-4 text-base font-black sm:h-16 sm:text-xl">
+          <span className="truncate sm:hidden">Adicionar · {formatBRL(unitPrice * qty)}</span>
+          <span className="hidden truncate sm:inline">Adicionar ao pedido · {formatBRL(unitPrice * qty)}</span>
         </Button>
       </div>
     </div>
@@ -2639,17 +2640,17 @@ function TotemCartPanel({
 
   return (
     <div className="flex h-full w-full flex-col">
-      <div className="flex items-center justify-between border-b border-border/60 p-6" style={{ background: primary, color: "#fff" }}>
+      <div className="flex items-center justify-between gap-3 border-b border-border/60 p-4 sm:p-6" style={{ background: primary, color: "#fff" }}>
         <div>
-          <h2 className="text-4xl font-black text-white">Meu pedido</h2>
-          <p className="mt-1 text-lg font-bold text-white/80">{totalItems} {totalItems === 1 ? "item selecionado" : "itens selecionados"}</p>
+          <h2 className="text-2xl font-black text-white sm:text-4xl">Meu pedido</h2>
+          <p className="mt-1 text-sm font-bold text-white/80 sm:text-lg">{totalItems} {totalItems === 1 ? "item selecionado" : "itens selecionados"}</p>
         </div>
-        <button type="button" onClick={onClose} className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/15 text-white active:scale-95">
-          <X className="h-8 w-8" />
+        <button type="button" onClick={onClose} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/15 text-white active:scale-95 sm:h-16 sm:w-16 sm:rounded-2xl">
+          <X className="h-5 w-5 sm:h-8 sm:w-8" />
         </button>
       </div>
-      <div className="grid min-h-0 flex-1 grid-cols-[1fr_380px] max-[760px]:grid-cols-1 max-[760px]:overflow-y-auto">
-        <div className="min-h-0 overflow-y-auto p-6">
+      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-y-auto lg:grid-cols-[minmax(0,1fr)_380px] lg:overflow-hidden">
+        <div className="min-h-0 overflow-y-visible p-4 sm:p-6 lg:overflow-y-auto">
           {cart.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center text-center text-muted-foreground">
               <ShoppingCart className="mb-4 h-20 w-20" />
@@ -2660,35 +2661,35 @@ function TotemCartPanel({
               {cart.map((item) => {
                 const img = resolveAssetUrl(item.product.imageUrl) || defaultProductImageUrl || null;
                 return (
-                  <div key={item.key} className="flex gap-5 rounded-2xl border border-border/70 bg-card p-5 shadow-sm">
-                    <div className="h-28 w-28 shrink-0 overflow-hidden rounded-2xl bg-muted">
+                  <div key={item.key} className="grid grid-cols-[56px_minmax(0,1fr)] gap-3 rounded-2xl border border-border/70 bg-card p-3 shadow-sm sm:grid-cols-[72px_minmax(0,1fr)_auto] sm:p-4 lg:grid-cols-[88px_minmax(0,1fr)] xl:grid-cols-[96px_minmax(0,1fr)_auto]">
+                    <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-muted sm:h-[72px] sm:w-[72px] sm:rounded-2xl lg:h-20 lg:w-20 xl:h-24 xl:w-24">
                       <ProductImage src={img} alt={item.product.name} size="sm" rounded="rounded-2xl" className="h-full w-full object-cover" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-start justify-between gap-4">
-                        <h3 className="line-clamp-2 text-2xl font-black">{item.product.name}</h3>
-                        <span className="shrink-0 text-2xl font-black">{formatBRL(item.unitPriceInCents * item.quantity)}</span>
+                      <div className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-4 lg:flex-col xl:flex-row">
+                        <h3 className="min-w-0 break-words text-base font-black leading-tight sm:text-xl xl:text-2xl">{item.product.name}</h3>
+                        <span className="whitespace-nowrap text-base font-black sm:text-xl xl:text-2xl">{formatBRL(item.unitPriceInCents * item.quantity)}</span>
                       </div>
                       {(item.displayFlavors?.length || item.selectedOptions?.length) && (
-                        <div className="mt-2 space-y-1 text-base font-medium text-muted-foreground">
+                        <div className="mt-2 space-y-1 text-sm font-medium text-muted-foreground sm:text-base">
                           {item.displayFlavors?.length ? <p>Sabores: {item.displayFlavors.map((flavor) => flavor.name).join(" + ")}</p> : null}
                           {item.selectedOptions?.flatMap((group) => group.displayOptions.map((option) => `${option.groupName}: ${option.optionName}`)).map((label) => (
                             <p key={label}>{label}</p>
                           ))}
                         </div>
                       )}
-                      <div className="mt-4 flex items-center justify-between">
-                        <div className="flex items-center gap-2 rounded-2xl bg-muted p-2">
-                          <button type="button" onClick={() => dec(item.key)} className="flex h-14 w-14 items-center justify-center rounded-xl bg-card text-primary shadow-sm">
-                            <Minus className="h-7 w-7" />
+                      <div className="mt-3 flex items-center justify-between gap-3 sm:mt-4">
+                        <div className="flex items-center gap-1 rounded-2xl bg-muted p-1 sm:gap-2 sm:p-2">
+                          <button type="button" onClick={() => dec(item.key)} className="flex h-10 w-10 items-center justify-center rounded-xl bg-card text-primary shadow-sm sm:h-12 sm:w-12 xl:h-14 xl:w-14">
+                            <Minus className="h-5 w-5 sm:h-6 sm:w-6 xl:h-7 xl:w-7" />
                           </button>
-                          <span className="w-12 text-center text-2xl font-black">{item.quantity}</span>
-                          <button type="button" onClick={() => inc(item.key)} className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
-                            <Plus className="h-7 w-7" />
+                          <span className="w-8 text-center text-lg font-black sm:w-10 sm:text-xl xl:w-12 xl:text-2xl">{item.quantity}</span>
+                          <button type="button" onClick={() => inc(item.key)} className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm sm:h-12 sm:w-12 xl:h-14 xl:w-14">
+                            <Plus className="h-5 w-5 sm:h-6 sm:w-6 xl:h-7 xl:w-7" />
                           </button>
                         </div>
-                        <button type="button" onClick={() => remove(item.key)} className="flex h-14 w-14 items-center justify-center rounded-2xl text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
-                          <Trash2 className="h-7 w-7" />
+                        <button type="button" onClick={() => remove(item.key)} className="flex h-10 w-10 items-center justify-center rounded-xl text-muted-foreground hover:bg-destructive/10 hover:text-destructive sm:h-12 sm:w-12 xl:h-14 xl:w-14 xl:rounded-2xl">
+                          <Trash2 className="h-5 w-5 sm:h-6 sm:w-6 xl:h-7 xl:w-7" />
                         </button>
                       </div>
                     </div>
@@ -2698,19 +2699,19 @@ function TotemCartPanel({
             </div>
           )}
         </div>
-        <aside className="flex flex-col border-l border-border/60 bg-card p-6 max-[760px]:border-l-0 max-[760px]:border-t">
-          <h3 className="text-3xl font-black">Pagamento</h3>
-          <div className="mt-6 grid gap-4">
+        <aside className="flex flex-col border-t border-border/60 bg-card p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:p-6 lg:border-l lg:border-t-0">
+          <h3 className="text-2xl font-black sm:text-3xl">Pagamento</h3>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:mt-6 lg:grid-cols-1 lg:gap-4">
             <button
               type="button"
               onClick={() => setPaymentMethod("PIX")}
               disabled={!pixAvailable || paymentSettingsLoading}
-              className={`min-h-28 rounded-2xl border-2 p-5 text-left transition active:scale-[0.98] ${
+              className={`min-h-24 rounded-2xl border-2 p-4 text-left transition active:scale-[0.98] sm:min-h-28 sm:p-5 ${
                 paymentMethod === "PIX" ? "border-emerald-500 bg-emerald-50" : "border-border bg-background"
-              } ${!pixAvailable || paymentSettingsLoading ? "cursor-not-allowed opacity-40" : ""}`}
+              } ${!pixAvailable || paymentSettingsLoading ? "cursor-not-allowed opacity-60 grayscale" : ""}`}
             >
-              <div className="flex items-center gap-3 text-2xl font-black text-emerald-700">
-                <QrCode className="h-8 w-8" />
+              <div className="flex items-center gap-3 text-xl font-black text-emerald-700 sm:text-2xl">
+                <QrCode className="h-6 w-6 sm:h-8 sm:w-8" />
                 PIX
               </div>
               <p className="mt-2 text-base font-bold text-muted-foreground">{pixAvailable ? "QR Code automático" : "Indisponível"}</p>
@@ -2719,29 +2720,29 @@ function TotemCartPanel({
               type="button"
               onClick={() => setPaymentMethod("CARD")}
               disabled={!cardAvailable || paymentSettingsLoading}
-              className={`min-h-28 rounded-2xl border-2 p-5 text-left transition active:scale-[0.98] ${
+              className={`min-h-24 rounded-2xl border-2 p-4 text-left transition active:scale-[0.98] sm:min-h-28 sm:p-5 ${
                 paymentMethod === "CARD" ? "border-sky-500 bg-sky-50" : "border-border bg-background"
-              } ${!cardAvailable || paymentSettingsLoading ? "cursor-not-allowed opacity-40" : ""}`}
+              } ${!cardAvailable || paymentSettingsLoading ? "cursor-not-allowed opacity-60 grayscale" : ""}`}
             >
-              <div className="flex items-center gap-3 text-2xl font-black text-sky-700">
-                <CreditCard className="h-8 w-8" />
+              <div className="flex items-center gap-3 text-xl font-black text-sky-700 sm:text-2xl">
+                <CreditCard className="h-6 w-6 sm:h-8 sm:w-8" />
                 Cartão
               </div>
               <p className="mt-2 text-base font-bold text-muted-foreground">{cardAvailable ? "Terminal do totem" : "Indisponível"}</p>
             </button>
           </div>
           {!pixAvailable && pixUnavailableReason && <p className="mt-4 text-sm font-semibold text-muted-foreground">{pixUnavailableReason}</p>}
-          <div className="mt-auto space-y-5">
-            <div className="flex items-center justify-between border-t border-border/60 pt-6">
+          <div className="mt-5 space-y-4 lg:mt-auto lg:space-y-5">
+            <div className="flex items-center justify-between gap-4 border-t border-border/60 pt-4 sm:pt-6">
               <span className="text-lg font-black text-muted-foreground">Total</span>
-              <span className="text-4xl font-black" style={{ color: primary }}>{formatBRL(totalCents)}</span>
+              <span className="whitespace-nowrap text-3xl font-black sm:text-4xl" style={{ color: primary }}>{formatBRL(totalCents)}</span>
             </div>
             <Button
               type="button"
               onClick={submit}
               disabled={submitting || cart.length === 0 || paymentSettingsLoading || !selectedAvailable}
-              className="h-20 w-full rounded-2xl text-2xl font-black shadow-xl"
-              style={paymentMethod === "PIX" ? { background: secondary, color: primary } : { background: primary, color: "#fff" }}
+              className="h-16 w-full rounded-2xl text-xl font-black text-white shadow-xl disabled:cursor-not-allowed disabled:opacity-60 sm:h-20 sm:text-2xl"
+              style={paymentMethod === "PIX" ? { background: primary, color: "#fff" } : { background: primary, color: "#fff" }}
             >
               {submitting ? <><Loader2 className="mr-3 h-7 w-7 animate-spin" /> Processando...</> : paymentMethod === "PIX" ? "Gerar PIX" : "Pagar no cartão"}
             </Button>
@@ -2806,57 +2807,59 @@ function TotemPaymentOverlay({
                 : "Processando pedido";
 
   return (
-    <div className="fixed inset-0 z-[140] flex bg-background p-6 text-center animate-in fade-in duration-150">
-      <div className="mx-auto flex h-full w-full max-w-5xl flex-col items-center justify-center">
-        <div className="mb-6 flex h-28 w-28 items-center justify-center rounded-full shadow-xl" style={{ background: secondary, color: primary }}>
-          {paymentStep === "paid" ? <PartyPopper className="h-16 w-16" /> : isPixWaiting ? <QrCode className="h-16 w-16" /> : paymentStep === "card_waiting" ? <CreditCard className="h-16 w-16" /> : <Clock className="h-16 w-16" />}
-        </div>
-        <h2 className="text-5xl font-black leading-tight" style={{ color: primary }}>{title}</h2>
-        {confirmation && (
-          <p className="mt-3 text-2xl font-black text-muted-foreground">
-            Pedido #{confirmation.number} · {formatBRL(confirmation.totalInCents || 0)}
-          </p>
-        )}
-        {remainingSeconds !== null && isPixWaiting && (
-          <div className="mt-4 text-4xl font-black tabular-nums" style={{ color: remainingSeconds < 60 ? "#dc2626" : primary }}>
-            {String(Math.floor(remainingSeconds / 60)).padStart(2, "0")}:{String(remainingSeconds % 60).padStart(2, "0")}
+    <div className="fixed inset-0 z-[140] overflow-y-auto bg-background px-4 py-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] text-center animate-in fade-in duration-150 sm:px-6 md:py-8">
+      <div className="mx-auto grid min-h-[calc(100dvh-2rem)] w-full max-w-3xl grid-cols-1 items-center gap-6 lg:max-w-screen-lg lg:grid-cols-[minmax(0,1fr)_minmax(360px,500px)] lg:gap-8 lg:text-left">
+        <div className="flex min-w-0 flex-col items-center lg:items-start">
+          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full shadow-xl sm:h-20 sm:w-20 lg:h-24 lg:w-24" style={{ background: secondary, color: primary }}>
+            {paymentStep === "paid" ? <PartyPopper className="h-9 w-9 sm:h-11 sm:w-11 lg:h-14 lg:w-14" /> : isPixWaiting ? <QrCode className="h-9 w-9 sm:h-11 sm:w-11 lg:h-14 lg:w-14" /> : paymentStep === "card_waiting" ? <CreditCard className="h-9 w-9 sm:h-11 sm:w-11 lg:h-14 lg:w-14" /> : <Clock className="h-9 w-9 sm:h-11 sm:w-11 lg:h-14 lg:w-14" />}
           </div>
-        )}
+          <h2 className="break-words text-4xl font-black leading-tight sm:text-5xl md:text-6xl" style={{ color: primary }}>{title}</h2>
+          {confirmation && (
+            <p className="mt-3 text-lg font-black text-muted-foreground sm:text-2xl">
+              Pedido #{confirmation.number} · {formatBRL(confirmation.totalInCents || 0)}
+            </p>
+          )}
+          {remainingSeconds !== null && isPixWaiting && (
+            <div className="mt-3 text-3xl font-black tabular-nums sm:text-4xl" style={{ color: remainingSeconds < 60 ? "#dc2626" : primary }}>
+              {String(Math.floor(remainingSeconds / 60)).padStart(2, "0")}:{String(remainingSeconds % 60).padStart(2, "0")}
+            </div>
+          )}
+          {!isPixWaiting && (
+            <p className="mt-5 max-w-2xl text-lg font-bold text-muted-foreground sm:text-2xl">
+              {pixExpired
+                ? "O tempo para pagamento terminou. Voltando para o início."
+                : paymentStep === "paid"
+                  ? "Ficha em impressão. A tela voltará para o início automaticamente."
+                  : confirmation?.error ?? confirmation?.message ?? "Aguarde a confirmação no terminal."}
+            </p>
+          )}
+          {(pixExpired || paymentStep === "card_declined" || paymentStep === "operator" || paymentStep === "pix_unavailable") && (
+            <Button type="button" onClick={resetTotem} className="mt-6 h-14 rounded-2xl px-7 text-lg font-black text-white sm:h-[4.5rem] sm:px-10 sm:text-2xl" style={{ background: primary, color: "#fff" }}>
+              Voltar ao início
+            </Button>
+          )}
+        </div>
         {isPixWaiting && (
-          <div className="mt-6 flex min-h-0 w-full max-w-3xl flex-col items-center">
-            <div className="rounded-2xl border-2 bg-white p-4 shadow-sm">
+          <div className="flex min-h-0 w-full flex-col items-center lg:items-stretch">
+            <div className="mx-auto rounded-2xl border-2 bg-white p-3 shadow-sm sm:p-4">
               {qrSrc ? (
-                <img src={qrSrc} alt="QR Code PIX" className="h-[min(48dvh,440px)] w-[min(48dvh,440px)]" />
+                <img src={qrSrc} alt="QR Code PIX" className="aspect-square w-[min(78vw,320px)] max-w-[420px] sm:w-[min(62vw,460px)] lg:w-full lg:max-w-[500px]" />
               ) : code ? (
-                <QRCodeSVG value={code} size={420} />
+                <QRCodeSVG value={code} className="aspect-square w-[min(78vw,320px)] max-w-[420px] sm:w-[min(62vw,460px)] lg:w-full lg:max-w-[500px]" />
               ) : (
-                <div className="flex h-80 w-80 items-center justify-center">
-                  <Loader2 className="h-16 w-16 animate-spin text-muted-foreground" />
+                <div className="flex aspect-square w-[min(78vw,320px)] max-w-[420px] items-center justify-center sm:w-[min(62vw,460px)] lg:w-full lg:max-w-[500px]">
+                  <Loader2 className="h-12 w-12 animate-spin text-muted-foreground sm:h-16 sm:w-16" />
                 </div>
               )}
             </div>
             {code && (
-              <Button type="button" variant="secondary" className="mt-5 h-16 rounded-2xl px-8 text-xl font-black" onClick={() => navigator.clipboard.writeText(code)}>
+              <Button type="button" variant="secondary" className="mt-4 h-14 w-full max-w-[420px] rounded-2xl px-6 text-base font-black sm:h-16 sm:text-xl lg:max-w-none" onClick={() => navigator.clipboard.writeText(code)}>
                 <Copy className="mr-3 h-6 w-6" />
                 Copiar PIX
               </Button>
             )}
-            <p className="mt-5 text-xl font-bold text-muted-foreground">Após pagar, aguarde a confirmação automática.</p>
+            <p className="mt-4 text-base font-bold text-muted-foreground sm:text-xl">Após pagar, aguarde a confirmação automática.</p>
           </div>
-        )}
-        {!isPixWaiting && (
-          <p className="mt-6 max-w-2xl text-2xl font-bold text-muted-foreground">
-            {pixExpired
-              ? "O tempo para pagamento terminou. Voltando para o início."
-              : paymentStep === "paid"
-                ? "Ficha em impressão. A tela voltará para o início automaticamente."
-                : confirmation?.error ?? confirmation?.message ?? "Aguarde a confirmação no terminal."}
-          </p>
-        )}
-        {(pixExpired || paymentStep === "card_declined" || paymentStep === "operator" || paymentStep === "pix_unavailable") && (
-          <Button type="button" onClick={resetTotem} className="mt-8 h-[4.5rem] rounded-2xl px-10 text-2xl font-black" style={{ background: primary, color: "#fff" }}>
-            Voltar ao início
-          </Button>
         )}
       </div>
     </div>
@@ -3025,8 +3028,8 @@ function TotemProductModalBody({
   }
 
   return (
-    <div className="flex max-h-[90dvh] flex-col">
-      <div className="relative h-64 w-full flex-shrink-0 overflow-hidden bg-gradient-to-br from-muted to-muted/50">
+    <div className="flex max-h-[90dvh] min-h-0 flex-col overflow-hidden">
+      <div className={`relative w-full flex-shrink-0 overflow-hidden bg-gradient-to-br from-muted to-muted/50 ${img ? "aspect-[16/9] max-h-60" : "h-36 sm:h-44"}`}>
         {img ? (
           <ProductImage src={img} alt={product.name} size="lg" rounded="rounded-none" className="h-full w-full object-cover" />
         ) : (
@@ -3045,9 +3048,9 @@ function TotemProductModalBody({
         )}
       </div>
 
-      <div className="space-y-5 overflow-y-auto p-6">
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 sm:space-y-5 sm:p-6">
         <div>
-          <DialogTitle className="text-3xl font-black tracking-tight text-foreground">
+          <DialogTitle className="break-words text-2xl font-black tracking-tight text-foreground sm:text-3xl">
             {product.name}
           </DialogTitle>
           {product.description && (
@@ -3056,7 +3059,7 @@ function TotemProductModalBody({
             </DialogDescription>
           )}
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-3xl font-black text-primary">{formatBRL(previewUnitPrice)}</span>
+            <span className="text-2xl font-black text-primary sm:text-3xl">{formatBRL(previewUnitPrice)}</span>
             {typeof original === "number" && original > getPrice(product) && (
               <span className="text-sm text-muted-foreground line-through">
                 {formatBRL(original)}
@@ -3103,8 +3106,8 @@ function TotemProductModalBody({
                           : "border-border/70 bg-background text-foreground"
                       }`}
                     >
-                      <span className="font-bold">{flavor.name}</span>
-                      <span className="font-black text-primary">
+                      <span className="min-w-0 break-words font-bold">{flavor.name}</span>
+                      <span className="shrink-0 whitespace-nowrap font-black text-primary">
                         {formatBRL(resolveFlavorFullPrice(flavor, selectedSizeOptionKey))}
                       </span>
                     </button>
@@ -3146,8 +3149,8 @@ function TotemProductModalBody({
                           : "border-border/70 bg-background text-foreground"
                       }`}
                     >
-                      <span className="font-bold">{option.name}</span>
-                      <span className="font-black text-primary">
+                      <span className="min-w-0 break-words font-bold">{option.name}</span>
+                      <span className="shrink-0 whitespace-nowrap font-black text-primary">
                         {option.priceDeltaInCents > 0 ? `+ ${formatBRL(option.priceDeltaInCents)}` : "Incluso"}
                       </span>
                     </button>
@@ -3170,32 +3173,33 @@ function TotemProductModalBody({
         </section>
       </div>
 
-      <div className="flex flex-shrink-0 items-center gap-4 border-t border-border/60 bg-background p-5">
+      <div className="grid flex-shrink-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-3 border-t border-border/60 bg-background p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:gap-4 sm:p-5">
         <div className="flex items-center rounded-2xl bg-muted p-1">
           <button
             type="button"
             onClick={() => setQty((value) => Math.max(1, value - 1))}
-            className="flex h-14 w-14 items-center justify-center rounded-xl bg-card text-primary shadow-sm active:scale-95"
+            className="flex h-11 w-11 items-center justify-center rounded-xl bg-card text-primary shadow-sm active:scale-95 sm:h-14 sm:w-14"
             aria-label="Diminuir quantidade"
           >
-            <Minus className="h-6 w-6" />
+            <Minus className="h-5 w-5 sm:h-6 sm:w-6" />
           </button>
-          <span className="w-14 text-center text-2xl font-black text-foreground">{qty}</span>
+          <span className="w-9 text-center text-xl font-black text-foreground sm:w-14 sm:text-2xl">{qty}</span>
           <button
             type="button"
             onClick={() => setQty((value) => value + 1)}
-            className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm active:scale-95"
+            className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm active:scale-95 sm:h-14 sm:w-14"
             aria-label="Aumentar quantidade"
           >
-            <Plus className="h-6 w-6" />
+            <Plus className="h-5 w-5 sm:h-6 sm:w-6" />
           </button>
         </div>
         <Button
           type="button"
           onClick={handleAdd}
-          className="h-16 flex-1 rounded-2xl bg-gradient-to-r from-primary to-primary-glow text-xl font-black text-primary-foreground shadow-lg shadow-primary/30"
+          className="h-14 min-w-0 w-full truncate rounded-2xl bg-gradient-to-r from-primary to-primary-glow px-4 text-base font-black text-primary-foreground shadow-lg shadow-primary/30 sm:h-16 sm:text-xl"
         >
-          Adicionar · {formatBRL(previewUnitPrice * qty)}
+          <span className="truncate sm:hidden">Adicionar · {formatBRL(previewUnitPrice * qty)}</span>
+          <span className="hidden truncate sm:inline">Adicionar ao pedido · {formatBRL(previewUnitPrice * qty)}</span>
         </Button>
       </div>
     </div>
@@ -3419,7 +3423,7 @@ function CartSheet({
   return (
     <SheetContent
       side="bottom"
-      className={`${isKioskMode ? "h-full" : "h-[92dvh]"} w-full flex flex-col p-0 border-none shadow-2xl rounded-t-[2.5rem] overflow-hidden`}
+      className={`${isKioskMode ? "h-full" : "h-[92dvh]"} w-full flex flex-col p-0 border-none shadow-2xl rounded-t-[2rem] sm:rounded-t-[2.5rem] overflow-hidden`}
     >
       <SheetHeader
         className="p-5 pt-8 flex-shrink-0"
@@ -3435,7 +3439,7 @@ function CartSheet({
         </div>
       </SheetHeader>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="min-h-0 flex-1 overflow-y-auto p-3 space-y-3 sm:p-4 sm:space-y-4">
         {empty ? (
           <div className="text-center py-20 text-muted-foreground">
             <div className="bg-muted size-20 rounded-full flex items-center justify-center mx-auto mb-6 opacity-50">
@@ -3451,9 +3455,9 @@ function CartSheet({
               return (
                 <div
                   key={c.key}
-                  className="bg-card p-4 rounded-3xl flex gap-4 items-center border border-border/70 hover:border-primary/30 transition-colors shadow-sm"
+                  className="grid grid-cols-[56px_minmax(0,1fr)] gap-3 rounded-2xl border border-border/70 bg-card p-3 shadow-sm transition-colors hover:border-primary/30 sm:grid-cols-[72px_minmax(0,1fr)] sm:gap-4 sm:rounded-3xl sm:p-4"
                 >
-                  <div className="size-20 flex-shrink-0">
+                  <div className="h-14 w-14 flex-shrink-0 sm:h-20 sm:w-20">
                     <ProductImage
                       src={img}
                       alt={c.product.name}
@@ -3463,43 +3467,43 @@ function CartSheet({
                     />
                   </div>
                   <div className="flex-1 min-w-0 flex flex-col gap-2">
-                    <div className="flex justify-between items-start gap-2">
-                      <div className="font-bold leading-tight text-lg line-clamp-1">
+                    <div className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+                      <div className="min-w-0 break-words text-base font-bold leading-tight sm:text-lg">
                         {c.product.name}
                       </div>
-                      <div className="font-black whitespace-nowrap text-lg">
+                      <div className="whitespace-nowrap text-base font-black sm:text-lg">
                         {formatBRL(c.unitPriceInCents * c.quantity)}
                       </div>
                     </div>
                     {(c.displayFlavors?.length || c.selectedOptions?.length || c.notes) && (
                       <div className="space-y-1 text-xs font-medium text-muted-foreground">
                         {c.displayFlavors && c.displayFlavors.length > 0 && (
-                          <p className="line-clamp-1">
+                          <p className="break-words">
                             Sabores: {c.displayFlavors.map((flavor) => flavor.name).join(" + ")}
                           </p>
                         )}
                         {c.selectedOptions?.flatMap((group) =>
                           group.displayOptions.map((option) => `${option.groupName}: ${option.optionName}`),
                         ).map((label) => (
-                          <p key={label} className="line-clamp-1">{label}</p>
+                          <p key={label} className="break-words">{label}</p>
                         ))}
-                        {c.notes && <p className="line-clamp-1">Obs.: {c.notes}</p>}
+                        {c.notes && <p className="break-words">Obs.: {c.notes}</p>}
                       </div>
                     )}
 
                     <div className="flex items-center justify-between mt-1">
-                      <div className="flex items-center gap-1 bg-background rounded-full p-1 shadow-sm border border-border/70">
+                      <div className="flex items-center gap-1 rounded-full border border-border/70 bg-background p-1 shadow-sm">
                         <button
                           onClick={() => dec(c.key)}
-                          className="size-10 rounded-full flex items-center justify-center active:bg-muted transition-colors"
+                          className="flex h-9 w-9 items-center justify-center rounded-full transition-colors active:bg-muted sm:h-10 sm:w-10"
                           aria-label="Diminuir"
                         >
                           <Minus className="size-5" />
                         </button>
-                        <span className="font-black w-8 text-center text-lg">{c.quantity}</span>
+                        <span className="w-7 text-center text-base font-black sm:w-8 sm:text-lg">{c.quantity}</span>
                         <button
                           onClick={() => inc(c.key)}
-                          className="size-10 rounded-full flex items-center justify-center active:bg-muted transition-colors"
+                          className="flex h-9 w-9 items-center justify-center rounded-full transition-colors active:bg-muted sm:h-10 sm:w-10"
                           aria-label="Aumentar"
                         >
                           <Plus className="size-5" />
@@ -3508,7 +3512,7 @@ function CartSheet({
 
                       <button
                         onClick={() => remove(c.key)}
-                        className="size-12 rounded-2xl flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all active:scale-90"
+                        className="flex h-10 w-10 items-center justify-center rounded-xl text-muted-foreground transition-all hover:bg-destructive/10 hover:text-destructive active:scale-90 sm:h-12 sm:w-12 sm:rounded-2xl"
                         aria-label="Remover"
                       >
                         <Trash2 className="size-6" />
@@ -3522,7 +3526,7 @@ function CartSheet({
         )}
       </div>
 
-      <div className="border-t p-5 pb-8 space-y-4 bg-white shadow-[0_-10px_40px_rgba(0,0,0,0.05)] flex-shrink-0">
+      <div className="flex-shrink-0 space-y-3 border-t bg-white p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-[0_-10px_40px_rgba(0,0,0,0.05)] sm:space-y-4 sm:p-5">
         {requireCustomerName && (
           <div className="space-y-2">
             <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">
@@ -3553,11 +3557,11 @@ function CartSheet({
               type="button"
               onClick={() => setPaymentMethod("PIX")}
               disabled={!pixAvailable || paymentSettingsLoading}
-              className={`rounded-2xl border-2 p-3 text-left transition-all ${
+              className={`min-h-24 rounded-2xl border-2 p-3 text-left transition-all sm:min-h-28 sm:p-4 ${
                 paymentMethod === "PIX"
                   ? "border-emerald-500 bg-emerald-50"
                   : "border-muted bg-white"
-              } ${!pixAvailable || paymentSettingsLoading ? "opacity-40 cursor-not-allowed" : "active:scale-[0.98]"}`}
+              } ${!pixAvailable || paymentSettingsLoading ? "cursor-not-allowed opacity-60 grayscale" : "active:scale-[0.98]"}`}
             >
               <div className="text-[10px] font-black uppercase tracking-widest text-emerald-700">
                 PIX
@@ -3570,9 +3574,9 @@ function CartSheet({
               type="button"
               onClick={() => setPaymentMethod("CARD")}
               disabled={!cardAvailable || paymentSettingsLoading}
-              className={`rounded-2xl border-2 p-3 text-left transition-all ${
+              className={`min-h-24 rounded-2xl border-2 p-3 text-left transition-all sm:min-h-28 sm:p-4 ${
                 paymentMethod === "CARD" ? "border-sky-500 bg-sky-50" : "border-muted bg-white"
-              } ${!cardAvailable || paymentSettingsLoading ? "opacity-50 cursor-not-allowed" : "active:scale-[0.98]"}`}
+              } ${!cardAvailable || paymentSettingsLoading ? "cursor-not-allowed opacity-60 grayscale" : "active:scale-[0.98]"}`}
             >
               <div className="text-[10px] font-black uppercase tracking-widest text-sky-700">
                 Cartão
@@ -3607,12 +3611,8 @@ function CartSheet({
             paymentSettingsLoading ||
             !selectedMethodAvailable
           }
-          className={`w-full ${isKioskMode ? "h-20 text-2xl" : "h-16 text-xl"} font-black rounded-2xl shadow-lg transition-all active:scale-[0.98]`}
-          style={
-            paymentMethod === "CARD"
-              ? { background: primary, color: "#fff" }
-              : { background: secondary, color: primary }
-          }
+          className={`w-full ${isKioskMode ? "h-20 text-2xl" : "h-14 text-lg sm:h-16 sm:text-xl"} rounded-2xl font-black text-white shadow-lg transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60`}
+          style={{ background: primary, color: "#fff" }}
         >
           {submitting ? (
             <>
