@@ -15,6 +15,7 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SuperAdminIndexRouteImport } from './routes/super-admin.index'
 import { Route as TotemV2TokenRouteImport } from './routes/totem-v2.$token'
+import { Route as TabletTokenRouteImport } from './routes/tablet.$token'
 import { Route as SuperAdminUsersRouteImport } from './routes/super-admin.users'
 import { Route as SuperAdminSettingsRouteImport } from './routes/super-admin.settings'
 import { Route as SuperAdminPlansRouteImport } from './routes/super-admin.plans'
@@ -87,6 +88,11 @@ const SuperAdminIndexRoute = SuperAdminIndexRouteImport.update({
 const TotemV2TokenRoute = TotemV2TokenRouteImport.update({
   id: '/totem-v2/$token',
   path: '/totem-v2/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TabletTokenRoute = TabletTokenRouteImport.update({
+  id: '/tablet/$token',
+  path: '/tablet/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SuperAdminUsersRoute = SuperAdminUsersRouteImport.update({
@@ -337,6 +343,7 @@ export interface FileRoutesByFullPath {
   '/super-admin/plans': typeof SuperAdminPlansRoute
   '/super-admin/settings': typeof SuperAdminSettingsRoute
   '/super-admin/users': typeof SuperAdminUsersRoute
+  '/tablet/$token': typeof TabletTokenRoute
   '/totem-v2/$token': typeof TotemV2TokenRoute
   '/super-admin/': typeof SuperAdminIndexRoute
   '/admin/customers/$id': typeof AdminCustomersIdRoute
@@ -386,6 +393,7 @@ export interface FileRoutesByTo {
   '/super-admin/plans': typeof SuperAdminPlansRoute
   '/super-admin/settings': typeof SuperAdminSettingsRoute
   '/super-admin/users': typeof SuperAdminUsersRoute
+  '/tablet/$token': typeof TabletTokenRoute
   '/totem-v2/$token': typeof TotemV2TokenRoute
   '/super-admin': typeof SuperAdminIndexRoute
   '/admin/customers/$id': typeof AdminCustomersIdRoute
@@ -438,6 +446,7 @@ export interface FileRoutesById {
   '/super-admin/plans': typeof SuperAdminPlansRoute
   '/super-admin/settings': typeof SuperAdminSettingsRoute
   '/super-admin/users': typeof SuperAdminUsersRoute
+  '/tablet/$token': typeof TabletTokenRoute
   '/totem-v2/$token': typeof TotemV2TokenRoute
   '/super-admin/': typeof SuperAdminIndexRoute
   '/admin/customers/$id': typeof AdminCustomersIdRoute
@@ -491,6 +500,7 @@ export interface FileRouteTypes {
     | '/super-admin/plans'
     | '/super-admin/settings'
     | '/super-admin/users'
+    | '/tablet/$token'
     | '/totem-v2/$token'
     | '/super-admin/'
     | '/admin/customers/$id'
@@ -540,6 +550,7 @@ export interface FileRouteTypes {
     | '/super-admin/plans'
     | '/super-admin/settings'
     | '/super-admin/users'
+    | '/tablet/$token'
     | '/totem-v2/$token'
     | '/super-admin'
     | '/admin/customers/$id'
@@ -591,6 +602,7 @@ export interface FileRouteTypes {
     | '/super-admin/plans'
     | '/super-admin/settings'
     | '/super-admin/users'
+    | '/tablet/$token'
     | '/totem-v2/$token'
     | '/super-admin/'
     | '/admin/customers/$id'
@@ -625,6 +637,7 @@ export interface RootRouteChildren {
   UnauthorizedRoute: typeof UnauthorizedRoute
   ESlugRoute: typeof ESlugRoute
   PSlugRoute: typeof PSlugRoute
+  TabletTokenRoute: typeof TabletTokenRoute
   TotemV2TokenRoute: typeof TotemV2TokenRoute
   ChamadaEventoSlugRoute: typeof ChamadaEventoSlugRoute
   ChamadaLojaSlugRoute: typeof ChamadaLojaSlugRoute
@@ -673,6 +686,13 @@ declare module '@tanstack/react-router' {
       path: '/totem-v2/$token'
       fullPath: '/totem-v2/$token'
       preLoaderRoute: typeof TotemV2TokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tablet/$token': {
+      id: '/tablet/$token'
+      path: '/tablet/$token'
+      fullPath: '/tablet/$token'
+      preLoaderRoute: typeof TabletTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/super-admin/users': {
@@ -1134,6 +1154,7 @@ const rootRouteChildren: RootRouteChildren = {
   UnauthorizedRoute: UnauthorizedRoute,
   ESlugRoute: ESlugRoute,
   PSlugRoute: PSlugRoute,
+  TabletTokenRoute: TabletTokenRoute,
   TotemV2TokenRoute: TotemV2TokenRoute,
   ChamadaEventoSlugRoute: ChamadaEventoSlugRoute,
   ChamadaLojaSlugRoute: ChamadaLojaSlugRoute,

@@ -116,6 +116,7 @@ export const Route = createFileRoute("/admin/devices")({
 
 const TYPE_LABEL: Record<DeviceType, string> = {
   TOTEM: "Totem",
+  TABLET: "Tablet",
   SK210: "SK210",
   PRINT_AGENT: "Print Agent",
   CALL_SCREEN: "Tela de Chamada",
@@ -124,6 +125,7 @@ const TYPE_LABEL: Record<DeviceType, string> = {
 
 const TYPE_ICON: Record<DeviceType, typeof Monitor> = {
   TOTEM: Monitor,
+  TABLET: Monitor,
   SK210: Cpu,
   PRINT_AGENT: Printer,
   CALL_SCREEN: Tv,
@@ -491,7 +493,7 @@ function DevicesPage() {
   return (
     <AdminLayout
       title="Dispositivos"
-      subtitle="Gerencie totens, SK210, Print Agents, telas de chamada e impressoras da organização."
+      subtitle="Gerencie tablets, totens, SK210, Print Agents, telas de chamada e impressoras da organização."
       actions={
         <Button
           onClick={() => setCreateOpen(true)}
@@ -582,6 +584,7 @@ function DevicesPage() {
           >
             <option value="">Todos os tipos</option>
             <option value="TOTEM">Totem</option>
+            <option value="TABLET">Tablet</option>
             <option value="SK210">SK210</option>
             <option value="CALL_SCREEN">Tela de Chamada</option>
             <option value="PRINTER">Impressora</option>
@@ -619,7 +622,7 @@ function DevicesPage() {
               Nenhum dispositivo cadastrado ainda.
             </h3>
             <p className="max-w-md text-sm text-muted-foreground">
-              Cadastre totens, telas de chamada, impressoras ou SK210 para começar a operar.
+              Cadastre tablets, totens, telas de chamada, impressoras ou SK210 para começar a operar.
             </p>
             <Button onClick={() => setCreateOpen(true)} className="mt-2">
               <Plus className="h-4 w-4" /> Cadastrar primeiro dispositivo
@@ -1039,7 +1042,7 @@ function CreateDeviceDialog({
         <DialogHeader>
           <DialogTitle>Novo dispositivo</DialogTitle>
           <DialogDescription>
-            Cadastre um totem, SK210, tela de chamada ou impressora.
+            Cadastre um tablet, totem, SK210, tela de chamada ou impressora.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="space-y-4">
@@ -1060,6 +1063,7 @@ function CreateDeviceDialog({
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             >
               <option value="TOTEM">Totem</option>
+              <option value="TABLET">Tablet</option>
               <option value="SK210">SK210</option>
               <option value="CALL_SCREEN">Tela de Chamada</option>
               <option value="PRINT_AGENT">Print Agent</option>
@@ -1240,6 +1244,7 @@ function EditDeviceDialog({
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             >
               <option value="TOTEM">Totem</option>
+              <option value="TABLET">Tablet</option>
               <option value="SK210">SK210</option>
               <option value="CALL_SCREEN">Tela de Chamada</option>
               <option value="PRINT_AGENT">Print Agent</option>
