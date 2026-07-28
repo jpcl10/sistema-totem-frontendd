@@ -57,6 +57,19 @@ export interface DeviceCredentials {
   deviceSecret: string;
 }
 
+export interface ActivateDeviceResult {
+  deviceToken: string;
+  device: Device;
+  config?: {
+    publicUrls?: {
+      frontendUrl?: string | null;
+      apiBaseUrl?: string | null;
+      socketUrl?: string | null;
+    };
+    [k: string]: unknown;
+  };
+}
+
 export interface CreateDeviceResult {
   device: Device;
   credentials?: DeviceCredentials;
@@ -122,6 +135,19 @@ export async function createDevice(token: string, input: CreateDeviceInput): Pro
         }
       : undefined,
   };
+}
+
+export async function activateDevice(input: {
+  deviceCode: string;
+  deviceSecret: string;
+  appVersion?: string;
+}): Promise<ActivateDeviceResult> {
+  const res = await apiFetch(`${API_BASE_URL}/devices/activate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  return handle<ActivateDeviceResult>(res);
 }
 
 export async function updateDevice(

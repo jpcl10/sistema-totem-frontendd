@@ -42,6 +42,7 @@ import { toast } from "sonner";
 
 
 import { useAuth } from "@/lib/auth-context";
+import { APP_URL } from "@/lib/auth";
 import { AdminLayout } from "@/components/admin-layout";
 import { handleApiError } from "@/lib/api-error";
 import { listEvents, type EventItem } from "@/lib/events-api";
@@ -56,6 +57,7 @@ import {
 } from "@/lib/printers-api";
 import {
   listDevices,
+  activateDevice,
   createDevice,
   updateDevice,
   regenerateDeviceCredentials,
@@ -63,6 +65,7 @@ import {
   type DeviceType,
   type DeviceStatus,
   type DeviceCredentials,
+  type ActivateDeviceResult,
 } from "@/lib/devices-api";
 import { useRequireModule } from "@/lib/require-module";
 
@@ -1331,11 +1334,49 @@ function CredentialsDialog({
 }) {
   const open = !!device && !!credentials;
   const deviceCode = credentials?.deviceCode || device?.code || "";
+  const [activating, setActivating] = useState(false);
+  const [tabletLink, setTabletLink] = useState("");
+
+  useEffect(() => {
+    if (!open) {
+      setTabletLink("");
+      setActivating(false);
+    }
+  }, [open]);
 
   const copyAll = () => {
     if (!credentials) return;
     const text = `Device Code: ${deviceCode}\nDevice Secret: ${credentials.deviceSecret}`;
     onCopy(text, "Credenciais");
+  };
+
+  const buildTabletLink = (result: ActivateDeviceResult) => {
+    const configuredFrontendUrl =
+      result.config?.publicUrls?.frontendUrl?.trim() ||
+      APP_URL ||
+      window.location.origin;
+    const base = configuredFrontendUrl.replace(/\/+$/, "");
+    return `${base}/tablet/${encodeURIComponent(result.deviceToken)}`;
+  };
+
+  const activateAndBuildTabletLink = async () => {
+    if (!credentials || !device || device.type !== "TABLET") return;
+    setActivating(true);
+    try {
+      const result = await activateDevice({
+        deviceCode,
+        deviceSecret: credentials.deviceSecret,
+        appVersion: "admin-tablet-link",
+      });
+      const link = buildTabletLink(result);
+      setTabletLink(link);
+      await navigator.clipboard.writeText(link);
+      toast.success("Link do Tablet gerado e copiado.");
+    } catch (err) {
+      handleApiError(err, "Nao foi possivel ativar o tablet.");
+    } finally {
+      setActivating(false);
+    }
   };
 
   return (
@@ -1368,6 +1409,35 @@ function CredentialsDialog({
             mono
           />
         </div>
+
+        {device?.type === "TABLET" && (
+          <div className="space-y-3 rounded-xl border border-primary/20 bg-primary/5 p-3">
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-foreground">Link do Tablet</p>
+              <p className="text-xs text-muted-foreground">
+                Ativa o dispositivo e gera o link final para abrir no navegador ou WebView.
+              </p>
+            </div>
+            {tabletLink && (
+              <CredField
+                label="URL"
+                value={tabletLink}
+                onCopy={() => onCopy(tabletLink, "Link do Tablet")}
+                mono
+              />
+            )}
+            <Button
+              type="button"
+              variant={tabletLink ? "outline" : "default"}
+              onClick={activateAndBuildTabletLink}
+              disabled={activating}
+              className="w-full"
+            >
+              {activating ? <Loader2 className="h-4 w-4 animate-spin" /> : <ExternalLink className="h-4 w-4" />}
+              {tabletLink ? "Gerar novo link" : "Ativar e copiar link do Tablet"}
+            </Button>
+          </div>
+        )}
 
 
         <DialogFooter className="gap-2 sm:gap-2">
